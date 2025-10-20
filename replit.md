@@ -14,6 +14,14 @@ This is a complete Telegram gambling bot built with Python and the python-telegr
 
 ## Recent Changes
 
+**Simplified Interface & Messaging (2025-10-20)**
+- Removed achievements system and all related commands
+- Removed RP (Respect Points) system and level tracking
+- Removed "Double & Play" buttons from dice and coinflip games
+- Simplified button labels: removed 🟡 and ⚪ emojis from Heads/Tails buttons
+- Changed all win/loss messages to lowercase format: "@user won $40" instead of "🎉 @User Won $40"
+- Updated help text to remove references to removed features
+
 **Enhanced UI & Match History (2025-10-20)**
 - Added `/history` command to view last 15 games with detailed results
 - Transaction history now filters to show only deposits, withdrawals, and tips
@@ -50,10 +58,8 @@ This is a complete Telegram gambling bot built with Python and the python-telegr
 ### Key Features
 1. **Games**: Dice (roll 1-6, highest wins) and CoinFlip (heads/tails, 2x payout)
 2. **Bonus System**: $5 locked first-time bonus + 1% daily bonus based on wagered amount
-3. **Achievements**: 6 unlockable badges with progress tracking
-4. **Referral System**: Unique referral links with 1% commission on referral volume
-5. **Leaderboard**: Paginated display of top players by total wagered
-6. **RP Levels**: Calculated from total wagered, achievements, and account age
+3. **Referral System**: Unique referral links with 1% commission on referral volume
+4. **Leaderboard**: Paginated display of top players by total wagered
 
 ## Configuration
 
@@ -74,9 +80,7 @@ This is a complete Telegram gambling bot built with Python and the python-telegr
 - `/stats` - View personal statistics
 - `/history` - View your last 15 game matches with results
 - `/leaderboard [page]` - View top players by wagered amount
-- `/achievements` - View unlocked badges
 - `/referral` - Get referral link and claim rewards
-- `/rp` - Check Respect Points level
 - `/housebal` - View the house balance (starts at $6973)
 - `/dice <amount|all> [@player]` - Play dice game (PvP or vs bot), use "all" to wager entire balance
 - `/coinflip <amount|all> <heads/tails> [@player]` - Play coinflip (PvP or vs bot), use "all" to wager entire balance
