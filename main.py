@@ -18,16 +18,6 @@ from telegram.ext import (
 from database import DatabaseManager
 
 
-ACHIEVEMENT_INFO = {
-    "first_bet": {"name": "🎲 First Bet", "desc": "Place your first bet"},
-    "high_roller": {"name": "💰 High Roller", "desc": "Bet over $100"},
-    "win_streak": {"name": "🔥 Win Streak", "desc": "Win 5 games in a row"},
-    "jackpot": {"name": "🎰 Jackpot", "desc": "Reach $1000 in total profit"},
-    "referrer": {"name": "👥 Referrer", "desc": "Refer 10 friends"},
-    "leveled_up": {"name": "📈 Leveled Up", "desc": "Reach level 10"}
-}
-
-
 class AntariaCasinoBot:
     def __init__(self, token: str):
         self.token = token
@@ -45,10 +35,8 @@ class AntariaCasinoBot:
         self.app.add_handler(CommandHandler("stats", self.stats_command))
         self.app.add_handler(CommandHandler("leaderboard", self.leaderboard_command))
         self.app.add_handler(CommandHandler("global", self.leaderboard_command))
-        self.app.add_handler(CommandHandler("achievements", self.achievements_command))
         self.app.add_handler(CommandHandler("referral", self.referral_command))
         self.app.add_handler(CommandHandler("ref", self.referral_command))
-        self.app.add_handler(CommandHandler("rp", self.rp_command))
         self.app.add_handler(CommandHandler("housebal", self.housebal_command))
         self.app.add_handler(CommandHandler("history", self.history_command))
         self.app.add_handler(CommandHandler("dice", self.dice_command))
@@ -87,9 +75,7 @@ Hey {user.first_name}! Ready to test your luck?
 /stats - View your statistics
 /history - View your match history
 /global - Top players by volume
-/achievements - View your badges
 /ref - Get your referral link
-/rp - Check your Respect Points level
 /housebal - View the house balance
 
 **🎁 Bonuses:**
@@ -187,19 +173,15 @@ Balance: ${user_data['balance']:.2f}
         else:
             first_wager_str = "Never"
         
-        level = self.db.calculate_rp_level(user_id)
-        
         stats_text = f"""
 📊 **Your Statistics**
 
-👤 Level: {level}
 🎮 Games Played: {games_played}
 📈 Win Rate: {win_rate:.1f}%
 💰 Total Wagered: ${user_data.get('total_wagered', 0):.2f}
 📊 Total P&L: ${user_data.get('total_pnl', 0):.2f}
 🔥 Best Win Streak: {user_data.get('best_win_streak', 0)}
 📅 First Wager: {first_wager_str}
-🏆 Achievements: {len(user_data.get('achievements', []))}/6
 """
         
         await update.message.reply_text(stats_text, parse_mode="Markdown")
@@ -259,21 +241,6 @@ Balance: ${user_data['balance']:.2f}
                 parse_mode="Markdown"
             )
     
-    async def achievements_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Show achievements"""
-        user_id = update.effective_user.id
-        user_data = self.db.get_user(user_id)
-        unlocked = user_data.get('achievements', [])
-        
-        achievements_text = "🏆 **Your Achievements**\n\n"
-        
-        for ach_id, ach_info in ACHIEVEMENT_INFO.items():
-            status = "✅" if ach_id in unlocked else "❌"
-            achievements_text += f"{status} {ach_info['name']}\n"
-            achievements_text += f"   {ach_info['desc']}\n\n"
-        
-        await update.message.reply_text(achievements_text, parse_mode="Markdown")
-    
     async def referral_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Show referral link and earnings"""
         user_id = update.effective_user.id
@@ -308,36 +275,6 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         reply_markup = InlineKeyboardMarkup(keyboard) if keyboard else None
         
         await update.message.reply_text(referral_text, reply_markup=reply_markup, parse_mode="Markdown")
-    
-    async def rp_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Show Respect Points level"""
-        user_id = update.effective_user.id
-        user_data = self.db.get_user(user_id)
-        
-        level = self.db.calculate_rp_level(user_id)
-        
-        total_wagered = user_data.get('total_wagered', 0)
-        achievement_count = len(user_data.get('achievements', []))
-        
-        days_active = 0
-        if user_data.get('created_at'):
-            created = datetime.fromisoformat(user_data['created_at'])
-            days_active = (datetime.now() - created).days
-        
-        rp_text = f"""
-⭐ **Respect Points (RP)**
-
-Current Level: **{level}**
-
-📊 RP Breakdown:
-• Wagering: {total_wagered / 100:.0f} RP
-• Achievements: {achievement_count * 50} RP
-• Days Active: {days_active * 2} RP
-
-💡 Level up by playing more, unlocking achievements, and staying active!
-"""
-        
-        await update.message.reply_text(rp_text, parse_mode="Markdown")
     
     async def housebal_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Show house balance"""
@@ -462,17 +399,17 @@ Current Balance: ${house_balance:.2f}
             user_data['games_won'] += 1
             user_data['win_streak'] += 1
             user_data['best_win_streak'] = max(user_data.get('best_win_streak', 0), user_data['win_streak'])
-            result_text = f"🎉 **@{username} Won ${profit:.2f}**"
+            result_text = f"@{username} won ${profit:.2f}"
             self.db.update_house_balance(-wager)
         elif player_roll < bot_roll:
             user_data['balance'] -= wager
             profit = -wager
             user_data['win_streak'] = 0
-            result_text = f"😢 **@{username} Lost ${wager:.2f}**"
+            result_text = f"@{username} lost ${wager:.2f}"
             self.db.update_house_balance(wager)
         else:
             profit = 0
-            result_text = f"🤝 **Draw!** Bet refunded"
+            result_text = f"draw! bet refunded"
         
         user_data['games_played'] += 1
         user_data['total_wagered'] += wager
@@ -495,8 +432,6 @@ Current Balance: ${house_balance:.2f}
             "bot_roll": bot_roll,
             "result": "win" if profit > 0 else "loss" if profit < 0 else "draw"
         })
-        
-        await self.check_and_notify_achievements(update, context, user_id)
         
         await context.bot.send_message(chat_id=chat_id, text=result_text, parse_mode="Markdown")
     
@@ -526,17 +461,17 @@ Current Balance: ${house_balance:.2f}
             user_data['games_won'] += 1
             user_data['win_streak'] += 1
             user_data['best_win_streak'] = max(user_data.get('best_win_streak', 0), user_data['win_streak'])
-            result_text = f"🎉 **@{username} Won ${profit:.2f}**"
+            result_text = f"@{username} won ${profit:.2f}"
             self.db.update_house_balance(-wager)
         elif player_roll < bot_roll:
             user_data['balance'] -= wager
             profit = -wager
             user_data['win_streak'] = 0
-            result_text = f"😢 **@{username} Lost ${wager:.2f}**"
+            result_text = f"@{username} lost ${wager:.2f}"
             self.db.update_house_balance(wager)
         else:
             profit = 0
-            result_text = f"🤝 **Draw!** Bet refunded"
+            result_text = f"draw! bet refunded"
         
         user_data['games_played'] += 1
         user_data['total_wagered'] += wager
@@ -560,15 +495,7 @@ Current Balance: ${house_balance:.2f}
             "result": "win" if profit > 0 else "loss" if profit < 0 else "draw"
         })
         
-        await self.check_and_notify_achievements(update, context, user_id)
-        
-        keyboard = [
-            [InlineKeyboardButton("🔄 Play Again", callback_data=f"dice_bot_{wager}"),
-             InlineKeyboardButton("⬆️ Double & Play", callback_data=f"dice_bot_{wager * 2}")]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await context.bot.send_message(chat_id=chat_id, text=result_text, reply_markup=reply_markup, parse_mode="Markdown")
+        await context.bot.send_message(chat_id=chat_id, text=result_text, parse_mode="Markdown")
     
     async def create_open_dice_challenge(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float):
         """Create an open dice challenge for anyone to accept"""
@@ -669,8 +596,8 @@ Current Balance: ${house_balance:.2f}
         
         if opponent_id:
             keyboard = [
-                [InlineKeyboardButton("🟡 Heads", callback_data=f"flip_pvp_{wager}_{opponent_id}_heads")],
-                [InlineKeyboardButton("⚪ Tails", callback_data=f"flip_pvp_{wager}_{opponent_id}_tails")]
+                [InlineKeyboardButton("Heads", callback_data=f"flip_pvp_{wager}_{opponent_id}_heads")],
+                [InlineKeyboardButton("Tails", callback_data=f"flip_pvp_{wager}_{opponent_id}_tails")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             
@@ -681,8 +608,8 @@ Current Balance: ${house_balance:.2f}
             )
         else:
             keyboard = [
-                [InlineKeyboardButton("🟡 Heads", callback_data=f"flip_bot_{wager}_heads")],
-                [InlineKeyboardButton("⚪ Tails", callback_data=f"flip_bot_{wager}_tails")]
+                [InlineKeyboardButton("Heads", callback_data=f"flip_bot_{wager}_heads")],
+                [InlineKeyboardButton("Tails", callback_data=f"flip_bot_{wager}_tails")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             
@@ -716,13 +643,13 @@ Current Balance: ${house_balance:.2f}
             user_data['games_won'] += 1
             user_data['win_streak'] += 1
             user_data['best_win_streak'] = max(user_data.get('best_win_streak', 0), user_data['win_streak'])
-            result_text = f"🎉 **@{username} Won ${profit:.2f}**\n\nYou chose: {choice.capitalize()}\nResult: {result.capitalize()}\n\n💰 **New Balance:** ${user_data['balance']:.2f}"
+            result_text = f"@{username} won ${profit:.2f}\n\nyou chose: {choice}\nresult: {result}\n\nnew balance: ${user_data['balance']:.2f}"
             self.db.update_house_balance(-wager)
         else:
             user_data['balance'] -= wager
             profit = -wager
             user_data['win_streak'] = 0
-            result_text = f"😢 **@{username} Lost ${wager:.2f}**\n\nYou chose: {choice.capitalize()}\nResult: {result.capitalize()}\n\n💰 **New Balance:** ${user_data['balance']:.2f}"
+            result_text = f"@{username} lost ${wager:.2f}\n\nyou chose: {choice}\nresult: {result}\n\nnew balance: ${user_data['balance']:.2f}"
             self.db.update_house_balance(wager)
         
         user_data['games_played'] += 1
@@ -747,15 +674,7 @@ Current Balance: ${house_balance:.2f}
             "outcome": "win" if profit > 0 else "loss"
         })
         
-        await self.check_and_notify_achievements(update, context, user_id)
-        
-        keyboard = [
-            [InlineKeyboardButton("🔄 Play Again", callback_data=f"flip_bot_{wager}_{choice}"),
-             InlineKeyboardButton("⬆️ Double & Play", callback_data=f"flip_bot_{wager * 2}_{choice}")]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await context.bot.send_message(chat_id=chat_id, text=result_text, reply_markup=reply_markup, parse_mode="Markdown")
+        await context.bot.send_message(chat_id=chat_id, text=result_text, parse_mode="Markdown")
     
     async def coinflip_vs_bot(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float, choice: str):
         """Play coinflip against the bot"""
@@ -776,13 +695,13 @@ Current Balance: ${house_balance:.2f}
             user_data['games_won'] += 1
             user_data['win_streak'] += 1
             user_data['best_win_streak'] = max(user_data.get('best_win_streak', 0), user_data['win_streak'])
-            result_text = f"🎉 **@{username} Won ${profit:.2f}**\n\n💰 **New Balance:** ${user_data['balance'] + profit:.2f}"
+            result_text = f"@{username} won ${profit:.2f}\n\nnew balance: ${user_data['balance'] + profit:.2f}"
             self.db.update_house_balance(-wager)
         else:
             user_data['balance'] -= wager
             profit = -wager
             user_data['win_streak'] = 0
-            result_text = f"😢 **@{username} Lost ${wager:.2f}**\n\n💰 **New Balance:** ${user_data['balance'] - wager:.2f}"
+            result_text = f"@{username} lost ${wager:.2f}\n\nnew balance: ${user_data['balance'] - wager:.2f}"
             self.db.update_house_balance(wager)
         
         user_data['games_played'] += 1
@@ -969,18 +888,6 @@ Current Balance: ${house_balance:.2f}
             await update.message.reply_text(f"✅ Backup created: {backup_file}")
         else:
             await update.message.reply_text("❌ Backup failed")
-    
-    async def check_and_notify_achievements(self, update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int):
-        """Check for new achievements"""
-        for ach_id in ACHIEVEMENT_INFO.keys():
-            if self.db.check_achievement(user_id, ach_id):
-                chat_id = update.effective_chat.id if update.effective_chat else None
-                if chat_id:
-                    await context.bot.send_message(
-                        chat_id=chat_id,
-                        text=f"🏆 **Achievement Unlocked!**\n{ACHIEVEMENT_INFO[ach_id]['name']}\n{ACHIEVEMENT_INFO[ach_id]['desc']}",
-                        parse_mode="Markdown"
-                    )
     
     async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle button callbacks"""
@@ -1197,14 +1104,14 @@ Current Balance: ${house_balance:.2f}
             challenger_data['balance'] += wager
             opponent_data['balance'] -= wager
             challenger_data['games_won'] += 1
-            result_text = f"🎉 **@{challenger_username} Won ${wager:.2f}**"
+            result_text = f"@{challenger_username} won ${wager:.2f}"
         elif opponent_roll > challenger_roll:
             opponent_data['balance'] += wager
             challenger_data['balance'] -= wager
             opponent_data['games_won'] += 1
-            result_text = f"🎉 **@{opponent_username} Won ${wager:.2f}**"
+            result_text = f"@{opponent_username} won ${wager:.2f}"
         else:
-            result_text = "🤝 **Draw!** Bets refunded"
+            result_text = "draw! bets refunded"
         
         for uid in [challenger_id, opponent_id]:
             user_data = self.db.get_user(uid)
@@ -1256,19 +1163,19 @@ Current Balance: ${house_balance:.2f}
         challenger_username = challenger_data.get('username', f'User{challenger_id}')
         opponent_username = opponent_data.get('username', f'User{opponent_id}')
         
-        result_text = f"🪙 **PvP CoinFlip**\n\n"
-        result_text += f"Result: **{result.capitalize()}**\n\n"
+        result_text = f"pvp coinflip\n\n"
+        result_text += f"result: {result}\n\n"
         
         if challenger_choice == result:
             challenger_data['balance'] += wager
             opponent_data['balance'] -= wager
             challenger_data['games_won'] += 1
-            result_text += f"🎉 **@{challenger_username} Won ${wager:.2f}**"
+            result_text += f"@{challenger_username} won ${wager:.2f}"
         else:
             opponent_data['balance'] += wager
             challenger_data['balance'] -= wager
             opponent_data['games_won'] += 1
-            result_text += f"🎉 **@{opponent_username} Won ${wager:.2f}**"
+            result_text += f"@{opponent_username} won ${wager:.2f}"
         
         for uid in [challenger_id, opponent_id]:
             user_data = self.db.get_user(uid)
