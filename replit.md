@@ -14,6 +14,13 @@ This is a complete Telegram gambling bot built with Python and the python-telegr
 
 ## Recent Changes
 
+**Enhanced UI & Match History (2025-10-20)**
+- Added `/history` command to view last 15 games with detailed results
+- Transaction history now filters to show only deposits, withdrawals, and tips
+- Added green (🟢) and red (🔴) color indicators for incoming vs outgoing transactions
+- Game results now display player usernames instead of generic "You Won" messages
+- PvP matches show actual player names in results
+
 **All-In Betting & House Balance (2025-10-20)**
 - Added "all" option to `/dice` and `/flip` commands to wager entire balance
 - Usage: `/dice all` or `/flip all` to go all-in
@@ -62,9 +69,10 @@ This is a complete Telegram gambling bot built with Python and the python-telegr
 ## User Commands
 
 - `/start` or `/help` - Welcome message and overview
-- `/balance` - Check balance with deposit/withdraw buttons
+- `/balance` - Check balance with deposit/withdraw buttons (transactions show deposits, withdrawals, tips)
 - `/bonus` - Claim daily bonus (1% of total wagered, 24h cooldown)
 - `/stats` - View personal statistics
+- `/history` - View your last 15 game matches with results
 - `/leaderboard [page]` - View top players by wagered amount
 - `/achievements` - View unlocked badges
 - `/referral` - Get referral link and claim rewards
