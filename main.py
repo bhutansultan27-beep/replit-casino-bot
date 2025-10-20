@@ -698,14 +698,27 @@ Current Level: **{level}**
             return
         
         recipient_id = None
+        recipient_username = None
+        
         if update.message.entities:
             for entity in update.message.entities:
                 if entity.type == "text_mention":
                     recipient_id = entity.user.id
                     break
+                elif entity.type == "mention":
+                    offset = entity.offset
+                    length = entity.length
+                    recipient_username = update.message.text[offset:offset+length].lstrip('@')
+                    break
+        
+        if recipient_username and not recipient_id:
+            for uid, data in self.db.data['users'].items():
+                if data.get('username', '').lower() == recipient_username.lower():
+                    recipient_id = int(uid)
+                    break
         
         if not recipient_id:
-            await update.message.reply_text("❌ Please mention a user with @")
+            await update.message.reply_text("❌ User not found. They need to start the bot first!")
             return
         
         if recipient_id == user_id:
