@@ -76,8 +76,8 @@ Hey {user.first_name}! Ready to test your luck?
 💰 **Your Balance**: ${user_data['balance']:.2f}{playthrough_msg}
 
 **🎮 Games:**
-/dice <amount> - Roll the highest number (1-6)
-/flip <amount> [@player] - Classic coin flip
+/dice <amount|all> - Roll the highest number (1-6)
+/flip <amount|all> [@player] - Classic coin flip
 
 **💎 Features:**
 /bal - Check balance & deposit/withdraw
@@ -357,22 +357,28 @@ Current Balance: ${house_balance:.2f}
         user_data = self.db.get_user(user_id)
         
         if not context.args:
-            await update.message.reply_text("Usage: /dice <amount>")
+            await update.message.reply_text("Usage: /dice <amount> or /dice all")
             return
         
-        try:
-            wager = float(context.args[0])
-        except ValueError:
-            await update.message.reply_text("❌ Invalid wager amount")
-            return
-        
-        if wager <= 0:
-            await update.message.reply_text("❌ Wager must be positive")
-            return
-        
-        if wager > user_data['balance']:
-            await update.message.reply_text(f"❌ Insufficient balance. You have ${user_data['balance']:.2f}")
-            return
+        if context.args[0].lower() == "all":
+            wager = user_data['balance']
+            if wager <= 0:
+                await update.message.reply_text("❌ You have no balance to wager")
+                return
+        else:
+            try:
+                wager = float(context.args[0])
+            except ValueError:
+                await update.message.reply_text("❌ Invalid wager amount")
+                return
+            
+            if wager <= 0:
+                await update.message.reply_text("❌ Wager must be positive")
+                return
+            
+            if wager > user_data['balance']:
+                await update.message.reply_text(f"❌ Insufficient balance. You have ${user_data['balance']:.2f}")
+                return
         
         keyboard = [
             [InlineKeyboardButton("🤖 Play vs Bot", callback_data=f"dice_bot_{wager}")],
@@ -580,22 +586,28 @@ Current Balance: ${house_balance:.2f}
         user_data = self.db.get_user(user_id)
         
         if not context.args:
-            await update.message.reply_text("Usage: /flip <amount> [@player]")
+            await update.message.reply_text("Usage: /flip <amount> [@player] or /flip all")
             return
         
-        try:
-            wager = float(context.args[0])
-        except ValueError:
-            await update.message.reply_text("❌ Invalid wager amount")
-            return
-        
-        if wager <= 0:
-            await update.message.reply_text("❌ Wager must be positive")
-            return
-        
-        if wager > user_data['balance']:
-            await update.message.reply_text(f"❌ Insufficient balance. You have ${user_data['balance']:.2f}")
-            return
+        if context.args[0].lower() == "all":
+            wager = user_data['balance']
+            if wager <= 0:
+                await update.message.reply_text("❌ You have no balance to wager")
+                return
+        else:
+            try:
+                wager = float(context.args[0])
+            except ValueError:
+                await update.message.reply_text("❌ Invalid wager amount")
+                return
+            
+            if wager <= 0:
+                await update.message.reply_text("❌ Wager must be positive")
+                return
+            
+            if wager > user_data['balance']:
+                await update.message.reply_text(f"❌ Insufficient balance. You have ${user_data['balance']:.2f}")
+                return
         
         opponent_id = None
         if update.message.entities:
