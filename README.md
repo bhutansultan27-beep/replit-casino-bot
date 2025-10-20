@@ -187,3 +187,4 @@ Use `/rp` to check your current level!
 Your bot is live and ready! Open Telegram, find your bot, and send `/start` to begin your casino adventure!
 
 Good luck! 🍀
+# antariaversion1
