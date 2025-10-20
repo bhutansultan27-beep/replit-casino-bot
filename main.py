@@ -502,12 +502,11 @@ Current Level: **{level}**
         user_data = self.db.get_user(user_id)
         chat_id = update.effective_chat.id
         
-        coin_msg = await context.bot.send_dice(chat_id=chat_id, emoji="🪙")
+        await context.bot.send_message(chat_id=chat_id, text="🪙")
         
-        await asyncio.sleep(3.5)
+        await asyncio.sleep(1)
         
-        coin_value = coin_msg.dice.value
-        result = 'heads' if coin_value == 1 else 'tails'
+        result = random.choice(['heads', 'tails'])
         
         if choice == result:
             profit = wager
