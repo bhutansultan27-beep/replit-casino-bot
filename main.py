@@ -509,22 +509,18 @@ Current Level: **{level}**
         coin_value = coin_msg.dice.value
         result = 'heads' if coin_value == 1 else 'tails'
         
-        result_text = f"🪙 **CoinFlip**\n\n"
-        result_text += f"Your choice: **{choice.capitalize()}**\n"
-        result_text += f"Result: **{result.capitalize()}**\n\n"
-        
         if choice == result:
             profit = wager
             user_data['balance'] += profit
             user_data['games_won'] += 1
             user_data['win_streak'] += 1
             user_data['best_win_streak'] = max(user_data.get('best_win_streak', 0), user_data['win_streak'])
-            result_text += f"🎉 **You Won!** +${profit:.2f}"
+            result_text = f"🎉 **You Won!** +${profit:.2f}\n\n💰 **New Balance:** ${user_data['balance'] + profit:.2f}"
         else:
             user_data['balance'] -= wager
             profit = -wager
             user_data['win_streak'] = 0
-            result_text += f"😢 **You Lost!** -${wager:.2f}"
+            result_text = f"😢 **You Lost!** -${wager:.2f}\n\n💰 **New Balance:** ${user_data['balance'] - wager:.2f}"
         
         user_data['games_played'] += 1
         user_data['total_wagered'] += wager
