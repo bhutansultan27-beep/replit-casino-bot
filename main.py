@@ -126,51 +126,48 @@ Balance: ${user_data['balance']:.2f}
         await update.message.reply_text(balance_text, reply_markup=reply_markup, parse_mode="Markdown")
     
     async def bonus_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Claim daily bonus"""
+        """Show daily bonus status"""
         user_id = update.effective_user.id
         user_data = self.db.get_user(user_id)
         
         last_claim = user_data.get('last_bonus_claim')
+        can_claim = True
+        cooldown_text = ""
+        
         if last_claim:
             last_claim_time = datetime.fromisoformat(last_claim)
             time_diff = datetime.now() - last_claim_time
             if time_diff < timedelta(hours=24):
+                can_claim = False
                 remaining = timedelta(hours=24) - time_diff
                 hours = int(remaining.total_seconds() // 3600)
                 minutes = int((remaining.total_seconds() % 3600) // 60)
-                await update.message.reply_text(
-                    f"⏰ Daily bonus on cooldown!\n"
-                    f"Time remaining: {hours}h {minutes}m"
-                )
-                return
+                cooldown_text = f"\n⏰ Next bonus available in: {hours}h {minutes}m"
         
         wagered_since_withdrawal = user_data.get('wagered_since_last_withdrawal', 0)
         bonus_amount = wagered_since_withdrawal * 0.01
         
-        if bonus_amount < 0.01:
-            await update.message.reply_text(
-                f"📊 Current bonus: ${bonus_amount:.2f}\n"
-                f"Total wagered since last withdrawal: ${wagered_since_withdrawal:.2f}\n\n"
-                f"Minimum bonus to claim: $0.01\n"
-                f"Keep playing to earn more!"
-            )
+        bonus_text = f"🎁 **Daily Bonus**\n\n"
+        bonus_text += f"📊 Current bonus: ${bonus_amount:.2f}\n"
+        bonus_text += f"💰 Total wagered since last withdrawal: ${wagered_since_withdrawal:.2f}\n"
+        
+        if not can_claim:
+            bonus_text += cooldown_text
+            await update.message.reply_text(bonus_text, parse_mode="Markdown")
             return
         
-        user_data['balance'] += bonus_amount
-        user_data['playthrough_required'] += bonus_amount
-        user_data['last_bonus_claim'] = datetime.now().isoformat()
+        if bonus_amount < 0.01:
+            bonus_text += f"\n⚠️ Minimum bonus to claim: $0.01\n"
+            bonus_text += f"Keep playing to earn more!"
+            await update.message.reply_text(bonus_text, parse_mode="Markdown")
+            return
         
-        self.db.update_user(user_id, user_data)
-        self.db.add_transaction(user_id, "bonus", bonus_amount, "Daily bonus claimed")
+        bonus_text += f"\n✅ Bonus ready to claim!"
         
-        await update.message.reply_text(
-            f"🎁 **Daily Bonus Claimed!**\n\n"
-            f"Amount: ${bonus_amount:.2f}\n"
-            f"Based on: ${wagered_since_withdrawal:.2f} wagered\n"
-            f"New Balance: ${user_data['balance']:.2f}\n\n"
-            f"⚠️ You must wager this bonus before withdrawing",
-            parse_mode="Markdown"
-        )
+        keyboard = [[InlineKeyboardButton("💰 Claim Bonus", callback_data="claim_daily_bonus")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await update.message.reply_text(bonus_text, reply_markup=reply_markup, parse_mode="Markdown")
     
     async def stats_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Show player statistics"""
@@ -967,6 +964,53 @@ Current Level: **{level}**
                 )
             else:
                 await query.edit_message_text("❌ No referral earnings to claim")
+        
+        elif data == "claim_daily_bonus":
+            user_data = self.db.get_user(user_id)
+            
+            last_claim = user_data.get('last_bonus_claim')
+            if last_claim:
+                last_claim_time = datetime.fromisoformat(last_claim)
+                time_diff = datetime.now() - last_claim_time
+                if time_diff < timedelta(hours=24):
+                    remaining = timedelta(hours=24) - time_diff
+                    hours = int(remaining.total_seconds() // 3600)
+                    minutes = int((remaining.total_seconds() % 3600) // 60)
+                    await query.edit_message_text(
+                        f"⏰ **Daily bonus on cooldown!**\n\n"
+                        f"Time remaining: {hours}h {minutes}m",
+                        parse_mode="Markdown"
+                    )
+                    return
+            
+            wagered_since_withdrawal = user_data.get('wagered_since_last_withdrawal', 0)
+            bonus_amount = wagered_since_withdrawal * 0.01
+            
+            if bonus_amount < 0.01:
+                await query.edit_message_text(
+                    f"❌ **Insufficient bonus**\n\n"
+                    f"Current bonus: ${bonus_amount:.2f}\n"
+                    f"Minimum to claim: $0.01\n\n"
+                    f"Keep playing to earn more!",
+                    parse_mode="Markdown"
+                )
+                return
+            
+            user_data['balance'] += bonus_amount
+            user_data['playthrough_required'] += bonus_amount
+            user_data['last_bonus_claim'] = datetime.now().isoformat()
+            
+            self.db.update_user(user_id, user_data)
+            self.db.add_transaction(user_id, "bonus", bonus_amount, "Daily bonus claimed")
+            
+            await query.edit_message_text(
+                f"🎁 **Daily Bonus Claimed!**\n\n"
+                f"Amount: ${bonus_amount:.2f}\n"
+                f"Based on: ${wagered_since_withdrawal:.2f} wagered\n"
+                f"New Balance: ${user_data['balance']:.2f}\n\n"
+                f"⚠️ You must wager this bonus before withdrawing",
+                parse_mode="Markdown"
+            )
         
         elif data.startswith("lb_page_"):
             page = int(data.split("_")[2])
