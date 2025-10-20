@@ -40,14 +40,18 @@ class AntariaCasinoBot:
         self.app.add_handler(CommandHandler("start", self.start_command))
         self.app.add_handler(CommandHandler("help", self.start_command))
         self.app.add_handler(CommandHandler("balance", self.balance_command))
+        self.app.add_handler(CommandHandler("bal", self.balance_command))
         self.app.add_handler(CommandHandler("bonus", self.bonus_command))
         self.app.add_handler(CommandHandler("stats", self.stats_command))
         self.app.add_handler(CommandHandler("leaderboard", self.leaderboard_command))
+        self.app.add_handler(CommandHandler("global", self.leaderboard_command))
         self.app.add_handler(CommandHandler("achievements", self.achievements_command))
         self.app.add_handler(CommandHandler("referral", self.referral_command))
+        self.app.add_handler(CommandHandler("ref", self.referral_command))
         self.app.add_handler(CommandHandler("rp", self.rp_command))
         self.app.add_handler(CommandHandler("dice", self.dice_command))
         self.app.add_handler(CommandHandler("coinflip", self.coinflip_command))
+        self.app.add_handler(CommandHandler("flip", self.coinflip_command))
         self.app.add_handler(CommandHandler("tip", self.tip_command))
         self.app.add_handler(CommandHandler("backup", self.backup_command))
         
@@ -72,16 +76,16 @@ Hey {user.first_name}! Ready to test your luck?
 
 **🎮 Games:**
 /dice <amount> - Roll the highest number (1-6)
-/coinflip <amount> <heads/tails> [@player] - Classic coin flip
+/flip <amount> [@player] - Classic coin flip
 
 **💎 Features:**
-/balance - Check balance & deposit/withdraw
+/bal - Check balance & deposit/withdraw
 /tip <amount> @user - Send money to another player
 /bonus - Claim your daily bonus (1% of wagered)
 /stats - View your statistics
-/leaderboard - Top players by volume
+/global - Top players by volume
 /achievements - View your badges
-/referral - Get your referral link
+/ref - Get your referral link
 /rp - Check your Respect Points level
 
 **🎁 Bonuses:**
@@ -552,8 +556,8 @@ Current Level: **{level}**
         user_id = update.effective_user.id
         user_data = self.db.get_user(user_id)
         
-        if len(context.args) < 2:
-            await update.message.reply_text("Usage: /coinflip <amount> <heads/tails> [@player]")
+        if not context.args:
+            await update.message.reply_text("Usage: /flip <amount> [@player]")
             return
         
         try:
@@ -561,13 +565,6 @@ Current Level: **{level}**
         except ValueError:
             await update.message.reply_text("❌ Invalid wager amount")
             return
-        
-        choice = context.args[1].lower()
-        if choice not in ['heads', 'tails', 'h', 't']:
-            await update.message.reply_text("❌ Choose 'heads' or 'tails'")
-            return
-        
-        choice = 'heads' if choice in ['heads', 'h'] else 'tails'
         
         if wager <= 0:
             await update.message.reply_text("❌ Wager must be positive")
@@ -585,9 +582,85 @@ Current Level: **{level}**
                     break
         
         if opponent_id:
-            await self.coinflip_pvp(update, context, wager, choice, opponent_id)
+            keyboard = [
+                [InlineKeyboardButton("🟡 Heads", callback_data=f"flip_pvp_{wager}_{opponent_id}_heads")],
+                [InlineKeyboardButton("⚪ Tails", callback_data=f"flip_pvp_{wager}_{opponent_id}_tails")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await update.message.reply_text(
+                f"🪙 **Coin Flip vs Player**\n\nWager: ${wager:.2f}\n\nChoose your side:",
+                reply_markup=reply_markup,
+                parse_mode="Markdown"
+            )
         else:
-            await self.coinflip_vs_bot(update, context, wager, choice)
+            keyboard = [
+                [InlineKeyboardButton("🟡 Heads", callback_data=f"flip_bot_{wager}_heads")],
+                [InlineKeyboardButton("⚪ Tails", callback_data=f"flip_bot_{wager}_tails")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await update.message.reply_text(
+                f"🪙 **Coin Flip vs Bot**\n\nWager: ${wager:.2f}\n\nChoose your side:",
+                reply_markup=reply_markup,
+                parse_mode="Markdown"
+            )
+    
+    async def coinflip_vs_bot_from_button(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float, choice: str):
+        """Play coinflip against bot (called from button)"""
+        query = update.callback_query
+        user_id = query.from_user.id
+        user_data = self.db.get_user(user_id)
+        chat_id = query.message.chat_id
+        
+        if wager > user_data['balance']:
+            await context.bot.send_message(chat_id=chat_id, text=f"❌ Insufficient balance. You have ${user_data['balance']:.2f}")
+            return
+        
+        await context.bot.send_message(chat_id=chat_id, text="🪙")
+        
+        await asyncio.sleep(1)
+        
+        result = random.choice(['heads', 'tails'])
+        
+        if choice == result:
+            profit = wager
+            user_data['balance'] += profit
+            user_data['games_won'] += 1
+            user_data['win_streak'] += 1
+            user_data['best_win_streak'] = max(user_data.get('best_win_streak', 0), user_data['win_streak'])
+            result_text = f"🎉 **You Won!** +${profit:.2f}\n\nYou chose: {choice.capitalize()}\nResult: {result.capitalize()}\n\n💰 **New Balance:** ${user_data['balance']:.2f}"
+        else:
+            user_data['balance'] -= wager
+            profit = -wager
+            user_data['win_streak'] = 0
+            result_text = f"😢 **You Lost!** -${wager:.2f}\n\nYou chose: {choice.capitalize()}\nResult: {result.capitalize()}\n\n💰 **New Balance:** ${user_data['balance']:.2f}"
+        
+        user_data['games_played'] += 1
+        user_data['total_wagered'] += wager
+        user_data['wagered_since_last_withdrawal'] += wager
+        user_data['total_pnl'] += profit
+        
+        if user_data['playthrough_required'] > 0:
+            user_data['playthrough_required'] = max(0, user_data['playthrough_required'] - wager)
+        
+        if not user_data.get('first_wager_date'):
+            user_data['first_wager_date'] = datetime.now().isoformat()
+        
+        self.db.update_user(user_id, user_data)
+        self.db.add_transaction(user_id, "coinflip_bot", profit, f"CoinFlip vs Bot - Wager: ${wager:.2f}")
+        self.db.record_game({
+            "type": "coinflip_bot",
+            "player_id": user_id,
+            "wager": wager,
+            "choice": choice,
+            "result": result,
+            "outcome": "win" if profit > 0 else "loss"
+        })
+        
+        await self.check_and_notify_achievements(update, context, user_id)
+        
+        await context.bot.send_message(chat_id=chat_id, text=result_text, parse_mode="Markdown")
     
     async def coinflip_vs_bot(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float, choice: str):
         """Play coinflip against the bot"""
@@ -674,6 +747,43 @@ Current Level: **{level}**
             parse_mode="HTML"
         )
     
+    async def coinflip_pvp_from_button(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float, choice: str, opponent_id: int):
+        """Initiate PvP coinflip game from button"""
+        query = update.callback_query
+        user_id = query.from_user.id
+        chat_id = query.message.chat_id
+        
+        opposite_choice = 'tails' if choice == 'heads' else 'heads'
+        
+        challenge_id = f"coinflip_{user_id}_{opponent_id}_{int(datetime.now().timestamp())}"
+        self.db.data['pending_pvp'][challenge_id] = {
+            "type": "coinflip",
+            "challenger": user_id,
+            "opponent": opponent_id,
+            "wager": wager,
+            "challenger_choice": choice,
+            "opponent_choice": opposite_choice,
+            "created_at": datetime.now().isoformat()
+        }
+        self.db.save_data()
+        
+        keyboard = [
+            [InlineKeyboardButton("✅ Accept", callback_data=f"accept_coinflip_{challenge_id}"),
+             InlineKeyboardButton("❌ Decline", callback_data=f"decline_{challenge_id}")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=f"🪙 <b>CoinFlip Challenge!</b>\n\n"
+                 f"Wager: ${wager:.2f}\n"
+                 f"Your choice: {choice.capitalize()}\n"
+                 f"Opponent gets: {opposite_choice.capitalize()}\n\n"
+                 f"Waiting for opponent to accept...",
+            reply_markup=reply_markup,
+            parse_mode="HTML"
+        )
+    
     async def tip_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Send money to another user"""
         user_id = update.effective_user.id
@@ -709,6 +819,14 @@ Current Level: **{level}**
                     offset = entity.offset
                     length = entity.length
                     recipient_username = update.message.text[offset:offset+length].lstrip('@')
+                    break
+        
+        if not recipient_id and len(context.args) > 1:
+            potential_username = context.args[1].lstrip('@')
+            for uid, data in self.db.data['users'].items():
+                user_username = data.get('username') if data else None
+                if user_username and user_username.lower() == potential_username.lower():
+                    recipient_id = int(uid)
                     break
         
         if recipient_username and not recipient_id:
@@ -854,6 +972,21 @@ Current Level: **{level}**
         elif data.startswith("accept_dice_"):
             challenge_id = data.replace("accept_dice_", "")
             await self.execute_dice_pvp(update, context, challenge_id)
+        
+        elif data.startswith("flip_bot_"):
+            parts = data.replace("flip_bot_", "").split("_")
+            wager = float(parts[0])
+            choice = parts[1]
+            await query.delete_message()
+            await self.coinflip_vs_bot_from_button(update, context, wager, choice)
+        
+        elif data.startswith("flip_pvp_"):
+            parts = data.replace("flip_pvp_", "").split("_")
+            wager = float(parts[0])
+            opponent_id = int(parts[1])
+            choice = parts[2]
+            await query.delete_message()
+            await self.coinflip_pvp_from_button(update, context, wager, choice, opponent_id)
         
         elif data.startswith("accept_coinflip_"):
             challenge_id = data.replace("accept_coinflip_", "")
