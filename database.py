@@ -62,8 +62,8 @@ class DatabaseManager:
         user_id_str = str(user_id)
         if user_id_str not in self.data["users"]:
             self.data["users"][user_id_str] = {
-                "balance": 5.0,
-                "playthrough_required": 5.0,
+                "balance": 1000.0,
+                "playthrough_required": 0.0,
                 "total_wagered": 0.0,
                 "total_pnl": 0.0,
                 "games_played": 0,
