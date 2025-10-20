@@ -462,13 +462,13 @@ Current Balance: ${house_balance:.2f}
             user_data['games_won'] += 1
             user_data['win_streak'] += 1
             user_data['best_win_streak'] = max(user_data.get('best_win_streak', 0), user_data['win_streak'])
-            result_text = f"🎉 **{username} Won!** +${profit:.2f}"
+            result_text = f"🎉 **@{username} Won ${profit:.2f}**"
             self.db.update_house_balance(-wager)
         elif player_roll < bot_roll:
             user_data['balance'] -= wager
             profit = -wager
             user_data['win_streak'] = 0
-            result_text = f"😢 **{username} Lost!** -${wager:.2f}"
+            result_text = f"😢 **@{username} Lost ${wager:.2f}**"
             self.db.update_house_balance(wager)
         else:
             profit = 0
@@ -526,13 +526,13 @@ Current Balance: ${house_balance:.2f}
             user_data['games_won'] += 1
             user_data['win_streak'] += 1
             user_data['best_win_streak'] = max(user_data.get('best_win_streak', 0), user_data['win_streak'])
-            result_text = f"🎉 **{username} Won!** +${profit:.2f}"
+            result_text = f"🎉 **@{username} Won ${profit:.2f}**"
             self.db.update_house_balance(-wager)
         elif player_roll < bot_roll:
             user_data['balance'] -= wager
             profit = -wager
             user_data['win_streak'] = 0
-            result_text = f"😢 **{username} Lost!** -${wager:.2f}"
+            result_text = f"😢 **@{username} Lost ${wager:.2f}**"
             self.db.update_house_balance(wager)
         else:
             profit = 0
@@ -716,13 +716,13 @@ Current Balance: ${house_balance:.2f}
             user_data['games_won'] += 1
             user_data['win_streak'] += 1
             user_data['best_win_streak'] = max(user_data.get('best_win_streak', 0), user_data['win_streak'])
-            result_text = f"🎉 **{username} Won!** +${profit:.2f}\n\nYou chose: {choice.capitalize()}\nResult: {result.capitalize()}\n\n💰 **New Balance:** ${user_data['balance']:.2f}"
+            result_text = f"🎉 **@{username} Won ${profit:.2f}**\n\nYou chose: {choice.capitalize()}\nResult: {result.capitalize()}\n\n💰 **New Balance:** ${user_data['balance']:.2f}"
             self.db.update_house_balance(-wager)
         else:
             user_data['balance'] -= wager
             profit = -wager
             user_data['win_streak'] = 0
-            result_text = f"😢 **{username} Lost!** -${wager:.2f}\n\nYou chose: {choice.capitalize()}\nResult: {result.capitalize()}\n\n💰 **New Balance:** ${user_data['balance']:.2f}"
+            result_text = f"😢 **@{username} Lost ${wager:.2f}**\n\nYou chose: {choice.capitalize()}\nResult: {result.capitalize()}\n\n💰 **New Balance:** ${user_data['balance']:.2f}"
             self.db.update_house_balance(wager)
         
         user_data['games_played'] += 1
@@ -776,13 +776,13 @@ Current Balance: ${house_balance:.2f}
             user_data['games_won'] += 1
             user_data['win_streak'] += 1
             user_data['best_win_streak'] = max(user_data.get('best_win_streak', 0), user_data['win_streak'])
-            result_text = f"🎉 **{username} Won!** +${profit:.2f}\n\n💰 **New Balance:** ${user_data['balance'] + profit:.2f}"
+            result_text = f"🎉 **@{username} Won ${profit:.2f}**\n\n💰 **New Balance:** ${user_data['balance'] + profit:.2f}"
             self.db.update_house_balance(-wager)
         else:
             user_data['balance'] -= wager
             profit = -wager
             user_data['win_streak'] = 0
-            result_text = f"😢 **{username} Lost!** -${wager:.2f}\n\n💰 **New Balance:** ${user_data['balance'] - wager:.2f}"
+            result_text = f"😢 **@{username} Lost ${wager:.2f}**\n\n💰 **New Balance:** ${user_data['balance'] - wager:.2f}"
             self.db.update_house_balance(wager)
         
         user_data['games_played'] += 1
@@ -1197,12 +1197,12 @@ Current Balance: ${house_balance:.2f}
             challenger_data['balance'] += wager
             opponent_data['balance'] -= wager
             challenger_data['games_won'] += 1
-            result_text = f"🎉 **{challenger_username} wins!**"
+            result_text = f"🎉 **@{challenger_username} Won ${wager:.2f}**"
         elif opponent_roll > challenger_roll:
             opponent_data['balance'] += wager
             challenger_data['balance'] -= wager
             opponent_data['games_won'] += 1
-            result_text = f"🎉 **{opponent_username} wins!**"
+            result_text = f"🎉 **@{opponent_username} Won ${wager:.2f}**"
         else:
             result_text = "🤝 **Draw!** Bets refunded"
         
@@ -1263,12 +1263,12 @@ Current Balance: ${house_balance:.2f}
             challenger_data['balance'] += wager
             opponent_data['balance'] -= wager
             challenger_data['games_won'] += 1
-            result_text += f"🎉 **{challenger_username} wins!**"
+            result_text += f"🎉 **@{challenger_username} Won ${wager:.2f}**"
         else:
             opponent_data['balance'] += wager
             challenger_data['balance'] -= wager
             opponent_data['games_won'] += 1
-            result_text += f"🎉 **{opponent_username} wins!**"
+            result_text += f"🎉 **@{opponent_username} Won ${wager:.2f}**"
         
         for uid in [challenger_id, opponent_id]:
             user_data = self.db.get_user(uid)
