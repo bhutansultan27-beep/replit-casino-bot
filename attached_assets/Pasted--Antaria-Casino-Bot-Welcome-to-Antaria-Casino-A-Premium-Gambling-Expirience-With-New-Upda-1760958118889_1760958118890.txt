@@ -1,0 +1,284 @@
+# 🎰 Antaria Casino Bot
+
+Welcome to **Antaria Casino** - A Premium Gambling Expirience With New Updates And Events Weekly!
+
+## 🎮 Features
+
+### Games
+- **🎲 Dice** - Roll the highest number to win (1-6)
+  - Play vs Bot for instant action
+  - Challenge other players for PvP battles
+- **🪙 CoinFlip** - Classic heads or tails with 2x payout
+    - Play vs Bot for instant action
+    - Challenge other players for PvP battles 
+
+### Smart Bonus System
+- **First Bonus**: New players get $5 locked bonus
+  -  The first $5 bonus MUST be played through before  being abled to withdraw
+- **Daily Bonus**: 1% of total amount wagered
+  - Resets on every withdrawal
+  - Encourages active gameplay
+  - No spam withdrawals possible
+  - the daily bonus must be played through before you can withdrawl
+
+### Social Features
+- 👥 **Referral System** - Invite friends and earn commissions on their gambling volume similiar to the #Daily Bonus 
+- 🏆 **Leaderboard** - Compete for top spots to earn prizes and giveaways
+- 🎯 **Achievements** - Unlock badges, rewards/prizes and compete with others to see who can get the highest level
+- 👤 **Player Profiles** - Track your stats, desposit/withdrawl logs and referal/daily bonus rewards
+
+## 🎮 How to Play
+
+### Basic Commands
+- `/start` - Welcome message & overview
+- `/help` - Same as /start
+- `/balance` - Check your balance , + deposit / withdrawl with buttons
+- `/bonus` - Claim your daily bonus
+- `/stats` - View your stats
+- `/leaderboard` view the top players current balances + total volume 
+- `/achievements` view your achievements
+- `/rp` view your respect (a level based on your total amount gambled and total achievements and time in the group) 
+- `/referral` find your referral link, and claim referral rewards
+
+
+
+### Game Commands
+
+**Dice Game**
+```
+/dice (wager amount) @player (if no player is @ then match them with the bot                   # Show game menu
+dont ask for confirmation 
+**CoinFlip**
+```
+/coinflip 10 heads (if another player is pinged the bot will ask them if they want to take the opposite bet againt the first player)       # Bet $10 on heads
+dont ask for confirmation 
+
+### Social Commands
+- `/leaderboard` - multiple pages with every user on it with 10 people on each page 
+the bot will have buttons asking the user if they want to go down a page, or up a page, and a button that they can click which will allow them to look at any page number that they type out
+
+the stats on leaderboard will just be the accounts total amount wagered
+
+
+- `/referral` - Get your referral link and view + claim your referral rewards 
+- `/achievements` - View unlocked badges, and all the different achievements with checkmarks and x next to the ones youve completed and havent
+
+- `/stats` - personal stats
+users first wager
+users total pnl
+users total amount wagered
+users winrate
+users total games played
+useres current level 
+
+
+## 🎲 Game Rules
+
+### Dice Game
+- **Win condition**: highest roll wins
+- **Payout**: 2x your bet
+- **House edge**: ~4%
+
+**PvP Mode**:
+1. Challenge another player
+2. highest number wins
+3. Roll the dice
+4. Draw = both refunded
+
+### CoinFlip
+- **Choose**: Heads or Tails
+- **Win condition**: Match the flip
+- **Payout**: 2x your bet (double or nothing)
+- **House edge**: ~2%
+
+## 💰 Bonus System Explained
+
+### How It Works
+
+**New Players:**
+1. Get $5 locked bonus immediately
+2. Must wager $5 to unlock withdrawal
+3. Balance shows total money, but can't withdraw until playthrough complete
+
+**Regular Players:**
+1. Daily bonus = 1% of total wagered
+2. Example: Wagered $10,000 → Get $100 bonus
+3. **Important**: Bonus counter resets on withdrawal
+4. This prevents spam withdrawals
+
+### Example Flow
+```
+New player:
+- Balance: $1,000 (starting)
+- Claim bonus: +$5 locked
+- Play $5 worth of games
+- Can now withdraw
+
+Experienced player:
+- Total wagered: $50,000
+- Claim bonus: +$500 (1%)
+- playthrough needed on this as well
+- After withdrawal, wagered counter resets
+```
+
+## 🎯 Achievements
+
+Unlock special badges by completing challenges:
+- 🎲 First Bet - Place your first bet 
+- 💰 High Roller - Bet over $100 
+- 🔥 Win Streak - Win 5 games in a row
+- 🎰 Jackpot - Win the jackpot
+- 👥 Referrer - Refer 10 friends
+- 📈 Leveled Up - Reach level 10
+
+
+## 🛡️ Security Features
+
+- **Balance tracking** with transaction logs
+- **Playthrough requirements** prevent bonus abuse
+- **Rate limiting** on bonus claims (24h cooldown)
+- **Admin verification** for large withdrawals
+- **Automated backups** every 5 minutes
+- **Anti-spam** measures on withdrawals
+
+## 📊 Database
+
+The bot uses JSON for data storage 
+- Automatically created on first run
+- Auto-saves every 5 minutes
+- Manual backups via `/admin backup`
+
+### Backup Strategy
+1. Auto-save every 5 minutes
+2. Manual backups with timestamps
+3. Backups named: `casino_data_backup_YYYYMMDD_HHMMSS.json`
+
+## 🐛 Troubleshooting
+
+### Bot not starting
+```bash
+# Check if token is set
+echo $BOT_TOKEN
+
+# Check Python version
+python --version  # Should be 3.9+
+
+# Reinstall dependencies
+pip install --upgrade python-telegram-bot
+```
+
+### Database errors
+```bash
+# Delete corrupted database (CAUTION: loses data)
+rm casino_data.json
+
+# Or restore from backup
+cp casino_data_backup_*.json casino_data.json
+```
+
+### Games not working
+- Check balance: `/balance`
+- Verify playthrough: Complete bonus requirements
+- Try smaller bet amounts
+
+## 🚀 Advanced Features
+
+### Running on Server
+
+**Using screen (keeps running after logout):**
+```bash
+screen -S casino
+python main.py
+# Press Ctrl+A, then D to detach
+# Reattach with: screen -r casino
+```
+
+**Using systemd service:**
+```bash
+# Create /etc/systemd/system/antaria-casino.service
+[Unit]
+Description=Antaria Casino Bot
+After=network.target
+
+[Service]
+Type=simple
+User=your_user
+WorkingDirectory=/path/to/antaria-casino
+Environment="BOT_TOKEN=your_token"
+ExecStart=/usr/bin/python3 main.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+
+# Enable and start
+sudo systemctl enable antaria-casino
+sudo systemctl start antaria-casino
+```
+
+### Monitoring
+```bash
+# View logs
+tail -f /var/log/antaria-casino.log
+
+# Check status
+systemctl status antaria-casino
+```
+
+## 📈 Roadmap
+
+- [ ] Add tournament system
+- [ ] Implement VIP tiers
+- [ ] Add more games (slots, poker)
+- [ ] Real blockchain integration
+- [ ] Mobile app version
+- [ ] Multi-language support
+
+## 🤝 Contributing
+
+Want to improve Antaria Casino? Here's how:
+
+1. Report bugs via issues
+2. Suggest features
+3. Submit pull requests
+4. Improve documentation
+
+## ⚠️ Legal Disclaimer
+
+**Important**: This bot is for educational/entertainment purposes. 
+
+- Check your local gambling laws
+- Implement age verification for production
+- Add responsible gambling features
+- Consider licensing requirements
+- Use at your own risk
+
+## 📧 Support
+
+- **Issues**: Open a GitHub issue
+- **Questions**: Check documentation first
+- **Feature Requests**: Submit via issues
+
+## 📜 License
+
+MIT License - Feel free to use and modify!
+
+---
+
+## 🎊 Quick Start Summary
+
+```bash
+# 1. Get token from @BotFather
+# 2. Install dependencies
+pip install python-telegram-bot==20.7
+
+# 3. Set token
+export BOT_TOKEN="8218366688:AAHsYsgu_Y5VDzp_8Y1zJAdQVav-tiiB4cA"
+
+# 4. Run
+python main.py
+
+# 5. Open Telegram and start your bot!
+```
+
+**Enjoy Antaria Casino! 🎰💰**
