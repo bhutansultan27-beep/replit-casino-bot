@@ -421,7 +421,7 @@ Current Level: **{level}**
             "result": "win" if profit > 0 else "loss" if profit < 0 else "draw"
         })
         
-        self.check_and_notify_achievements(update, user_id)
+        await self.check_and_notify_achievements(update, context, user_id)
         
         await context.bot.send_message(chat_id=chat_id, text=result_text, parse_mode="Markdown")
     
@@ -482,7 +482,7 @@ Current Level: **{level}**
             "result": "win" if profit > 0 else "loss" if profit < 0 else "draw"
         })
         
-        self.check_and_notify_achievements(update, user_id)
+        await self.check_and_notify_achievements(update, context, user_id)
         
         await context.bot.send_message(chat_id=chat_id, text=result_text, parse_mode="Markdown")
     
@@ -636,7 +636,7 @@ Current Level: **{level}**
             "outcome": "win" if profit > 0 else "loss"
         })
         
-        self.check_and_notify_achievements(update, user_id)
+        await self.check_and_notify_achievements(update, context, user_id)
         
         await update.message.reply_text(result_text, parse_mode="Markdown")
     
@@ -713,7 +713,8 @@ Current Level: **{level}**
         
         if recipient_username and not recipient_id:
             for uid, data in self.db.data['users'].items():
-                if data.get('username', '').lower() == recipient_username.lower():
+                user_username = data.get('username') if data else None
+                if user_username and user_username.lower() == recipient_username.lower():
                     recipient_id = int(uid)
                     break
         
@@ -753,14 +754,17 @@ Current Level: **{level}**
         else:
             await update.message.reply_text("❌ Backup failed")
     
-    def check_and_notify_achievements(self, update: Update, user_id: int):
+    async def check_and_notify_achievements(self, update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int):
         """Check for new achievements"""
         for ach_id in ACHIEVEMENT_INFO.keys():
             if self.db.check_achievement(user_id, ach_id):
-                asyncio.create_task(update.message.reply_text(
-                    f"🏆 **Achievement Unlocked!**\n{ACHIEVEMENT_INFO[ach_id]['name']}\n{ACHIEVEMENT_INFO[ach_id]['desc']}",
-                    parse_mode="Markdown"
-                ))
+                chat_id = update.effective_chat.id if update.effective_chat else None
+                if chat_id:
+                    await context.bot.send_message(
+                        chat_id=chat_id,
+                        text=f"🏆 **Achievement Unlocked!**\n{ACHIEVEMENT_INFO[ach_id]['name']}\n{ACHIEVEMENT_INFO[ach_id]['desc']}",
+                        parse_mode="Markdown"
+                    )
     
     async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle button callbacks"""
