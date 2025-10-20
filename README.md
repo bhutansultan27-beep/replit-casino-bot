@@ -61,7 +61,7 @@ Classic heads or tails - double or nothing!
 | Command | Description |
 |---------|-------------|
 | `/start` or `/help` | Welcome message and overview |
-| `/balance` | Check balance with deposit/withdraw options |
+| `/bal` | Check balance with deposit/withdraw options |
 | `/stats` | View your personal statistics |
 | `/bonus` | Claim your daily bonus |
 | `/achievements` | View unlocked badges |
@@ -181,12 +181,6 @@ Use `/rp` to check your current level!
 
 ## ⚠️ Important Notes
 
-**This is a demo/educational bot.** For production use:
-- Implement proper payment processing
-- Add age verification
-- Include responsible gambling features
-- Comply with local gambling laws
-- Get necessary licenses
 
 ## 🎮 Start Playing!
 
