@@ -20,6 +20,8 @@ This is a complete Telegram gambling bot built with Python and the python-telegr
 - Removed "Double & Play" buttons from dice and coinflip games
 - Simplified button labels: removed 🟡 and ⚪ emojis from Heads/Tails buttons
 - Changed all win/loss messages to lowercase format: "@user won $40" instead of "🎉 @User Won $40"
+- Added simple "Play Again" button to dice games (no emojis)
+- Simplified coinflip messages to show only winner, removed extra details
 - Updated help text to remove references to removed features
 
 **Enhanced UI & Match History (2025-10-20)**
