@@ -488,7 +488,13 @@ Current Level: **{level}**
         
         await self.check_and_notify_achievements(update, context, user_id)
         
-        await context.bot.send_message(chat_id=chat_id, text=result_text, parse_mode="Markdown")
+        keyboard = [
+            [InlineKeyboardButton("🔄 Play Again", callback_data=f"dice_bot_{wager}"),
+             InlineKeyboardButton("⬆️ Double & Play", callback_data=f"dice_bot_{wager * 2}")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await context.bot.send_message(chat_id=chat_id, text=result_text, reply_markup=reply_markup, parse_mode="Markdown")
     
     async def create_open_dice_challenge(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float):
         """Create an open dice challenge for anyone to accept"""
@@ -660,7 +666,13 @@ Current Level: **{level}**
         
         await self.check_and_notify_achievements(update, context, user_id)
         
-        await context.bot.send_message(chat_id=chat_id, text=result_text, parse_mode="Markdown")
+        keyboard = [
+            [InlineKeyboardButton("🔄 Play Again", callback_data=f"flip_bot_{wager}_{choice}"),
+             InlineKeyboardButton("⬆️ Double & Play", callback_data=f"flip_bot_{wager * 2}_{choice}")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await context.bot.send_message(chat_id=chat_id, text=result_text, reply_markup=reply_markup, parse_mode="Markdown")
     
     async def coinflip_vs_bot(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float, choice: str):
         """Play coinflip against the bot"""
