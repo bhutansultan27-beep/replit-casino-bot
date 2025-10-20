@@ -11,7 +11,8 @@ class DatabaseManager:
         self.data: Dict[str, Any] = {
             "users": {},
             "games": [],
-            "pending_pvp": {}
+            "pending_pvp": {},
+            "house_balance": 6973.0
         }
         self.auto_save_task = None
         self.load_data()
@@ -22,6 +23,8 @@ class DatabaseManager:
             try:
                 with open(self.filename, 'r') as f:
                     self.data = json.load(f)
+                if "house_balance" not in self.data:
+                    self.data["house_balance"] = 6973.0
                 print(f"✅ Loaded database from {self.filename}")
             except Exception as e:
                 print(f"⚠️ Error loading database: {e}")
@@ -174,3 +177,12 @@ class DatabaseManager:
             self.update_user(user_id, {"achievements": achievements})
         
         return unlocked
+    
+    def get_house_balance(self) -> float:
+        """Get current house balance"""
+        return self.data.get("house_balance", 6973.0)
+    
+    def update_house_balance(self, amount: float):
+        """Update house balance by adding/subtracting amount"""
+        self.data["house_balance"] = self.data.get("house_balance", 6973.0) + amount
+        self.save_data()

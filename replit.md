@@ -14,6 +14,13 @@ This is a complete Telegram gambling bot built with Python and the python-telegr
 
 ## Recent Changes
 
+**House Balance Feature (2025-10-20)**
+- Added `/housebal` command to view house balance
+- Initialized house balance at $6973
+- House balance now fluctuates based on bot's winnings/losses in games
+- Updated dice and coinflip game logic to track house performance
+- Not linked to any crypto wallet - purely for display
+
 **Initial Implementation (2025-10-20)**
 - Created database manager with JSON storage and auto-save functionality
 - Implemented core bot structure with all game mechanics
@@ -60,6 +67,7 @@ This is a complete Telegram gambling bot built with Python and the python-telegr
 - `/achievements` - View unlocked badges
 - `/referral` - Get referral link and claim rewards
 - `/rp` - Check Respect Points level
+- `/housebal` - View the house balance (starts at $6973)
 - `/dice <amount> [@player]` - Play dice game (PvP or vs bot)
 - `/coinflip <amount> <heads/tails> [@player]` - Play coinflip (PvP or vs bot)
 - `/backup` - Create manual database backup

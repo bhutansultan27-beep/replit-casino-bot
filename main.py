@@ -49,6 +49,7 @@ class AntariaCasinoBot:
         self.app.add_handler(CommandHandler("referral", self.referral_command))
         self.app.add_handler(CommandHandler("ref", self.referral_command))
         self.app.add_handler(CommandHandler("rp", self.rp_command))
+        self.app.add_handler(CommandHandler("housebal", self.housebal_command))
         self.app.add_handler(CommandHandler("dice", self.dice_command))
         self.app.add_handler(CommandHandler("coinflip", self.coinflip_command))
         self.app.add_handler(CommandHandler("flip", self.coinflip_command))
@@ -87,6 +88,7 @@ Hey {user.first_name}! Ready to test your luck?
 /achievements - View your badges
 /ref - Get your referral link
 /rp - Check your Respect Points level
+/housebal - View the house balance
 
 **🎁 Bonuses:**
 • New players get $5 starter bonus
@@ -335,6 +337,20 @@ Current Level: **{level}**
         
         await update.message.reply_text(rp_text, parse_mode="Markdown")
     
+    async def housebal_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Show house balance"""
+        house_balance = self.db.get_house_balance()
+        
+        housebal_text = f"""
+🏦 **House Balance**
+
+Current Balance: ${house_balance:.2f}
+
+💡 The house balance fluctuates based on bot's winnings and losses in games against players.
+"""
+        
+        await update.message.reply_text(housebal_text, parse_mode="Markdown")
+    
     async def dice_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play dice game"""
         user_id = update.effective_user.id
@@ -391,11 +407,13 @@ Current Level: **{level}**
             user_data['win_streak'] += 1
             user_data['best_win_streak'] = max(user_data.get('best_win_streak', 0), user_data['win_streak'])
             result_text = f"🎉 **You Won!** +${profit:.2f}"
+            self.db.update_house_balance(-wager)
         elif player_roll < bot_roll:
             user_data['balance'] -= wager
             profit = -wager
             user_data['win_streak'] = 0
             result_text = f"😢 **You Lost!** -${wager:.2f}"
+            self.db.update_house_balance(wager)
         else:
             profit = 0
             result_text = f"🤝 **Draw!** Bet refunded"
@@ -452,11 +470,13 @@ Current Level: **{level}**
             user_data['win_streak'] += 1
             user_data['best_win_streak'] = max(user_data.get('best_win_streak', 0), user_data['win_streak'])
             result_text = f"🎉 **You Won!** +${profit:.2f}"
+            self.db.update_house_balance(-wager)
         elif player_roll < bot_roll:
             user_data['balance'] -= wager
             profit = -wager
             user_data['win_streak'] = 0
             result_text = f"😢 **You Lost!** -${wager:.2f}"
+            self.db.update_house_balance(wager)
         else:
             profit = 0
             result_text = f"🤝 **Draw!** Bet refunded"
@@ -633,11 +653,13 @@ Current Level: **{level}**
             user_data['win_streak'] += 1
             user_data['best_win_streak'] = max(user_data.get('best_win_streak', 0), user_data['win_streak'])
             result_text = f"🎉 **You Won!** +${profit:.2f}\n\nYou chose: {choice.capitalize()}\nResult: {result.capitalize()}\n\n💰 **New Balance:** ${user_data['balance']:.2f}"
+            self.db.update_house_balance(-wager)
         else:
             user_data['balance'] -= wager
             profit = -wager
             user_data['win_streak'] = 0
             result_text = f"😢 **You Lost!** -${wager:.2f}\n\nYou chose: {choice.capitalize()}\nResult: {result.capitalize()}\n\n💰 **New Balance:** ${user_data['balance']:.2f}"
+            self.db.update_house_balance(wager)
         
         user_data['games_played'] += 1
         user_data['total_wagered'] += wager
@@ -690,11 +712,13 @@ Current Level: **{level}**
             user_data['win_streak'] += 1
             user_data['best_win_streak'] = max(user_data.get('best_win_streak', 0), user_data['win_streak'])
             result_text = f"🎉 **You Won!** +${profit:.2f}\n\n💰 **New Balance:** ${user_data['balance'] + profit:.2f}"
+            self.db.update_house_balance(-wager)
         else:
             user_data['balance'] -= wager
             profit = -wager
             user_data['win_streak'] = 0
             result_text = f"😢 **You Lost!** -${wager:.2f}\n\n💰 **New Balance:** ${user_data['balance'] - wager:.2f}"
+            self.db.update_house_balance(wager)
         
         user_data['games_played'] += 1
         user_data['total_wagered'] += wager
