@@ -48,6 +48,7 @@ class AntariaCasinoBot:
         self.app.add_handler(CommandHandler("rp", self.rp_command))
         self.app.add_handler(CommandHandler("dice", self.dice_command))
         self.app.add_handler(CommandHandler("coinflip", self.coinflip_command))
+        self.app.add_handler(CommandHandler("tip", self.tip_command))
         self.app.add_handler(CommandHandler("backup", self.backup_command))
         
         self.app.add_handler(CallbackQueryHandler(self.button_callback))
@@ -75,6 +76,7 @@ Hey {user.first_name}! Ready to test your luck?
 
 **💎 Features:**
 /balance - Check balance & deposit/withdraw
+/tip <amount> @user - Send money to another player
 /bonus - Claim your daily bonus (1% of wagered)
 /stats - View your statistics
 /leaderboard - Top players by volume
@@ -579,6 +581,64 @@ Current Level: **{level}**
             f"Waiting for opponent to accept...",
             reply_markup=reply_markup,
             parse_mode="HTML"
+        )
+    
+    async def tip_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Send money to another user"""
+        user_id = update.effective_user.id
+        user_data = self.db.get_user(user_id)
+        
+        if not context.args:
+            await update.message.reply_text("Usage: /tip <amount> @user")
+            return
+        
+        try:
+            amount = float(context.args[0])
+        except ValueError:
+            await update.message.reply_text("❌ Invalid amount")
+            return
+        
+        if amount <= 0:
+            await update.message.reply_text("❌ Amount must be positive")
+            return
+        
+        if amount > user_data['balance']:
+            await update.message.reply_text(f"❌ Insufficient balance. You have ${user_data['balance']:.2f}")
+            return
+        
+        recipient_id = None
+        if update.message.entities:
+            for entity in update.message.entities:
+                if entity.type == "text_mention":
+                    recipient_id = entity.user.id
+                    break
+        
+        if not recipient_id:
+            await update.message.reply_text("❌ Please mention a user with @")
+            return
+        
+        if recipient_id == user_id:
+            await update.message.reply_text("❌ You can't tip yourself!")
+            return
+        
+        recipient_data = self.db.get_user(recipient_id)
+        recipient_name = recipient_data.get('username', f'User{recipient_id}')
+        
+        user_data['balance'] -= amount
+        recipient_data['balance'] += amount
+        
+        self.db.update_user(user_id, user_data)
+        self.db.update_user(recipient_id, recipient_data)
+        
+        self.db.add_transaction(user_id, "tip_sent", -amount, f"Tipped ${amount:.2f} to {recipient_name}")
+        self.db.add_transaction(recipient_id, "tip_received", amount, f"Received ${amount:.2f} tip")
+        
+        await update.message.reply_text(
+            f"✅ **Tip Sent!**\n\n"
+            f"Amount: ${amount:.2f}\n"
+            f"To: {recipient_name}\n"
+            f"Your New Balance: ${user_data['balance']:.2f}",
+            parse_mode="Markdown"
         )
     
     async def backup_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
