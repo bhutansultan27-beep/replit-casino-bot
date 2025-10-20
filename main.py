@@ -433,7 +433,10 @@ Current Balance: ${house_balance:.2f}
             "result": "win" if profit > 0 else "loss" if profit < 0 else "draw"
         })
         
-        await context.bot.send_message(chat_id=chat_id, text=result_text, parse_mode="Markdown")
+        keyboard = [[InlineKeyboardButton("Play Again", callback_data=f"dice_bot_{wager}")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await context.bot.send_message(chat_id=chat_id, text=result_text, reply_markup=reply_markup, parse_mode="Markdown")
     
     async def dice_vs_bot_from_button(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float):
         """Play dice against bot (called from button)"""
@@ -495,7 +498,10 @@ Current Balance: ${house_balance:.2f}
             "result": "win" if profit > 0 else "loss" if profit < 0 else "draw"
         })
         
-        await context.bot.send_message(chat_id=chat_id, text=result_text, parse_mode="Markdown")
+        keyboard = [[InlineKeyboardButton("Play Again", callback_data=f"dice_bot_{wager}")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await context.bot.send_message(chat_id=chat_id, text=result_text, reply_markup=reply_markup, parse_mode="Markdown")
     
     async def create_open_dice_challenge(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float):
         """Create an open dice challenge for anyone to accept"""
@@ -643,13 +649,13 @@ Current Balance: ${house_balance:.2f}
             user_data['games_won'] += 1
             user_data['win_streak'] += 1
             user_data['best_win_streak'] = max(user_data.get('best_win_streak', 0), user_data['win_streak'])
-            result_text = f"@{username} won ${profit:.2f}\n\nyou chose: {choice}\nresult: {result}\n\nnew balance: ${user_data['balance']:.2f}"
+            result_text = f"@{username} won ${profit:.2f}"
             self.db.update_house_balance(-wager)
         else:
             user_data['balance'] -= wager
             profit = -wager
             user_data['win_streak'] = 0
-            result_text = f"@{username} lost ${wager:.2f}\n\nyou chose: {choice}\nresult: {result}\n\nnew balance: ${user_data['balance']:.2f}"
+            result_text = f"@{username} lost ${wager:.2f}"
             self.db.update_house_balance(wager)
         
         user_data['games_played'] += 1
@@ -695,13 +701,13 @@ Current Balance: ${house_balance:.2f}
             user_data['games_won'] += 1
             user_data['win_streak'] += 1
             user_data['best_win_streak'] = max(user_data.get('best_win_streak', 0), user_data['win_streak'])
-            result_text = f"@{username} won ${profit:.2f}\n\nnew balance: ${user_data['balance'] + profit:.2f}"
+            result_text = f"@{username} won ${profit:.2f}"
             self.db.update_house_balance(-wager)
         else:
             user_data['balance'] -= wager
             profit = -wager
             user_data['win_streak'] = 0
-            result_text = f"@{username} lost ${wager:.2f}\n\nnew balance: ${user_data['balance'] - wager:.2f}"
+            result_text = f"@{username} lost ${wager:.2f}"
             self.db.update_house_balance(wager)
         
         user_data['games_played'] += 1
