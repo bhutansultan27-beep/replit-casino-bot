@@ -71,7 +71,7 @@ Hey {user.first_name}! Ready to test your luck?
 💰 **Your Balance**: ${user_data['balance']:.2f}{playthrough_msg}
 
 **🎮 Games:**
-/dice <amount> [@player] - Roll the highest number (1-6)
+/dice <amount> - Roll the highest number (1-6)
 /coinflip <amount> <heads/tails> [@player] - Classic coin flip
 
 **💎 Features:**
@@ -340,7 +340,7 @@ Current Level: **{level}**
         user_data = self.db.get_user(user_id)
         
         if not context.args:
-            await update.message.reply_text("Usage: /dice <amount> [@player]")
+            await update.message.reply_text("Usage: /dice <amount>")
             return
         
         try:
@@ -357,20 +357,17 @@ Current Level: **{level}**
             await update.message.reply_text(f"❌ Insufficient balance. You have ${user_data['balance']:.2f}")
             return
         
-        opponent_id = None
-        if update.message.entities:
-            for entity in update.message.entities:
-                if entity.type == "mention":
-                    await update.message.reply_text("❌ Please use @ to tag players directly")
-                    return
-                elif entity.type == "text_mention":
-                    opponent_id = entity.user.id
-                    break
+        keyboard = [
+            [InlineKeyboardButton("🤖 Play vs Bot", callback_data=f"dice_bot_{wager}")],
+            [InlineKeyboardButton("👥 Play vs Player", callback_data=f"dice_player_{wager}")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
         
-        if opponent_id:
-            await self.dice_pvp(update, context, wager, opponent_id)
-        else:
-            await self.dice_vs_bot(update, context, wager)
+        await update.message.reply_text(
+            f"🎲 **Dice Game**\n\nWager: ${wager:.2f}\n\nChoose your opponent:",
+            reply_markup=reply_markup,
+            parse_mode="Markdown"
+        )
     
     async def dice_vs_bot(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float):
         """Play dice against the bot"""
@@ -427,6 +424,100 @@ Current Level: **{level}**
         self.check_and_notify_achievements(update, user_id)
         
         await context.bot.send_message(chat_id=chat_id, text=result_text, parse_mode="Markdown")
+    
+    async def dice_vs_bot_from_button(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float):
+        """Play dice against bot (called from button)"""
+        query = update.callback_query
+        user_id = query.from_user.id
+        user_data = self.db.get_user(user_id)
+        chat_id = query.message.chat_id
+        
+        if wager > user_data['balance']:
+            await context.bot.send_message(chat_id=chat_id, text=f"❌ Insufficient balance. You have ${user_data['balance']:.2f}")
+            return
+        
+        player_dice_msg = await context.bot.send_dice(chat_id=chat_id, emoji="🎲")
+        bot_dice_msg = await context.bot.send_dice(chat_id=chat_id, emoji="🎲")
+        
+        player_roll = player_dice_msg.dice.value
+        bot_roll = bot_dice_msg.dice.value
+        
+        await asyncio.sleep(3.5)
+        
+        if player_roll > bot_roll:
+            profit = wager
+            user_data['balance'] += profit
+            user_data['games_won'] += 1
+            user_data['win_streak'] += 1
+            user_data['best_win_streak'] = max(user_data.get('best_win_streak', 0), user_data['win_streak'])
+            result_text = f"🎉 **You Won!** +${profit:.2f}"
+        elif player_roll < bot_roll:
+            user_data['balance'] -= wager
+            profit = -wager
+            user_data['win_streak'] = 0
+            result_text = f"😢 **You Lost!** -${wager:.2f}"
+        else:
+            profit = 0
+            result_text = f"🤝 **Draw!** Bet refunded"
+        
+        user_data['games_played'] += 1
+        user_data['total_wagered'] += wager
+        user_data['wagered_since_last_withdrawal'] += wager
+        user_data['total_pnl'] += profit
+        
+        if user_data['playthrough_required'] > 0:
+            user_data['playthrough_required'] = max(0, user_data['playthrough_required'] - wager)
+        
+        if not user_data.get('first_wager_date'):
+            user_data['first_wager_date'] = datetime.now().isoformat()
+        
+        self.db.update_user(user_id, user_data)
+        self.db.add_transaction(user_id, "dice_bot", profit, f"Dice vs Bot - Wager: ${wager:.2f}")
+        self.db.record_game({
+            "type": "dice_bot",
+            "player_id": user_id,
+            "wager": wager,
+            "player_roll": player_roll,
+            "bot_roll": bot_roll,
+            "result": "win" if profit > 0 else "loss" if profit < 0 else "draw"
+        })
+        
+        self.check_and_notify_achievements(update, user_id)
+        
+        await context.bot.send_message(chat_id=chat_id, text=result_text, parse_mode="Markdown")
+    
+    async def create_open_dice_challenge(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float):
+        """Create an open dice challenge for anyone to accept"""
+        query = update.callback_query
+        user_id = query.from_user.id
+        user_data = self.db.get_user(user_id)
+        username = user_data.get('username', f'User{user_id}')
+        
+        if wager > user_data['balance']:
+            await query.edit_message_text(f"❌ Insufficient balance. You have ${user_data['balance']:.2f}")
+            return
+        
+        challenge_id = f"dice_open_{user_id}_{int(datetime.now().timestamp())}"
+        self.db.data['pending_pvp'][challenge_id] = {
+            "type": "dice",
+            "challenger": user_id,
+            "opponent": None,
+            "wager": wager,
+            "created_at": datetime.now().isoformat()
+        }
+        self.db.save_data()
+        
+        keyboard = [[InlineKeyboardButton("✅ Accept Challenge", callback_data=f"accept_dice_{challenge_id}")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await query.edit_message_text(
+            f"🎲 **Open Dice Challenge!**\n\n"
+            f"Challenger: {username}\n"
+            f"Wager: ${wager:.2f}\n\n"
+            f"Anyone can accept this challenge!",
+            reply_markup=reply_markup,
+            parse_mode="Markdown"
+        )
     
     async def dice_pvp(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float, opponent_id: int):
         """Initiate PvP dice game"""
@@ -734,6 +825,15 @@ Current Level: **{level}**
             page = int(data.split("_")[2])
             await self.show_leaderboard_page(update, page)
         
+        elif data.startswith("dice_bot_"):
+            wager = float(data.replace("dice_bot_", ""))
+            await query.delete_message()
+            await self.dice_vs_bot_from_button(update, context, wager)
+        
+        elif data.startswith("dice_player_"):
+            wager = float(data.replace("dice_player_", ""))
+            await self.create_open_dice_challenge(update, context, wager)
+        
         elif data.startswith("accept_dice_"):
             challenge_id = data.replace("accept_dice_", "")
             await self.execute_dice_pvp(update, context, challenge_id)
@@ -760,11 +860,11 @@ Current Level: **{level}**
         
         challenge = self.db.data['pending_pvp'][challenge_id]
         challenger_id = challenge['challenger']
-        opponent_id = challenge['opponent']
+        opponent_id = query.from_user.id
         wager = challenge['wager']
         
-        if query.from_user.id != opponent_id:
-            await query.answer("This challenge is not for you!", show_alert=True)
+        if opponent_id == challenger_id:
+            await query.answer("You can't accept your own challenge!", show_alert=True)
             return
         
         challenger_data = self.db.get_user(challenger_id)
