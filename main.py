@@ -500,12 +500,18 @@ Current Level: **{level}**
         """Play coinflip against the bot"""
         user_id = update.effective_user.id
         user_data = self.db.get_user(user_id)
+        chat_id = update.effective_chat.id
         
-        result = random.choice(['heads', 'tails'])
+        coin_msg = await context.bot.send_dice(chat_id=chat_id, emoji="🪙")
+        
+        await asyncio.sleep(3.5)
+        
+        coin_value = coin_msg.dice.value
+        result = 'heads' if coin_value == 1 else 'tails'
         
         result_text = f"🪙 **CoinFlip**\n\n"
         result_text += f"Your choice: **{choice.capitalize()}**\n"
-        result_text += f"Result: **{result.capitalize()}** 🪙\n\n"
+        result_text += f"Result: **{result.capitalize()}**\n\n"
         
         if choice == result:
             profit = wager
