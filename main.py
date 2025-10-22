@@ -1722,16 +1722,18 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         if challenger_roll > acceptor_roll:
             winner_id = challenger_id
             loser_id = acceptor_id
-            result_text = f"**{challenger_user['username']}** rolled **{challenger_roll}** and beat **{acceptor_user['username']}**'s **{acceptor_roll}**!"
+            challenger_display = f"@{challenger_user['username']}" if challenger_user.get('username') else f"User{challenger_id}"
+            result_text = f"{challenger_display} won ${wager:.2f}"
         elif acceptor_roll > challenger_roll:
             winner_id = acceptor_id
             loser_id = challenger_id
-            result_text = f"**{acceptor_user['username']}** rolled **{acceptor_roll}** and beat **{challenger_user['username']}**'s **{challenger_roll}**!"
+            acceptor_display = f"@{acceptor_user['username']}" if acceptor_user.get('username') else f"User{acceptor_id}"
+            result_text = f"{acceptor_display} won ${wager:.2f}"
         else:
             # Draw: refund both wagers (challenger's was deducted earlier, acceptor's was deducted above)
             self.db.update_user(challenger_id, {'balance': challenger_user['balance'] + wager})
             self.db.update_user(acceptor_id, {'balance': acceptor_user['balance'] + wager})
-            result_text = f"🤝 Both players rolled **{challenger_roll}**. It's a draw, wagers refunded."
+            result_text = f"Draw - Bets refunded"
             
             self._update_user_stats(challenger_id, wager, 0.0, "draw")
             self._update_user_stats(acceptor_id, wager, 0.0, "draw")
@@ -1788,11 +1790,13 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         if choice == result:
             profit = wager
             outcome = "win"
-            result_text = f"🎉 **{username}** chose **{choice.capitalize()}** and won **${profit:.2f}**!"
+            user_display = f"@{username}" if user_data.get('username') else username
+            result_text = f"{user_display} won ${profit:.2f}"
             self.db.update_house_balance(-wager)
         else:
             profit = -wager
-            result_text = f"😭 **{username}** chose **{choice.capitalize()}**. It landed on **{result.capitalize()}** and you lost **${wager:.2f}**."
+            user_display = f"@{username}" if user_data.get('username') else username
+            result_text = f"{user_display} lost ${wager:.2f}"
             self.db.update_house_balance(wager)
 
         # Update user stats and database
