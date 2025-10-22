@@ -178,9 +178,9 @@ class AntariaCasinoBot:
         # Dictionary to store ongoing PvP challenges
         self.pending_pvp: Dict[str, Any] = self.db.data.get('pending_pvp', {})
         
-        # Track button ownership: message_id -> user_id mapping
-        self.button_ownership: Dict[int, int] = {}
-        # Track clicked buttons to prevent re-use
+        # Track button ownership: (chat_id, message_id) -> user_id mapping
+        self.button_ownership: Dict[tuple, int] = {}
+        # Track clicked buttons to prevent re-use: (chat_id, message_id, callback_data)
         self.clicked_buttons: set = set()
         
         # Sticker configuration - Load from database or initialize with defaults
@@ -295,7 +295,7 @@ class AntariaCasinoBot:
             reply_markup=keyboard,
             parse_mode=parse_mode
         )
-        self.button_ownership[sent_message.message_id] = user_id
+        self.button_ownership[(chat_id, sent_message.message_id)] = user_id
         return sent_message
     
     def is_admin(self, user_id: int) -> bool:
@@ -652,7 +652,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             reply_markup=reply_markup,
             parse_mode="Markdown"
         )
-        self.button_ownership[sent_msg.message_id] = user_id
+        self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
     
     async def darts_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play darts game setup"""
@@ -691,7 +691,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             reply_markup=reply_markup,
             parse_mode="Markdown"
         )
-        self.button_ownership[sent_msg.message_id] = user_id
+        self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
     
     async def basketball_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play basketball game setup"""
@@ -730,7 +730,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             reply_markup=reply_markup,
             parse_mode="Markdown"
         )
-        self.button_ownership[sent_msg.message_id] = user_id
+        self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
     
     async def soccer_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play soccer game setup"""
@@ -769,7 +769,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             reply_markup=reply_markup,
             parse_mode="Markdown"
         )
-        self.button_ownership[sent_msg.message_id] = user_id
+        self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
     
     async def coinflip_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play coinflip game setup"""
@@ -819,7 +819,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             reply_markup=reply_markup,
             parse_mode="Markdown"
         )
-        self.button_ownership[sent_msg.message_id] = user_id
+        self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
     
     async def roulette_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play roulette game"""
@@ -887,7 +887,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             reply_markup=reply_markup,
             parse_mode="Markdown"
         )
-        self.button_ownership[sent_msg.message_id] = user_id
+        self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
     
     async def tip_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Send money to another player."""
@@ -2044,10 +2044,11 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         
         data = query.data
         user_id = query.from_user.id
+        chat_id = query.message.chat_id
         message_id = query.message.message_id
         
         # Check if button was already clicked (prevent spam)
-        button_key = f"{message_id}_{data}"
+        button_key = (chat_id, message_id, data)
         if button_key in self.clicked_buttons:
             await query.answer("❌ This button has already been used!", show_alert=True)
             return
@@ -2056,8 +2057,9 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         public_buttons = ["accept_dice_", "lb_page_", "transactions_history", "deposit_mock", "withdraw_mock"]
         is_public = any(data.startswith(prefix) or data == prefix for prefix in public_buttons)
         
-        if not is_public and message_id in self.button_ownership:
-            if self.button_ownership[message_id] != user_id:
+        ownership_key = (chat_id, message_id)
+        if not is_public and ownership_key in self.button_ownership:
+            if self.button_ownership[ownership_key] != user_id:
                 await query.answer("❌ This button is not for you!", show_alert=True)
                 return
         
