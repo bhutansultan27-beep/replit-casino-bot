@@ -1017,17 +1017,15 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         user_id = update.effective_user.id
         
         if self.is_admin(user_id):
-            admin_text = f"""
-✅ **You are an admin!**
+            admin_text = """✅ You are an admin!
 
-**Admin Commands:**
-/givebal <user_id> <amount> - Give money to a user
-/setbal <user_id> <amount> - Set a user's balance
-/allusers - View all registered users
-/userinfo <user_id> - View detailed user info
-/backup - Download database backup
-"""
-            await update.message.reply_text(admin_text, parse_mode="Markdown")
+Admin Commands:
+• /givebal [user_id] [amount] - Give money to a user
+• /setbal [user_id] [amount] - Set a user's balance
+• /allusers - View all registered users
+• /userinfo [user_id] - View detailed user info
+• /backup - Download database backup"""
+            await update.message.reply_text(admin_text)
         else:
             await update.message.reply_text("❌ You are not an admin.")
     
