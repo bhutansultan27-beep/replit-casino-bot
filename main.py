@@ -1776,12 +1776,14 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             await context.bot.send_message(chat_id=chat_id, text=f"❌ Balance: ${user_data['balance']:.2f}")
             return
         
-        # Send coin emoji (simulates flip animation)
-        coin_msg = await context.bot.send_message(chat_id=chat_id, text="🪙 Flipping...")
+        # Send dice emoji and map result to heads/tails
+        # Telegram doesn't support coin emoji, so we use dice
+        dice_msg = await context.bot.send_dice(chat_id=chat_id, emoji="🎲")
+        await asyncio.sleep(4)
+        dice_value = dice_msg.dice.value
         
-        await asyncio.sleep(1) # Simulate flip time
-        
-        result = random.choice(['heads', 'tails'])
+        # Map dice values to coin flip: 1-3 = heads, 4-6 = tails
+        result = 'heads' if dice_value <= 3 else 'tails'
         
         # Determine result
         profit = 0.0
@@ -1808,14 +1810,9 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             "wager": wager,
             "choice": choice,
             "result": result, # The actual flip result
-            "outcome": outcome # win or loss
+            "outcome": outcome, # win or loss
+            "dice_value": dice_value # Backend tracking
         })
-        
-        await context.bot.edit_message_text(
-            chat_id=chat_id,
-            message_id=coin_msg.message_id,
-            text=f"The coin landed on **{result.capitalize()}**!"
-        )
 
         keyboard = []
         if outcome == "win":

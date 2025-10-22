@@ -14,10 +14,13 @@ This is a complete Telegram gambling bot built with Python and the python-telegr
 
 ## Recent Changes
 
-**Simplified Game Results (2025-10-22)**
+**Simplified Game Results + Animated Coinflip (2025-10-22)**
 - All games now show simplified, clean results without score details
 - Updated emoji games (dice, darts, basketball, soccer) - both bot and PvP modes
-- Updated coinflip game for consistency
+- Updated coinflip game:
+  - Now uses animated dice emoji (🎲) since Telegram doesn't support coin emoji in their dice API
+  - Dice values 1-3 map to "Heads", values 4-6 map to "Tails"
+  - Provides the visual animation users expect while maintaining coinflip gameplay
 - Only displays winning/losing amounts in clean format
 - Individual scores and game details processed in backend but not shown to players
 - Examples:
