@@ -273,6 +273,24 @@ class AntariaCasinoBot:
         """Check if a user is an admin"""
         return user_id in self.admin_ids
     
+    def find_user_by_username_or_id(self, identifier: str) -> Optional[Dict[str, Any]]:
+        """Find a user by username (@username) or user ID"""
+        # Remove @ if present
+        if identifier.startswith('@'):
+            username = identifier[1:]
+            # Search by username
+            for user_data in self.db.data['users'].values():
+                if user_data.get('username', '').lower() == username.lower():
+                    return user_data
+            return None
+        else:
+            # Try to parse as user ID
+            try:
+                user_id = int(identifier)
+                return self.db.get_user(user_id)
+            except ValueError:
+                return None
+    
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Welcome message and initial user setup."""
         user = update.effective_user
@@ -1020,11 +1038,15 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             admin_text = """✅ You are an admin!
 
 Admin Commands:
-• /givebal [user_id] [amount] - Give money to a user
-• /setbal [user_id] [amount] - Set a user's balance
+• /givebal [@username or ID] [amount] - Give money to a user
+• /setbal [@username or ID] [amount] - Set a user's balance
 • /allusers - View all registered users
-• /userinfo [user_id] - View detailed user info
-• /backup - Download database backup"""
+• /userinfo [@username or ID] - View detailed user info
+• /backup - Download database backup
+
+Examples:
+/givebal @john 100
+/setbal 123456789 500"""
             await update.message.reply_text(admin_text)
         else:
             await update.message.reply_text("❌ You are not an admin.")
@@ -1036,33 +1058,33 @@ Admin Commands:
             return
         
         if not context.args or len(context.args) < 2:
-            await update.message.reply_text("Usage: `/givebal <user_id> <amount>`", parse_mode="Markdown")
+            await update.message.reply_text("Usage: /givebal [@username or user_id] [amount]\nExample: /givebal @john 100")
             return
         
         try:
-            target_user_id = int(context.args[0])
             amount = float(context.args[1])
         except ValueError:
-            await update.message.reply_text("❌ Invalid user_id or amount.")
+            await update.message.reply_text("❌ Invalid amount.")
             return
         
         if amount <= 0:
             await update.message.reply_text("❌ Amount must be positive.")
             return
         
-        target_user = self.db.get_user(target_user_id)
+        target_user = self.find_user_by_username_or_id(context.args[0])
         if not target_user:
-            await update.message.reply_text(f"❌ User {target_user_id} not found.")
+            await update.message.reply_text(f"❌ User '{context.args[0]}' not found.")
             return
         
+        target_user_id = target_user['user_id']
         target_user['balance'] += amount
         self.db.update_user(target_user_id, target_user)
         self.db.add_transaction(target_user_id, "admin_give", amount, f"Admin grant by {update.effective_user.id}")
         
+        username_display = f"@{target_user.get('username', target_user_id)}"
         await update.message.reply_text(
-            f"✅ Gave **${amount:.2f}** to user {target_user_id}\n"
-            f"New balance: **${target_user['balance']:.2f}**",
-            parse_mode="Markdown"
+            f"✅ Gave ${amount:.2f} to {username_display}\n"
+            f"New balance: ${target_user['balance']:.2f}"
         )
     
     async def setbal_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1072,35 +1094,35 @@ Admin Commands:
             return
         
         if not context.args or len(context.args) < 2:
-            await update.message.reply_text("Usage: `/setbal <user_id> <amount>`", parse_mode="Markdown")
+            await update.message.reply_text("Usage: /setbal [@username or user_id] [amount]\nExample: /setbal @john 500")
             return
         
         try:
-            target_user_id = int(context.args[0])
             amount = float(context.args[1])
         except ValueError:
-            await update.message.reply_text("❌ Invalid user_id or amount.")
+            await update.message.reply_text("❌ Invalid amount.")
             return
         
         if amount < 0:
             await update.message.reply_text("❌ Amount cannot be negative.")
             return
         
-        target_user = self.db.get_user(target_user_id)
+        target_user = self.find_user_by_username_or_id(context.args[0])
         if not target_user:
-            await update.message.reply_text(f"❌ User {target_user_id} not found.")
+            await update.message.reply_text(f"❌ User '{context.args[0]}' not found.")
             return
         
+        target_user_id = target_user['user_id']
         old_balance = target_user['balance']
         target_user['balance'] = amount
         self.db.update_user(target_user_id, target_user)
         self.db.add_transaction(target_user_id, "admin_set", amount - old_balance, f"Admin set balance by {update.effective_user.id}")
         
+        username_display = f"@{target_user.get('username', target_user_id)}"
         await update.message.reply_text(
-            f"✅ Set balance for user {target_user_id}\n"
-            f"Old balance: **${old_balance:.2f}**\n"
-            f"New balance: **${amount:.2f}**",
-            parse_mode="Markdown"
+            f"✅ Set balance for {username_display}\n"
+            f"Old balance: ${old_balance:.2f}\n"
+            f"New balance: ${amount:.2f}"
         )
     
     async def allusers_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1134,19 +1156,15 @@ Admin Commands:
             return
         
         if not context.args:
-            await update.message.reply_text("Usage: `/userinfo <user_id>`", parse_mode="Markdown")
+            await update.message.reply_text("Usage: /userinfo [@username or user_id]\nExample: /userinfo @john")
             return
         
-        try:
-            target_user_id = int(context.args[0])
-        except ValueError:
-            await update.message.reply_text("❌ Invalid user_id.")
-            return
-        
-        target_user = self.db.get_user(target_user_id)
+        target_user = self.find_user_by_username_or_id(context.args[0])
         if not target_user:
-            await update.message.reply_text(f"❌ User {target_user_id} not found.")
+            await update.message.reply_text(f"❌ User '{context.args[0]}' not found.")
             return
+        
+        target_user_id = target_user['user_id']
         
         info_text = f"""
 👤 **User Info: {target_user_id}**
