@@ -14,6 +14,19 @@ This is a complete Telegram gambling bot built with Python and the python-telegr
 
 ## Recent Changes
 
+**Admin Commands System (2025-10-22)**
+- Added admin authentication system using environment variable `ADMIN_IDS`
+- Admin IDs are stored as comma-separated values (e.g., `ADMIN_IDS=123456,789012`)
+- New admin commands:
+  - `/admin` - Check if you're an admin and view admin commands
+  - `/givebal <user_id> <amount>` - Give money to a user
+  - `/setbal <user_id> <amount>` - Set a user's balance
+  - `/allusers` - View all registered users (up to 50)
+  - `/userinfo <user_id>` - View detailed user information
+  - `/backup` - Download database backup file
+- Updated `/backup` command to use new admin system
+- Admins are loaded on bot startup and logged
+
 **Enhanced Roulette Betting Options (2025-10-22)**
 - Simplified roulette betting with easy-to-use button interface
 - **Button Bets (all without emojis):** 
@@ -93,12 +106,21 @@ This is a complete Telegram gambling bot built with Python and the python-telegr
 
 ### Environment Variables
 - `BOT_TOKEN` - Telegram bot token from @BotFather (required)
+- `ADMIN_IDS` - Comma-separated list of admin user IDs (optional)
+  - Example: `123456789,987654321`
+  - Get your user ID by using `/admin` command or messaging @userinfobot on Telegram
 
 ### Getting Your Bot Token
 1. Message @BotFather on Telegram
 2. Send `/newbot`
 3. Follow the prompts to create your bot
 4. Copy the token and add it to Replit Secrets
+
+### Setting Up Admin Access
+1. Find your Telegram user ID (message @userinfobot or use `/admin` to test)
+2. Add your user ID to Replit Secrets as `ADMIN_IDS`
+3. For multiple admins, separate IDs with commas: `123456789,987654321`
+4. Restart the bot to load admin permissions
 
 ## User Commands
 
@@ -115,7 +137,17 @@ This is a complete Telegram gambling bot built with Python and the python-telegr
 - `/basketball <amount|all>` - Play basketball game 🏀 (1-5), use "all" to wager entire balance
 - `/soccer <amount|all>` - Play soccer game ⚽ (1-5), use "all" to wager entire balance
 - `/coinflip <amount|all> <heads/tails>` - Play coinflip game 🪙, use "all" to wager entire balance
-- `/backup` - Create manual database backup
+
+## Admin Commands
+
+These commands are only available to users whose IDs are listed in the `ADMIN_IDS` environment variable:
+
+- `/admin` - Check admin status and view available admin commands
+- `/givebal <user_id> <amount>` - Give balance to a specific user
+- `/setbal <user_id> <amount>` - Set a user's balance to a specific amount
+- `/allusers` - View all registered users (shows up to 50 users)
+- `/userinfo <user_id>` - View detailed information about a specific user
+- `/backup` - Download the database file as a backup
 
 ## Game Rules
 

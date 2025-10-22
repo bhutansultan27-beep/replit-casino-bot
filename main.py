@@ -151,6 +151,16 @@ class AntariaCasinoBot:
         # Initialize the internal database manager
         self.db = DatabaseManager()
         
+        # Admin user IDs from environment variable
+        admin_ids_str = os.getenv("ADMIN_IDS", "")
+        self.admin_ids = set()
+        if admin_ids_str:
+            try:
+                self.admin_ids = set(int(id.strip()) for id in admin_ids_str.split(",") if id.strip())
+                logger.info(f"Loaded {len(self.admin_ids)} admin user(s)")
+            except ValueError:
+                logger.error("Invalid ADMIN_IDS format. Use comma-separated numbers.")
+        
         # Initialize bot application
         self.app = Application.builder().token(token).build()
         self.setup_handlers()
@@ -235,6 +245,13 @@ class AntariaCasinoBot:
         self.app.add_handler(CommandHandler("stickers", self.list_stickers_command))
         self.app.add_handler(CommandHandler("saveroulette", self.save_roulette_stickers_command))
         
+        # Admin commands
+        self.app.add_handler(CommandHandler("admin", self.admin_command))
+        self.app.add_handler(CommandHandler("givebal", self.givebal_command))
+        self.app.add_handler(CommandHandler("setbal", self.setbal_command))
+        self.app.add_handler(CommandHandler("allusers", self.allusers_command))
+        self.app.add_handler(CommandHandler("userinfo", self.userinfo_command))
+        
         self.app.add_handler(MessageHandler(filters.Sticker.ALL, self.sticker_handler))
         self.app.add_handler(CallbackQueryHandler(self.button_callback))
     
@@ -251,6 +268,10 @@ class AntariaCasinoBot:
             user_data = self.db.get_user(user.id)
         
         return user_data
+    
+    def is_admin(self, user_id: int) -> bool:
+        """Check if a user is an admin"""
+        return user_id in self.admin_ids
     
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Welcome message and initial user setup."""
@@ -865,9 +886,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         )
 
     async def backup_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Sends the database file as a backup (Admin/Debugging only)."""
-        # NOTE: In a real environment, you would need robust admin checks here.
-        if update.effective_user.id not in [577583307]: # Replace with your user ID for testing
+        """Sends the database file as a backup (Admin only)."""
+        if not self.is_admin(update.effective_user.id):
              await update.message.reply_text("❌ This command is for administrators only.")
              return
              
@@ -989,6 +1009,168 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             f"`/savesticker <category> {file_id}`",
             parse_mode="Markdown"
         )
+    
+    # --- ADMIN COMMANDS ---
+    
+    async def admin_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Check if user is an admin"""
+        user_id = update.effective_user.id
+        
+        if self.is_admin(user_id):
+            admin_text = f"""
+✅ **You are an admin!**
+
+**Admin Commands:**
+/givebal <user_id> <amount> - Give money to a user
+/setbal <user_id> <amount> - Set a user's balance
+/allusers - View all registered users
+/userinfo <user_id> - View detailed user info
+/backup - Download database backup
+"""
+            await update.message.reply_text(admin_text, parse_mode="Markdown")
+        else:
+            await update.message.reply_text("❌ You are not an admin.")
+    
+    async def givebal_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Give balance to a user (Admin only)"""
+        if not self.is_admin(update.effective_user.id):
+            await update.message.reply_text("❌ This command is for administrators only.")
+            return
+        
+        if not context.args or len(context.args) < 2:
+            await update.message.reply_text("Usage: `/givebal <user_id> <amount>`", parse_mode="Markdown")
+            return
+        
+        try:
+            target_user_id = int(context.args[0])
+            amount = float(context.args[1])
+        except ValueError:
+            await update.message.reply_text("❌ Invalid user_id or amount.")
+            return
+        
+        if amount <= 0:
+            await update.message.reply_text("❌ Amount must be positive.")
+            return
+        
+        target_user = self.db.get_user(target_user_id)
+        if not target_user:
+            await update.message.reply_text(f"❌ User {target_user_id} not found.")
+            return
+        
+        target_user['balance'] += amount
+        self.db.update_user(target_user_id, target_user)
+        self.db.add_transaction(target_user_id, "admin_give", amount, f"Admin grant by {update.effective_user.id}")
+        
+        await update.message.reply_text(
+            f"✅ Gave **${amount:.2f}** to user {target_user_id}\n"
+            f"New balance: **${target_user['balance']:.2f}**",
+            parse_mode="Markdown"
+        )
+    
+    async def setbal_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Set a user's balance (Admin only)"""
+        if not self.is_admin(update.effective_user.id):
+            await update.message.reply_text("❌ This command is for administrators only.")
+            return
+        
+        if not context.args or len(context.args) < 2:
+            await update.message.reply_text("Usage: `/setbal <user_id> <amount>`", parse_mode="Markdown")
+            return
+        
+        try:
+            target_user_id = int(context.args[0])
+            amount = float(context.args[1])
+        except ValueError:
+            await update.message.reply_text("❌ Invalid user_id or amount.")
+            return
+        
+        if amount < 0:
+            await update.message.reply_text("❌ Amount cannot be negative.")
+            return
+        
+        target_user = self.db.get_user(target_user_id)
+        if not target_user:
+            await update.message.reply_text(f"❌ User {target_user_id} not found.")
+            return
+        
+        old_balance = target_user['balance']
+        target_user['balance'] = amount
+        self.db.update_user(target_user_id, target_user)
+        self.db.add_transaction(target_user_id, "admin_set", amount - old_balance, f"Admin set balance by {update.effective_user.id}")
+        
+        await update.message.reply_text(
+            f"✅ Set balance for user {target_user_id}\n"
+            f"Old balance: **${old_balance:.2f}**\n"
+            f"New balance: **${amount:.2f}**",
+            parse_mode="Markdown"
+        )
+    
+    async def allusers_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """View all registered users (Admin only)"""
+        if not self.is_admin(update.effective_user.id):
+            await update.message.reply_text("❌ This command is for administrators only.")
+            return
+        
+        users = self.db.data['users']
+        
+        if not users:
+            await update.message.reply_text("No users registered yet.")
+            return
+        
+        users_text = f"👥 **All Users ({len(users)})**\n\n"
+        
+        for user_id_str, user_data in list(users.items())[:50]:
+            username = user_data.get('username', 'N/A')
+            balance = user_data.get('balance', 0)
+            users_text += f"ID: `{user_id_str}` | @{username} | ${balance:.2f}\n"
+        
+        if len(users) > 50:
+            users_text += f"\n...and {len(users) - 50} more users"
+        
+        await update.message.reply_text(users_text, parse_mode="Markdown")
+    
+    async def userinfo_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """View detailed user information (Admin only)"""
+        if not self.is_admin(update.effective_user.id):
+            await update.message.reply_text("❌ This command is for administrators only.")
+            return
+        
+        if not context.args:
+            await update.message.reply_text("Usage: `/userinfo <user_id>`", parse_mode="Markdown")
+            return
+        
+        try:
+            target_user_id = int(context.args[0])
+        except ValueError:
+            await update.message.reply_text("❌ Invalid user_id.")
+            return
+        
+        target_user = self.db.get_user(target_user_id)
+        if not target_user:
+            await update.message.reply_text(f"❌ User {target_user_id} not found.")
+            return
+        
+        info_text = f"""
+👤 **User Info: {target_user_id}**
+
+Username: @{target_user.get('username', 'N/A')}
+Balance: ${target_user.get('balance', 0):.2f}
+Playthrough: ${target_user.get('playthrough_required', 0):.2f}
+
+**Stats:**
+Games Played: {target_user.get('games_played', 0)}
+Games Won: {target_user.get('games_won', 0)}
+Total Wagered: ${target_user.get('total_wagered', 0):.2f}
+Total P&L: ${target_user.get('total_pnl', 0):.2f}
+Best Win Streak: {target_user.get('best_win_streak', 0)}
+
+**Referrals:**
+Referred By: {target_user.get('referred_by', 'None')}
+Referral Count: {target_user.get('referral_count', 0)}
+Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
+"""
+        
+        await update.message.reply_text(info_text, parse_mode="Markdown")
     
     async def send_sticker(self, chat_id: int, outcome: str, profit: float = 0):
         """Send a sticker based on game outcome"""
