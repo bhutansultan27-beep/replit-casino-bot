@@ -48,6 +48,7 @@ class DatabaseManager:
             "transactions": {},
             "pending_pvp": {},
             "house_balance": 10000.00, # Initial house seed money
+            "dynamic_admins": [],  # Additional admins added via commands
             "stickers": {
                 "roulette": {}  # Will store stickers for roulette numbers: "00", "0", "1", "2", ... "36"
             }
@@ -151,15 +152,24 @@ class AntariaCasinoBot:
         # Initialize the internal database manager
         self.db = DatabaseManager()
         
-        # Admin user IDs from environment variable
+        # Admin user IDs from environment variable (permanent admins)
         admin_ids_str = os.getenv("ADMIN_IDS", "")
-        self.admin_ids = set()
+        self.env_admin_ids = set()
         if admin_ids_str:
             try:
-                self.admin_ids = set(int(id.strip()) for id in admin_ids_str.split(",") if id.strip())
-                logger.info(f"Loaded {len(self.admin_ids)} admin user(s)")
+                self.env_admin_ids = set(int(id.strip()) for id in admin_ids_str.split(",") if id.strip())
+                logger.info(f"Loaded {len(self.env_admin_ids)} permanent admin(s) from environment")
             except ValueError:
                 logger.error("Invalid ADMIN_IDS format. Use comma-separated numbers.")
+        
+        # Load dynamic admins from database
+        if 'dynamic_admins' not in self.db.data:
+            self.db.data['dynamic_admins'] = []
+            self.db.save_data()
+        
+        self.dynamic_admin_ids = set(self.db.data.get('dynamic_admins', []))
+        if self.dynamic_admin_ids:
+            logger.info(f"Loaded {len(self.dynamic_admin_ids)} dynamic admin(s) from database")
         
         # Initialize bot application
         self.app = Application.builder().token(token).build()
@@ -251,6 +261,9 @@ class AntariaCasinoBot:
         self.app.add_handler(CommandHandler("setbal", self.setbal_command))
         self.app.add_handler(CommandHandler("allusers", self.allusers_command))
         self.app.add_handler(CommandHandler("userinfo", self.userinfo_command))
+        self.app.add_handler(CommandHandler("addadmin", self.addadmin_command))
+        self.app.add_handler(CommandHandler("removeadmin", self.removeadmin_command))
+        self.app.add_handler(CommandHandler("listadmins", self.listadmins_command))
         
         self.app.add_handler(MessageHandler(filters.Sticker.ALL, self.sticker_handler))
         self.app.add_handler(CallbackQueryHandler(self.button_callback))
@@ -270,8 +283,8 @@ class AntariaCasinoBot:
         return user_data
     
     def is_admin(self, user_id: int) -> bool:
-        """Check if a user is an admin"""
-        return user_id in self.admin_ids
+        """Check if a user is an admin (environment or dynamic)"""
+        return user_id in self.env_admin_ids or user_id in self.dynamic_admin_ids
     
     def find_user_by_username_or_id(self, identifier: str) -> Optional[Dict[str, Any]]:
         """Find a user by username (@username) or user ID"""
@@ -1035,7 +1048,10 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         user_id = update.effective_user.id
         
         if self.is_admin(user_id):
-            admin_text = """✅ You are an admin!
+            is_env_admin = user_id in self.env_admin_ids
+            admin_type = "Permanent Admin" if is_env_admin else "Dynamic Admin"
+            
+            admin_text = f"""✅ You are a {admin_type}!
 
 Admin Commands:
 • /givebal [@username or ID] [amount] - Give money to a user
@@ -1043,10 +1059,15 @@ Admin Commands:
 • /allusers - View all registered users
 • /userinfo [@username or ID] - View detailed user info
 • /backup - Download database backup
+• /addadmin [user_id] - Make someone an admin
+• /removeadmin [user_id] - Remove admin access
+• /listadmins - List all admins
 
 Examples:
 /givebal @john 100
-/setbal 123456789 500"""
+/setbal 123456789 500
+/addadmin 987654321
+/removeadmin 987654321"""
             await update.message.reply_text(admin_text)
         else:
             await update.message.reply_text("❌ You are not an admin.")
@@ -1187,6 +1208,123 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
 """
         
         await update.message.reply_text(info_text, parse_mode="Markdown")
+    
+    async def addadmin_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Add a new admin (Admin only - requires environment admin)"""
+        user_id = update.effective_user.id
+        
+        # Only permanent admins (from environment) can add new admins
+        if user_id not in self.env_admin_ids:
+            await update.message.reply_text("❌ Only permanent admins can add new admins.")
+            return
+        
+        if not context.args:
+            await update.message.reply_text("Usage: /addadmin [user_id]\nExample: /addadmin 123456789")
+            return
+        
+        try:
+            new_admin_id = int(context.args[0])
+        except ValueError:
+            await update.message.reply_text("❌ Invalid user ID. Please provide a numeric ID.")
+            return
+        
+        # Check if already an admin
+        if self.is_admin(new_admin_id):
+            admin_type = "permanent" if new_admin_id in self.env_admin_ids else "dynamic"
+            await update.message.reply_text(f"❌ User {new_admin_id} is already a {admin_type} admin.")
+            return
+        
+        # Add to dynamic admins
+        self.dynamic_admin_ids.add(new_admin_id)
+        self.db.data['dynamic_admins'] = list(self.dynamic_admin_ids)
+        self.db.save_data()
+        
+        await update.message.reply_text(f"✅ User {new_admin_id} has been added as an admin!")
+        
+        # Notify the new admin if they exist in the system
+        try:
+            await self.app.bot.send_message(
+                chat_id=new_admin_id,
+                text="🎉 You have been granted admin privileges! Use /admin to see available commands."
+            )
+        except Exception as e:
+            logger.info(f"Could not notify new admin {new_admin_id}: {e}")
+    
+    async def removeadmin_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Remove an admin (Admin only - requires environment admin)"""
+        user_id = update.effective_user.id
+        
+        # Only permanent admins (from environment) can remove admins
+        if user_id not in self.env_admin_ids:
+            await update.message.reply_text("❌ Only permanent admins can remove admins.")
+            return
+        
+        if not context.args:
+            await update.message.reply_text("Usage: /removeadmin [user_id]\nExample: /removeadmin 123456789")
+            return
+        
+        try:
+            admin_id = int(context.args[0])
+        except ValueError:
+            await update.message.reply_text("❌ Invalid user ID. Please provide a numeric ID.")
+            return
+        
+        # Prevent removing permanent admins
+        if admin_id in self.env_admin_ids:
+            await update.message.reply_text("❌ Cannot remove permanent admins from environment.")
+            return
+        
+        # Check if they are a dynamic admin
+        if admin_id not in self.dynamic_admin_ids:
+            await update.message.reply_text(f"❌ User {admin_id} is not a dynamic admin.")
+            return
+        
+        # Remove from dynamic admins
+        self.dynamic_admin_ids.discard(admin_id)
+        self.db.data['dynamic_admins'] = list(self.dynamic_admin_ids)
+        self.db.save_data()
+        
+        await update.message.reply_text(f"✅ Removed admin privileges from user {admin_id}!")
+        
+        # Notify the user if possible
+        try:
+            await self.app.bot.send_message(
+                chat_id=admin_id,
+                text="Your admin privileges have been removed."
+            )
+        except Exception as e:
+            logger.info(f"Could not notify removed admin {admin_id}: {e}")
+    
+    async def listadmins_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """List all admins (Admin only)"""
+        if not self.is_admin(update.effective_user.id):
+            await update.message.reply_text("❌ This command is for administrators only.")
+            return
+        
+        admin_text = "👑 **Admin List**\n\n"
+        
+        if self.env_admin_ids:
+            admin_text += "**Permanent Admins (from environment):**\n"
+            for admin_id in sorted(self.env_admin_ids):
+                user_data = self.db.data['users'].get(str(admin_id))
+                username = user_data.get('username', 'N/A') if user_data else 'N/A'
+                admin_text += f"• {admin_id} (@{username})\n"
+            admin_text += "\n"
+        
+        if self.dynamic_admin_ids:
+            admin_text += "**Dynamic Admins (added via commands):**\n"
+            for admin_id in sorted(self.dynamic_admin_ids):
+                user_data = self.db.data['users'].get(str(admin_id))
+                username = user_data.get('username', 'N/A') if user_data else 'N/A'
+                admin_text += f"• {admin_id} (@{username})\n"
+        else:
+            if not self.env_admin_ids:
+                admin_text += "No admins configured."
+            else:
+                admin_text += "No dynamic admins added yet.\n"
+                admin_text += "Use /addadmin to add more admins."
+        
+        await update.message.reply_text(admin_text, parse_mode="Markdown")
     
     async def send_sticker(self, chat_id: int, outcome: str, profit: float = 0):
         """Send a sticker based on game outcome"""

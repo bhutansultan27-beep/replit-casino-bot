@@ -14,10 +14,22 @@ This is a complete Telegram gambling bot built with Python and the python-telegr
 
 ## Recent Changes
 
+**Dynamic Admin Management (2025-10-22)**
+- Added dynamic admin management system with two tiers:
+  - **Permanent Admins**: Set via `ADMIN_IDS` environment variable (secure, can't be removed via commands)
+  - **Dynamic Admins**: Added/removed via commands, stored in database
+- New admin management commands (permanent admins only):
+  - `/addadmin <user_id>` - Grant admin privileges to a user
+  - `/removeadmin <user_id>` - Remove admin privileges from a dynamic admin
+  - `/listadmins` - View all permanent and dynamic admins
+- Only permanent admins can add/remove other admins (prevents privilege escalation)
+- Admin changes are saved to database and persist across restarts
+- New admins receive a notification when privileges are granted
+
 **Admin Commands System (2025-10-22)**
 - Added admin authentication system using environment variable `ADMIN_IDS`
 - Admin IDs are stored as comma-separated values (e.g., `ADMIN_IDS=123456,789012`)
-- New admin commands:
+- Admin commands:
   - `/admin` - Check if you're an admin and view admin commands
   - `/givebal <user_id> <amount>` - Give money to a user
   - `/setbal <user_id> <amount>` - Set a user's balance
@@ -140,7 +152,8 @@ This is a complete Telegram gambling bot built with Python and the python-telegr
 
 ## Admin Commands
 
-These commands are only available to users whose IDs are listed in the `ADMIN_IDS` environment variable:
+### All Admins (Permanent & Dynamic)
+These commands are available to all admins:
 
 - `/admin` - Check admin status and view available admin commands
 - `/givebal <user_id> <amount>` - Give balance to a specific user
@@ -148,6 +161,15 @@ These commands are only available to users whose IDs are listed in the `ADMIN_ID
 - `/allusers` - View all registered users (shows up to 50 users)
 - `/userinfo <user_id>` - View detailed information about a specific user
 - `/backup` - Download the database file as a backup
+- `/listadmins` - View all permanent and dynamic admins
+
+### Permanent Admins Only
+These commands are only available to admins listed in the `ADMIN_IDS` environment variable:
+
+- `/addadmin <user_id>` - Grant admin privileges to another user
+- `/removeadmin <user_id>` - Remove admin privileges from a dynamic admin
+
+Note: Permanent admins cannot be removed via commands for security.
 
 ## Game Rules
 
