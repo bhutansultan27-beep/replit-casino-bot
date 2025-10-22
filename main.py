@@ -170,6 +170,11 @@ class AntariaCasinoBot:
         self.app.add_handler(CommandHandler("housebal", self.housebal_command))
         self.app.add_handler(CommandHandler("history", self.history_command))
         self.app.add_handler(CommandHandler("dice", self.dice_command))
+        self.app.add_handler(CommandHandler("darts", self.darts_command))
+        self.app.add_handler(CommandHandler("basketball", self.basketball_command))
+        self.app.add_handler(CommandHandler("bball", self.basketball_command))
+        self.app.add_handler(CommandHandler("soccer", self.soccer_command))
+        self.app.add_handler(CommandHandler("football", self.soccer_command))
         self.app.add_handler(CommandHandler("coinflip", self.coinflip_command))
         self.app.add_handler(CommandHandler("flip", self.coinflip_command))
         self.app.add_handler(CommandHandler("tip", self.tip_command))
@@ -540,6 +545,120 @@ Current Balance: ${house_balance:.2f}
             parse_mode="Markdown"
         )
     
+    async def darts_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Play darts game setup"""
+        user_id = update.effective_user.id
+        user_data = self.db.get_user(user_id)
+        
+        if not context.args:
+            await update.message.reply_text("Usage: `/darts <amount>` or `/darts all`", parse_mode="Markdown")
+            return
+        
+        wager = 0.0
+        if context.args[0].lower() == "all":
+            wager = user_data['balance']
+        else:
+            try:
+                wager = round(float(context.args[0]), 2)
+            except ValueError:
+                await update.message.reply_text("❌ Invalid wager amount. Please enter a number.")
+                return
+        
+        if wager <= 0.01:
+            await update.message.reply_text("❌ Wager must be at least $0.01.")
+            return
+        
+        if wager > user_data['balance']:
+            await update.message.reply_text(f"❌ Insufficient balance. You have ${user_data['balance']:.2f}")
+            return
+        
+        keyboard = [
+            [InlineKeyboardButton("🤖 Play vs Bot", callback_data=f"darts_bot_{wager:.2f}")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await update.message.reply_text(
+            f"🎯 **Darts Game**\n\nWager: ${wager:.2f}\n\nHit the bullseye! (1-6, higher is better)",
+            reply_markup=reply_markup,
+            parse_mode="Markdown"
+        )
+    
+    async def basketball_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Play basketball game setup"""
+        user_id = update.effective_user.id
+        user_data = self.db.get_user(user_id)
+        
+        if not context.args:
+            await update.message.reply_text("Usage: `/basketball <amount>` or `/basketball all`", parse_mode="Markdown")
+            return
+        
+        wager = 0.0
+        if context.args[0].lower() == "all":
+            wager = user_data['balance']
+        else:
+            try:
+                wager = round(float(context.args[0]), 2)
+            except ValueError:
+                await update.message.reply_text("❌ Invalid wager amount. Please enter a number.")
+                return
+        
+        if wager <= 0.01:
+            await update.message.reply_text("❌ Wager must be at least $0.01.")
+            return
+        
+        if wager > user_data['balance']:
+            await update.message.reply_text(f"❌ Insufficient balance. You have ${user_data['balance']:.2f}")
+            return
+        
+        keyboard = [
+            [InlineKeyboardButton("🤖 Play vs Bot", callback_data=f"basketball_bot_{wager:.2f}")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await update.message.reply_text(
+            f"🏀 **Basketball Game**\n\nWager: ${wager:.2f}\n\nShoot for the hoop! (1-5, higher is better)",
+            reply_markup=reply_markup,
+            parse_mode="Markdown"
+        )
+    
+    async def soccer_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Play soccer game setup"""
+        user_id = update.effective_user.id
+        user_data = self.db.get_user(user_id)
+        
+        if not context.args:
+            await update.message.reply_text("Usage: `/soccer <amount>` or `/soccer all`", parse_mode="Markdown")
+            return
+        
+        wager = 0.0
+        if context.args[0].lower() == "all":
+            wager = user_data['balance']
+        else:
+            try:
+                wager = round(float(context.args[0]), 2)
+            except ValueError:
+                await update.message.reply_text("❌ Invalid wager amount. Please enter a number.")
+                return
+        
+        if wager <= 0.01:
+            await update.message.reply_text("❌ Wager must be at least $0.01.")
+            return
+        
+        if wager > user_data['balance']:
+            await update.message.reply_text(f"❌ Insufficient balance. You have ${user_data['balance']:.2f}")
+            return
+        
+        keyboard = [
+            [InlineKeyboardButton("🤖 Play vs Bot", callback_data=f"soccer_bot_{wager:.2f}")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await update.message.reply_text(
+            f"⚽ **Soccer Game**\n\nWager: ${wager:.2f}\n\nScore a goal! (1-5, higher is better)",
+            reply_markup=reply_markup,
+            parse_mode="Markdown"
+        )
+    
     async def coinflip_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play coinflip game setup"""
         user_id = update.effective_user.id
@@ -755,6 +874,168 @@ Current Balance: ${house_balance:.2f}
         
         await context.bot.send_message(chat_id=chat_id, text=result_text, reply_markup=reply_markup, parse_mode="Markdown")
 
+    async def darts_vs_bot(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float):
+        """Play darts against the bot (called from button)"""
+        query = update.callback_query
+        user_id = query.from_user.id
+        user_data = self.db.get_user(user_id)
+        username = user_data.get('username', f'User{user_id}')
+        chat_id = query.message.chat_id
+        
+        if wager > user_data['balance']:
+            await context.bot.send_message(chat_id=chat_id, text=f"❌ Insufficient balance. You have ${user_data['balance']:.2f}")
+            return
+
+        player_dice_msg = await context.bot.send_dice(chat_id=chat_id, emoji="🎯")
+        await asyncio.sleep(3)
+        player_roll = player_dice_msg.dice.value
+        
+        bot_dice_msg = await context.bot.send_dice(chat_id=chat_id, emoji="🎯")
+        await asyncio.sleep(3)
+        bot_roll = bot_dice_msg.dice.value
+        
+        await asyncio.sleep(0.5)
+
+        profit = 0.0
+        result = "draw"
+        
+        if player_roll > bot_roll:
+            profit = wager
+            result = "win"
+            result_text = f"🎉 **{username}** scored **{player_roll}** vs Bot's **{bot_roll}** and won **${profit:.2f}**!"
+            self.db.update_house_balance(-wager)
+        elif player_roll < bot_roll:
+            profit = -wager
+            result = "loss"
+            result_text = f"😭 **{username}** scored **{player_roll}** vs Bot's **{bot_roll}** and lost **${wager:.2f}**."
+            self.db.update_house_balance(wager)
+        else:
+            result_text = f"🤝 **{username}** and Bot both scored **{player_roll}**. It's a draw, bet refunded."
+            
+        self._update_user_stats(user_id, wager, profit, result)
+        self.db.add_transaction(user_id, "darts_bot", profit, f"Darts vs Bot - Wager: ${wager:.2f}")
+        self.db.record_game({
+            "type": "darts_bot",
+            "player_id": user_id,
+            "wager": wager,
+            "player_roll": player_roll,
+            "bot_roll": bot_roll,
+            "result": result
+        })
+        
+        keyboard = [[InlineKeyboardButton("Play Again", callback_data=f"darts_bot_{wager:.2f}")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await context.bot.send_message(chat_id=chat_id, text=result_text, reply_markup=reply_markup, parse_mode="Markdown")
+
+    async def basketball_vs_bot(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float):
+        """Play basketball against the bot (called from button)"""
+        query = update.callback_query
+        user_id = query.from_user.id
+        user_data = self.db.get_user(user_id)
+        username = user_data.get('username', f'User{user_id}')
+        chat_id = query.message.chat_id
+        
+        if wager > user_data['balance']:
+            await context.bot.send_message(chat_id=chat_id, text=f"❌ Insufficient balance. You have ${user_data['balance']:.2f}")
+            return
+
+        player_dice_msg = await context.bot.send_dice(chat_id=chat_id, emoji="🏀")
+        await asyncio.sleep(4)
+        player_roll = player_dice_msg.dice.value
+        
+        bot_dice_msg = await context.bot.send_dice(chat_id=chat_id, emoji="🏀")
+        await asyncio.sleep(4)
+        bot_roll = bot_dice_msg.dice.value
+        
+        await asyncio.sleep(0.5)
+
+        profit = 0.0
+        result = "draw"
+        
+        if player_roll > bot_roll:
+            profit = wager
+            result = "win"
+            result_text = f"🎉 **{username}** scored **{player_roll}** vs Bot's **{bot_roll}** and won **${profit:.2f}**!"
+            self.db.update_house_balance(-wager)
+        elif player_roll < bot_roll:
+            profit = -wager
+            result = "loss"
+            result_text = f"😭 **{username}** scored **{player_roll}** vs Bot's **{bot_roll}** and lost **${wager:.2f}**."
+            self.db.update_house_balance(wager)
+        else:
+            result_text = f"🤝 **{username}** and Bot both scored **{player_roll}**. It's a draw, bet refunded."
+            
+        self._update_user_stats(user_id, wager, profit, result)
+        self.db.add_transaction(user_id, "basketball_bot", profit, f"Basketball vs Bot - Wager: ${wager:.2f}")
+        self.db.record_game({
+            "type": "basketball_bot",
+            "player_id": user_id,
+            "wager": wager,
+            "player_roll": player_roll,
+            "bot_roll": bot_roll,
+            "result": result
+        })
+        
+        keyboard = [[InlineKeyboardButton("Play Again", callback_data=f"basketball_bot_{wager:.2f}")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await context.bot.send_message(chat_id=chat_id, text=result_text, reply_markup=reply_markup, parse_mode="Markdown")
+
+    async def soccer_vs_bot(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float):
+        """Play soccer against the bot (called from button)"""
+        query = update.callback_query
+        user_id = query.from_user.id
+        user_data = self.db.get_user(user_id)
+        username = user_data.get('username', f'User{user_id}')
+        chat_id = query.message.chat_id
+        
+        if wager > user_data['balance']:
+            await context.bot.send_message(chat_id=chat_id, text=f"❌ Insufficient balance. You have ${user_data['balance']:.2f}")
+            return
+
+        player_dice_msg = await context.bot.send_dice(chat_id=chat_id, emoji="⚽")
+        await asyncio.sleep(4)
+        player_roll = player_dice_msg.dice.value
+        
+        bot_dice_msg = await context.bot.send_dice(chat_id=chat_id, emoji="⚽")
+        await asyncio.sleep(4)
+        bot_roll = bot_dice_msg.dice.value
+        
+        await asyncio.sleep(0.5)
+
+        profit = 0.0
+        result = "draw"
+        
+        if player_roll > bot_roll:
+            profit = wager
+            result = "win"
+            result_text = f"🎉 **{username}** scored **{player_roll}** vs Bot's **{bot_roll}** and won **${profit:.2f}**!"
+            self.db.update_house_balance(-wager)
+        elif player_roll < bot_roll:
+            profit = -wager
+            result = "loss"
+            result_text = f"😭 **{username}** scored **{player_roll}** vs Bot's **{bot_roll}** and lost **${wager:.2f}**."
+            self.db.update_house_balance(wager)
+        else:
+            result_text = f"🤝 **{username}** and Bot both scored **{player_roll}**. It's a draw, bet refunded."
+            
+        self._update_user_stats(user_id, wager, profit, result)
+        self.db.add_transaction(user_id, "soccer_bot", profit, f"Soccer vs Bot - Wager: ${wager:.2f}")
+        self.db.record_game({
+            "type": "soccer_bot",
+            "player_id": user_id,
+            "wager": wager,
+            "player_roll": player_roll,
+            "bot_roll": bot_roll,
+            "result": result
+        })
+        
+        keyboard = [[InlineKeyboardButton("Play Again", callback_data=f"soccer_bot_{wager:.2f}")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await context.bot.send_message(chat_id=chat_id, text=result_text, reply_markup=reply_markup, parse_mode="Markdown")
+
     async def create_open_dice_challenge(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float):
         """Create an open dice challenge for anyone to accept"""
         query = update.callback_query
@@ -965,6 +1246,21 @@ Current Balance: ${house_balance:.2f}
             if data.startswith("dice_bot_"):
                 wager = float(data.split('_')[2])
                 await self.dice_vs_bot(update, context, wager)
+                
+            # Game Callbacks (Darts vs Bot)
+            elif data.startswith("darts_bot_"):
+                wager = float(data.split('_')[2])
+                await self.darts_vs_bot(update, context, wager)
+                
+            # Game Callbacks (Basketball vs Bot)
+            elif data.startswith("basketball_bot_"):
+                wager = float(data.split('_')[2])
+                await self.basketball_vs_bot(update, context, wager)
+                
+            # Game Callbacks (Soccer vs Bot)
+            elif data.startswith("soccer_bot_"):
+                wager = float(data.split('_')[2])
+                await self.soccer_vs_bot(update, context, wager)
                 
             # Game Callbacks (Dice PvP)
             elif data.startswith("dice_player_open_"):
