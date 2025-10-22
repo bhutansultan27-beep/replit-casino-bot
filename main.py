@@ -271,6 +271,7 @@ class AntariaCasinoBot:
         self.app.add_handler(CommandHandler("listadmins", self.listadmins_command))
         
         self.app.add_handler(MessageHandler(filters.Sticker.ALL, self.sticker_handler))
+        self.app.add_handler(MessageHandler(filters.Dice.ALL, self.handle_emoji_response))
         self.app.add_handler(CallbackQueryHandler(self.button_callback))
     
     # --- COMMAND HANDLERS ---
@@ -664,12 +665,13 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             return
         
         keyboard = [
-            [InlineKeyboardButton("🤖 Play vs Bot", callback_data=f"darts_bot_{wager:.2f}")]
+            [InlineKeyboardButton("🤖 Play vs Bot", callback_data=f"darts_bot_{wager:.2f}")],
+            [InlineKeyboardButton("👥 Create PvP Challenge", callback_data=f"darts_player_open_{wager:.2f}")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         sent_msg = await update.message.reply_text(
-            f"🎯 **Darts Game**\n\nWager: ${wager:.2f}",
+            f"🎯 **Darts Game**\n\nWager: ${wager:.2f}\n\nChoose your opponent:",
             reply_markup=reply_markup,
             parse_mode="Markdown"
         )
@@ -703,12 +705,13 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             return
         
         keyboard = [
-            [InlineKeyboardButton("🤖 Play vs Bot", callback_data=f"basketball_bot_{wager:.2f}")]
+            [InlineKeyboardButton("🤖 Play vs Bot", callback_data=f"basketball_bot_{wager:.2f}")],
+            [InlineKeyboardButton("👥 Create PvP Challenge", callback_data=f"basketball_player_open_{wager:.2f}")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         sent_msg = await update.message.reply_text(
-            f"🏀 **Basketball Game**\n\nWager: ${wager:.2f}",
+            f"🏀 **Basketball Game**\n\nWager: ${wager:.2f}\n\nChoose your opponent:",
             reply_markup=reply_markup,
             parse_mode="Markdown"
         )
@@ -742,12 +745,13 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             return
         
         keyboard = [
-            [InlineKeyboardButton("🤖 Play vs Bot", callback_data=f"soccer_bot_{wager:.2f}")]
+            [InlineKeyboardButton("🤖 Play vs Bot", callback_data=f"soccer_bot_{wager:.2f}")],
+            [InlineKeyboardButton("👥 Create PvP Challenge", callback_data=f"soccer_player_open_{wager:.2f}")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         sent_msg = await update.message.reply_text(
-            f"⚽ **Soccer Game**\n\nWager: ${wager:.2f}",
+            f"⚽ **Soccer Game**\n\nWager: ${wager:.2f}\n\nChoose your opponent:",
             reply_markup=reply_markup,
             parse_mode="Markdown"
         )
@@ -1767,6 +1771,186 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         final_text = f"🎉 **PVP RESULT: ${wager * 2:.2f} Pot!**\n\n{result_text}\n\n🏆 **@{winner_user['username']}** wins **${winnings:.2f}**!"
         await context.bot.send_message(chat_id=chat_id, text=final_text, parse_mode="Markdown")
 
+    async def create_emoji_pvp_challenge(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float, game_type: str, emoji: str):
+        """Create an emoji-based PvP challenge (darts, basketball, soccer)"""
+        query = update.callback_query
+        user_id = query.from_user.id
+        user_data = self.db.get_user(user_id)
+        username = user_data.get('username', f'User{user_id}')
+        
+        if wager > user_data['balance']:
+            await query.answer("❌ Insufficient balance to cover the wager.", show_alert=True)
+            return
+        
+        # Deduct wager from challenger balance immediately
+        self.db.update_user(user_id, {'balance': user_data['balance'] - wager})
+        
+        # Send emoji for challenger's roll
+        await query.edit_message_text(f"{emoji} **{game_type.upper()} PvP Challenge!**\n\nChallenger: @{username} is rolling...", parse_mode="Markdown")
+        
+        chat_id = query.message.chat_id
+        challenger_roll_msg = await context.bot.send_dice(chat_id=chat_id, emoji=emoji)
+        await asyncio.sleep(3)
+        challenger_roll = challenger_roll_msg.dice.value
+        
+        challenge_id = f"{game_type}_open_{user_id}_{int(datetime.now().timestamp())}"
+        self.pending_pvp[challenge_id] = {
+            "type": game_type,
+            "challenger": user_id,
+            "challenger_roll": challenger_roll,
+            "opponent": None,
+            "wager": wager,
+            "emoji": emoji,
+            "chat_id": chat_id,
+            "created_at": datetime.now().isoformat()
+        }
+        self.db.data['pending_pvp'] = self.pending_pvp
+        self.db.save_data()
+        
+        keyboard = [[InlineKeyboardButton("✅ Accept Challenge", callback_data=f"accept_{game_type}_{challenge_id}")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=f"{emoji} **{game_type.upper()} PvP Challenge!**\n\n"
+                 f"Challenger: @{username} (Rolled: {challenger_roll})\n"
+                 f"Wager: **${wager:.2f}**\n\n"
+                 f"Click below to accept and send your {emoji} emoji!",
+            reply_markup=reply_markup,
+            parse_mode="Markdown"
+        )
+
+    async def accept_emoji_pvp_challenge(self, update: Update, context: ContextTypes.DEFAULT_TYPE, challenge_id: str):
+        """Accept a pending emoji PvP challenge"""
+        query = update.callback_query
+        
+        challenge = self.pending_pvp.get(challenge_id)
+        if not challenge:
+            await query.answer("❌ This challenge has expired or was canceled.", show_alert=True)
+            return
+        
+        acceptor_id = query.from_user.id
+        wager = challenge['wager']
+        challenger_id = challenge['challenger']
+        challenger_user = self.db.get_user(challenger_id)
+        acceptor_user = self.db.get_user(acceptor_id)
+        game_type = challenge['type']
+        emoji = challenge['emoji']
+        chat_id = challenge['chat_id']
+        challenger_roll = challenge['challenger_roll']
+        
+        if acceptor_id == challenger_id:
+            await query.answer("❌ You cannot accept your own challenge.", show_alert=True)
+            return
+        
+        if wager > acceptor_user['balance']:
+            await query.answer(f"❌ Insufficient balance. You need ${wager:.2f} to accept.", show_alert=True)
+            return
+        
+        # Deduct wager from acceptor balance
+        self.db.update_user(acceptor_id, {'balance': acceptor_user['balance'] - wager})
+        
+        # Tell acceptor to send their emoji
+        await query.edit_message_text(
+            f"{emoji} **Challenge Accepted!**\n\n"
+            f"@{acceptor_user['username']}, it's your turn!\n"
+            f"Send your {emoji} emoji now!",
+            parse_mode="Markdown"
+        )
+        
+        # Update challenge to mark acceptor
+        challenge['opponent'] = acceptor_id
+        challenge['waiting_for_emoji'] = True
+        self.pending_pvp[challenge_id] = challenge
+        self.db.data['pending_pvp'] = self.pending_pvp
+        self.db.save_data()
+
+    async def handle_emoji_response(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle when a user sends a dice emoji for PvP"""
+        if not update.message.dice:
+            return
+        
+        user_id = update.effective_user.id
+        emoji = update.message.dice.emoji
+        roll_value = update.message.dice.value
+        chat_id = update.message.chat_id
+        
+        # Find pending challenge waiting for this user's emoji
+        challenge_id_to_resolve = None
+        challenge_to_resolve = None
+        
+        for cid, challenge in self.pending_pvp.items():
+            if (challenge.get('waiting_for_emoji') and 
+                challenge.get('opponent') == user_id and
+                challenge.get('emoji') == emoji and
+                challenge.get('chat_id') == chat_id):
+                challenge_id_to_resolve = cid
+                challenge_to_resolve = challenge
+                break
+        
+        if not challenge_to_resolve:
+            return  # Not a PvP emoji response
+        
+        # Resolve the challenge
+        await asyncio.sleep(3)  # Wait for emoji animation
+        
+        challenger_id = challenge_to_resolve['challenger']
+        challenger_roll = challenge_to_resolve['challenger_roll']
+        acceptor_roll = roll_value
+        wager = challenge_to_resolve['wager']
+        game_type = challenge_to_resolve['type']
+        
+        challenger_user = self.db.get_user(challenger_id)
+        acceptor_user = self.db.get_user(user_id)
+        
+        # Remove challenge from pending
+        del self.pending_pvp[challenge_id_to_resolve]
+        self.db.data['pending_pvp'] = self.pending_pvp
+        self.db.save_data()
+        
+        # Determine winner
+        winner_id = None
+        loser_id = None
+        result_text = ""
+        
+        if challenger_roll > acceptor_roll:
+            winner_id = challenger_id
+            loser_id = user_id
+            result_text = f"@{challenger_user['username']} won ${wager:.2f}"
+        elif acceptor_roll > challenger_roll:
+            winner_id = user_id
+            loser_id = challenger_id
+            result_text = f"@{acceptor_user['username']} won ${wager:.2f}"
+        else:
+            # Draw: refund both wagers
+            self.db.update_user(challenger_id, {'balance': challenger_user['balance'] + wager})
+            self.db.update_user(user_id, {'balance': acceptor_user['balance'] + wager})
+            result_text = f"Draw - Bets refunded"
+            
+            self._update_user_stats(challenger_id, wager, 0.0, "draw")
+            self._update_user_stats(user_id, wager, 0.0, "draw")
+            
+            self.db.record_game({"type": f"{game_type}_pvp", "challenger": challenger_id, "opponent": user_id, "wager": wager, "result": "draw"})
+            await context.bot.send_message(chat_id=chat_id, text=f"{emoji} {result_text}", parse_mode="Markdown")
+            return
+        
+        # Handle Win/Loss
+        winnings = wager * 2
+        winner_profit = wager
+        
+        winner_user = self.db.get_user(winner_id)
+        winner_user['balance'] += winnings
+        self.db.update_user(winner_id, winner_user)
+        
+        self._update_user_stats(winner_id, wager, winner_profit, "win")
+        self._update_user_stats(loser_id, wager, -wager, "loss")
+        
+        self.db.add_transaction(winner_id, f"{game_type}_pvp_win", winner_profit, f"{game_type.upper()} PvP Win vs {self.db.get_user(loser_id)['username']}")
+        self.db.add_transaction(loser_id, f"{game_type}_pvp_loss", -wager, f"{game_type.upper()} PvP Loss vs {self.db.get_user(winner_id)['username']}")
+        self.db.record_game({"type": f"{game_type}_pvp", "challenger": challenger_id, "opponent": user_id, "wager": wager, "result": "win"})
+        
+        final_text = f"{emoji} **PVP RESULT: ${wager * 2:.2f} Pot!**\n\n{result_text}\n\n🏆 **@{winner_user['username']}** wins **${winnings:.2f}**!"
+        await context.bot.send_message(chat_id=chat_id, text=final_text, parse_mode="Markdown")
 
     async def coinflip_vs_bot(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float, choice: str):
         """Play coinflip against the bot (called from button)"""
@@ -1781,7 +1965,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             return
         
         # Send coin emoji and determine result
-        await context.bot.send_message(chat_id=chat_id, text="🪙 Flipping...")
+        await context.bot.send_message(chat_id=chat_id, text="🪙")
         await asyncio.sleep(2)
         
         # Random coin flip result
@@ -2045,7 +2229,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         await query.answer() # Acknowledge the button press
         
         # Mark button as clicked for game buttons (not utility buttons)
-        if any(data.startswith(prefix) for prefix in ["dice_bot_", "darts_bot_", "basketball_bot_", "soccer_bot_", "flip_bot_", "roulette_", "dice_player_open_", "claim_daily_bonus", "claim_referral"]):
+        if any(data.startswith(prefix) for prefix in ["dice_bot_", "darts_bot_", "basketball_bot_", "soccer_bot_", "flip_bot_", "roulette_", "dice_player_open_", "darts_player_open_", "basketball_player_open_", "soccer_player_open_", "accept_darts_", "accept_basketball_", "accept_soccer_", "claim_daily_bonus", "claim_referral"]):
             self.clicked_buttons.add(button_key)
         
         try:
@@ -2077,6 +2261,33 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             elif data.startswith("accept_dice_"):
                 challenge_id = data.split('_', 2)[2]
                 await self.accept_dice_challenge(update, context, challenge_id)
+            
+            # Game Callbacks (Darts PvP)
+            elif data.startswith("darts_player_open_"):
+                wager = float(data.split('_')[3])
+                await self.create_emoji_pvp_challenge(update, context, wager, "darts", "🎯")
+            
+            elif data.startswith("accept_darts_"):
+                challenge_id = data.split('_', 2)[2]
+                await self.accept_emoji_pvp_challenge(update, context, challenge_id)
+            
+            # Game Callbacks (Basketball PvP)
+            elif data.startswith("basketball_player_open_"):
+                wager = float(data.split('_')[3])
+                await self.create_emoji_pvp_challenge(update, context, wager, "basketball", "🏀")
+            
+            elif data.startswith("accept_basketball_"):
+                challenge_id = data.split('_', 2)[2]
+                await self.accept_emoji_pvp_challenge(update, context, challenge_id)
+            
+            # Game Callbacks (Soccer PvP)
+            elif data.startswith("soccer_player_open_"):
+                wager = float(data.split('_')[3])
+                await self.create_emoji_pvp_challenge(update, context, wager, "soccer", "⚽")
+            
+            elif data.startswith("accept_soccer_"):
+                challenge_id = data.split('_', 2)[2]
+                await self.accept_emoji_pvp_challenge(update, context, challenge_id)
             
             # Game Callbacks (CoinFlip vs Bot)
             elif data.startswith("flip_bot_"):
