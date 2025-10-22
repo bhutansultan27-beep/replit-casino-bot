@@ -14,6 +14,15 @@ This is a complete Telegram gambling bot built with Python and the python-telegr
 
 ## Recent Changes
 
+**Simplified Emoji Game Results (2025-10-22)**
+- Updated darts, basketball, and soccer games to show simplified results
+- Only displays the winning amount, matching the dice game format
+- Individual scores are processed in the backend but not shown to players
+- Examples:
+  - Before: "🎉 **@user** scored **6** vs Bot's **3** and won **$10.00**!"
+  - After: "@user won $10.00"
+- Cleaner, more streamlined user experience across all games
+
 **Dynamic Admin Management (2025-10-22)**
 - Added dynamic admin management system with two tiers:
   - **Permanent Admins**: Set via `ADMIN_IDS` environment variable (secure, can't be removed via commands)

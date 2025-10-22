@@ -670,7 +670,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         await update.message.reply_text(
-            f"🎯 **Darts Game**\n\nWager: ${wager:.2f}\n\nHit the bullseye! (1-6, higher is better)",
+            f"🎯 **Darts Game**\n\nWager: ${wager:.2f}",
             reply_markup=reply_markup,
             parse_mode="Markdown"
         )
@@ -708,7 +708,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         await update.message.reply_text(
-            f"🏀 **Basketball Game**\n\nWager: ${wager:.2f}\n\nShoot for the hoop! (1-5, higher is better)",
+            f"🏀 **Basketball Game**\n\nWager: ${wager:.2f}",
             reply_markup=reply_markup,
             parse_mode="Markdown"
         )
@@ -746,7 +746,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         await update.message.reply_text(
-            f"⚽ **Soccer Game**\n\nWager: ${wager:.2f}\n\nScore a goal! (1-5, higher is better)",
+            f"⚽ **Soccer Game**\n\nWager: ${wager:.2f}",
             reply_markup=reply_markup,
             parse_mode="Markdown"
         )
@@ -1485,15 +1485,18 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         if player_roll > bot_roll:
             profit = wager
             result = "win"
-            result_text = f"🎉 **{username}** scored **{player_roll}** vs Bot's **{bot_roll}** and won **${profit:.2f}**!"
+            user_display = f"@{username}" if user_data.get('username') else username
+            result_text = f"{user_display} won ${profit:.2f}"
             self.db.update_house_balance(-wager)
         elif player_roll < bot_roll:
             profit = -wager
             result = "loss"
-            result_text = f"😭 **{username}** scored **{player_roll}** vs Bot's **{bot_roll}** and lost **${wager:.2f}**."
+            user_display = f"@{username}" if user_data.get('username') else username
+            result_text = f"{user_display} lost ${wager:.2f}"
             self.db.update_house_balance(wager)
         else:
-            result_text = f"🤝 **{username}** and Bot both scored **{player_roll}**. It's a draw, bet refunded."
+            user_display = f"@{username}" if user_data.get('username') else username
+            result_text = f"{user_display} - Draw, bet refunded"
             
         self._update_user_stats(user_id, wager, profit, result)
         self.db.add_transaction(user_id, "darts_bot", profit, f"Darts vs Bot - Wager: ${wager:.2f}")
@@ -1539,15 +1542,18 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         if player_roll > bot_roll:
             profit = wager
             result = "win"
-            result_text = f"🎉 **{username}** scored **{player_roll}** vs Bot's **{bot_roll}** and won **${profit:.2f}**!"
+            user_display = f"@{username}" if user_data.get('username') else username
+            result_text = f"{user_display} won ${profit:.2f}"
             self.db.update_house_balance(-wager)
         elif player_roll < bot_roll:
             profit = -wager
             result = "loss"
-            result_text = f"😭 **{username}** scored **{player_roll}** vs Bot's **{bot_roll}** and lost **${wager:.2f}**."
+            user_display = f"@{username}" if user_data.get('username') else username
+            result_text = f"{user_display} lost ${wager:.2f}"
             self.db.update_house_balance(wager)
         else:
-            result_text = f"🤝 **{username}** and Bot both scored **{player_roll}**. It's a draw, bet refunded."
+            user_display = f"@{username}" if user_data.get('username') else username
+            result_text = f"{user_display} - Draw, bet refunded"
             
         self._update_user_stats(user_id, wager, profit, result)
         self.db.add_transaction(user_id, "basketball_bot", profit, f"Basketball vs Bot - Wager: ${wager:.2f}")
@@ -1593,15 +1599,18 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         if player_roll > bot_roll:
             profit = wager
             result = "win"
-            result_text = f"🎉 **{username}** scored **{player_roll}** vs Bot's **{bot_roll}** and won **${profit:.2f}**!"
+            user_display = f"@{username}" if user_data.get('username') else username
+            result_text = f"{user_display} won ${profit:.2f}"
             self.db.update_house_balance(-wager)
         elif player_roll < bot_roll:
             profit = -wager
             result = "loss"
-            result_text = f"😭 **{username}** scored **{player_roll}** vs Bot's **{bot_roll}** and lost **${wager:.2f}**."
+            user_display = f"@{username}" if user_data.get('username') else username
+            result_text = f"{user_display} lost ${wager:.2f}"
             self.db.update_house_balance(wager)
         else:
-            result_text = f"🤝 **{username}** and Bot both scored **{player_roll}**. It's a draw, bet refunded."
+            user_display = f"@{username}" if user_data.get('username') else username
+            result_text = f"{user_display} - Draw, bet refunded"
             
         self._update_user_stats(user_id, wager, profit, result)
         self.db.add_transaction(user_id, "soccer_bot", profit, f"Soccer vs Bot - Wager: ${wager:.2f}")
