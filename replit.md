@@ -14,6 +14,22 @@ This is a complete Telegram gambling bot built with Python and the python-telegr
 
 ## Recent Changes
 
+**Player Manual Emoji Sending (2025-10-22)**
+- All emoji games (darts, basketball, soccer) now require players to manually send their own emojis
+- **Bot vs Player Mode:**
+  - Bot sends its emoji first (🎯, 🏀, or ⚽)
+  - Bot displays "@username your turn" to prompt the player
+  - Player manually sends their own emoji to compete
+  - Results are calculated and displayed after both emojis are sent
+- **PvP Mode:**
+  - Challenger sends their emoji to create the challenge
+  - Acceptor sees the challenge and clicks to accept
+  - Acceptor must manually send their own emoji to complete the match
+  - Results are calculated after both players have sent emojis
+- Coinflip now displays just the 🪙 emoji (no text)
+- All games use Telegram's native animated dice emojis for visual appeal
+- Provides more engaging, interactive gameplay experience
+
 **Simplified Game Results + Animated Coinflip (2025-10-22)**
 - All games now show simplified, clean results without score details
 - Updated emoji games (dice, darts, basketball, soccer) - both bot and PvP modes
