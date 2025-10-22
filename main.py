@@ -269,36 +269,23 @@ class AntariaCasinoBot:
         playthrough_msg = f"\n⚠️ Playthrough Required: ${user_data['playthrough_required']:.2f}" if user_data['playthrough_required'] > 0 else ""
         
         welcome_text = f"""
-🎰 **Welcome to Antaria Casino** 🎰
+🎰 **Antaria Casino**
 
-Hey {user.first_name}! Ready to test your luck?
+Balance: ${user_data['balance']:.2f}{playthrough_msg}
 
-💰 **Your Balance**: ${user_data['balance']:.2f}{playthrough_msg}
+**Games:**
+/dice <amount> - Roll dice 🎲
+/darts <amount> - Darts 🎯
+/basketball <amount> - Hoops 🏀
+/soccer <amount> - Soccer ⚽
+/flip <amount> - Coin flip 🪙
+/roulette <amount> - Roulette 🎰
 
-**🎮 Games:**
-/dice <amount|all> - Roll the dice 🎲 (1-6)
-/darts <amount|all> - Hit the bullseye 🎯 (1-6)
-/basketball <amount|all> - Shoot hoops 🏀 (1-5)
-/soccer <amount|all> - Score goals ⚽ (1-5)
-/flip <amount|all> - Classic coin flip 🪙
-/roulette <amount|all> - Spin the roulette wheel 🎰
-
-**💎 Features:**
-/bal - Check balance & deposit/withdraw
-/tip <amount> @user - Send money to another player
-/bonus - Claim your daily bonus (1% of wagered)
-/stats - View your statistics
-/history - View your match history
-/global - Top players by volume
-/ref - Get your referral link
-/housebal - View the house balance
-
-**🎁 Bonuses:**
-• New players get $5 starter bonus
-• Daily bonus: 1% of total wagered
-• Referral rewards: 1% of referral volume
-
-Good luck! 🍀
+**Other:**
+/bal - Balance
+/bonus - Daily bonus
+/stats - Stats
+/ref - Referral link
 """
         await update.message.reply_text(welcome_text, parse_mode="Markdown")
     
@@ -309,17 +296,12 @@ Good luck! 🍀
         
         playthrough_remaining = user_data['playthrough_required']
         
-        balance_text = f"""
-💰 **Your Balance**
-
-Balance: ${user_data['balance']:.2f}
-"""
+        balance_text = f"💰 Balance: ${user_data['balance']:.2f}"
         
         if playthrough_remaining > 0:
-            balance_text += f"\n📊 Playthrough Required: ${playthrough_remaining:.2f}"
-            balance_text += f"\n⚠️ Wager ${playthrough_remaining:.2f} more to unlock withdrawals"
+            balance_text += f"\n⚠️ Wager ${playthrough_remaining:.2f} to unlock withdrawals"
         else:
-            balance_text += "\n✅ Withdrawals unlocked!"
+            balance_text += "\n✅ Withdrawals unlocked"
         
         keyboard = [
             [InlineKeyboardButton("💵 Deposit (Mock)", callback_data="deposit_mock"),
@@ -352,9 +334,7 @@ Balance: ${user_data['balance']:.2f}
         wagered_since_withdrawal = user_data.get('wagered_since_last_withdrawal', 0)
         bonus_amount = wagered_since_withdrawal * 0.01
         
-        bonus_text = f"🎁 **Daily Bonus**\n\n"
-        bonus_text += f"📊 Current bonus: ${bonus_amount:.2f}\n"
-        bonus_text += f"💰 Total wagered since last withdrawal: ${wagered_since_withdrawal:.2f}\n"
+        bonus_text = f"🎁 Bonus: ${bonus_amount:.2f}\n"
         
         if not can_claim:
             bonus_text += cooldown_text
@@ -362,12 +342,11 @@ Balance: ${user_data['balance']:.2f}
             return
         
         if bonus_amount < 0.01:
-            bonus_text += f"\n⚠️ Minimum bonus to claim: $0.01\n"
-            bonus_text += f"Keep playing to earn more!"
+            bonus_text += "\n⚠️ Min: $0.01"
             await update.message.reply_text(bonus_text, parse_mode="Markdown")
             return
         
-        bonus_text += f"\n✅ Bonus ready to claim!"
+        bonus_text += "\n✅ Ready to claim"
         
         keyboard = [[InlineKeyboardButton("💰 Claim Bonus", callback_data="claim_daily_bonus")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -389,14 +368,13 @@ Balance: ${user_data['balance']:.2f}
             first_wager_str = "Never"
         
         stats_text = f"""
-📊 **Your Statistics**
+📊 **Stats**
 
-🎮 Games Played: {games_played}
-📈 Win Rate: {win_rate:.1f}%
-💰 Total Wagered: ${user_data.get('total_wagered', 0):.2f}
-📊 Total P&L: ${user_data.get('total_pnl', 0):.2f}
-🔥 Best Win Streak: {user_data.get('best_win_streak', 0)}
-📅 First Wager: {first_wager_str}
+Games: {games_played}
+Win Rate: {win_rate:.1f}%
+Wagered: ${user_data.get('total_wagered', 0):.2f}
+P&L: ${user_data.get('total_pnl', 0):.2f}
+Best Streak: {user_data.get('best_win_streak', 0)}
 """
         
         await update.message.reply_text(stats_text, parse_mode="Markdown")
@@ -421,10 +399,10 @@ Balance: ${user_data['balance']:.2f}
         end_idx = start_idx + items_per_page
         page_data = leaderboard[start_idx:end_idx]
         
-        leaderboard_text = f"🏆 **Leaderboard** (Page {page + 1}/{total_pages})\n\n"
+        leaderboard_text = f"🏆 **Leaderboard** ({page + 1}/{total_pages})\n\n"
         
         if not leaderboard:
-            leaderboard_text += "No players have wagered yet!"
+            leaderboard_text += "No players yet"
         
         for idx, player in enumerate(page_data, start=start_idx + 1):
             medal = "🥇" if idx == 1 else "🥈" if idx == 2 else "🥉" if idx == 3 else f"{idx}."
@@ -474,17 +452,13 @@ Balance: ${user_data['balance']:.2f}
         referral_link = f"https://t.me/{bot_username}?start=ref_{user_data['referral_code']}"
         
         referral_text = f"""
-👥 **Referral System**
+👥 **Referral**
 
-Your Referral Link:
-`{referral_link}`
+Link: `{referral_link}`
 
-📊 Statistics:
 Referrals: {user_data.get('referral_count', 0)}
-Total Earned: ${user_data.get('referral_earnings', 0):.2f}
+Earned: ${user_data.get('referral_earnings', 0):.2f}
 Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
-
-💡 Earn 1% of your referrals' betting volume!
 """
         
         keyboard = []
@@ -499,13 +473,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         """Show house balance"""
         house_balance = self.db.get_house_balance()
         
-        housebal_text = f"""
-🏦 **House Balance**
-
-Current Balance: ${house_balance:.2f}
-
-💡 The house balance fluctuates based on bot's winnings and losses in games against players.
-"""
+        housebal_text = f"🏦 House: ${house_balance:.2f}"
         
         await update.message.reply_text(housebal_text, parse_mode="Markdown")
     
@@ -523,10 +491,10 @@ Current Balance: ${house_balance:.2f}
         ][-15:]
         
         if not user_games_filtered:
-            await update.message.reply_text("📜 No match history yet. Play some games!")
+            await update.message.reply_text("📜 No history yet")
             return
         
-        history_text = "🎮 **Match History** (Last 15 Games)\n\n"
+        history_text = "🎮 **History** (Last 15)\n\n"
         
         for game in reversed(user_games_filtered):
             game_type = game.get('type', 'unknown')
@@ -572,7 +540,7 @@ Current Balance: ${house_balance:.2f}
         user_data = self.db.get_user(user_id)
         
         if not context.args:
-            await update.message.reply_text("Usage: `/dice <amount>` or `/dice all`", parse_mode="Markdown")
+            await update.message.reply_text("Usage: `/dice <amount|all>`", parse_mode="Markdown")
             return
         
         wager = 0.0
@@ -582,15 +550,15 @@ Current Balance: ${house_balance:.2f}
             try:
                 wager = round(float(context.args[0]), 2)
             except ValueError:
-                await update.message.reply_text("❌ Invalid wager amount. Please enter a number.")
+                await update.message.reply_text("❌ Invalid amount")
                 return
         
         if wager <= 0.01:
-            await update.message.reply_text("❌ Wager must be at least $0.01.")
+            await update.message.reply_text("❌ Min: $0.01")
             return
         
         if wager > user_data['balance']:
-            await update.message.reply_text(f"❌ Insufficient balance. You have ${user_data['balance']:.2f}")
+            await update.message.reply_text(f"❌ Balance: ${user_data['balance']:.2f}")
             return
         
         keyboard = [
@@ -611,7 +579,7 @@ Current Balance: ${house_balance:.2f}
         user_data = self.db.get_user(user_id)
         
         if not context.args:
-            await update.message.reply_text("Usage: `/darts <amount>` or `/darts all`", parse_mode="Markdown")
+            await update.message.reply_text("Usage: `/darts <amount|all>`", parse_mode="Markdown")
             return
         
         wager = 0.0
@@ -621,15 +589,15 @@ Current Balance: ${house_balance:.2f}
             try:
                 wager = round(float(context.args[0]), 2)
             except ValueError:
-                await update.message.reply_text("❌ Invalid wager amount. Please enter a number.")
+                await update.message.reply_text("❌ Invalid amount")
                 return
         
         if wager <= 0.01:
-            await update.message.reply_text("❌ Wager must be at least $0.01.")
+            await update.message.reply_text("❌ Min: $0.01")
             return
         
         if wager > user_data['balance']:
-            await update.message.reply_text(f"❌ Insufficient balance. You have ${user_data['balance']:.2f}")
+            await update.message.reply_text(f"❌ Balance: ${user_data['balance']:.2f}")
             return
         
         keyboard = [
@@ -649,7 +617,7 @@ Current Balance: ${house_balance:.2f}
         user_data = self.db.get_user(user_id)
         
         if not context.args:
-            await update.message.reply_text("Usage: `/basketball <amount>` or `/basketball all`", parse_mode="Markdown")
+            await update.message.reply_text("Usage: `/basketball <amount|all>`", parse_mode="Markdown")
             return
         
         wager = 0.0
@@ -659,15 +627,15 @@ Current Balance: ${house_balance:.2f}
             try:
                 wager = round(float(context.args[0]), 2)
             except ValueError:
-                await update.message.reply_text("❌ Invalid wager amount. Please enter a number.")
+                await update.message.reply_text("❌ Invalid amount")
                 return
         
         if wager <= 0.01:
-            await update.message.reply_text("❌ Wager must be at least $0.01.")
+            await update.message.reply_text("❌ Min: $0.01")
             return
         
         if wager > user_data['balance']:
-            await update.message.reply_text(f"❌ Insufficient balance. You have ${user_data['balance']:.2f}")
+            await update.message.reply_text(f"❌ Balance: ${user_data['balance']:.2f}")
             return
         
         keyboard = [
@@ -687,7 +655,7 @@ Current Balance: ${house_balance:.2f}
         user_data = self.db.get_user(user_id)
         
         if not context.args:
-            await update.message.reply_text("Usage: `/soccer <amount>` or `/soccer all`", parse_mode="Markdown")
+            await update.message.reply_text("Usage: `/soccer <amount|all>`", parse_mode="Markdown")
             return
         
         wager = 0.0
@@ -697,15 +665,15 @@ Current Balance: ${house_balance:.2f}
             try:
                 wager = round(float(context.args[0]), 2)
             except ValueError:
-                await update.message.reply_text("❌ Invalid wager amount. Please enter a number.")
+                await update.message.reply_text("❌ Invalid amount")
                 return
         
         if wager <= 0.01:
-            await update.message.reply_text("❌ Wager must be at least $0.01.")
+            await update.message.reply_text("❌ Min: $0.01")
             return
         
         if wager > user_data['balance']:
-            await update.message.reply_text(f"❌ Insufficient balance. You have ${user_data['balance']:.2f}")
+            await update.message.reply_text(f"❌ Balance: ${user_data['balance']:.2f}")
             return
         
         keyboard = [
@@ -725,7 +693,7 @@ Current Balance: ${house_balance:.2f}
         user_data = self.db.get_user(user_id)
         
         if not context.args:
-            await update.message.reply_text("Usage: `/flip <amount>` or `/flip all`", parse_mode="Markdown")
+            await update.message.reply_text("Usage: `/flip <amount|all>`", parse_mode="Markdown")
             return
         
         wager = 0.0
@@ -735,15 +703,15 @@ Current Balance: ${house_balance:.2f}
             try:
                 wager = round(float(context.args[0]), 2)
             except ValueError:
-                await update.message.reply_text("❌ Invalid wager amount. Please enter a number.")
+                await update.message.reply_text("❌ Invalid amount")
                 return
             
         if wager <= 0.01:
-            await update.message.reply_text("❌ Wager must be at least $0.01.")
+            await update.message.reply_text("❌ Min: $0.01")
             return
         
         if wager > user_data['balance']:
-            await update.message.reply_text(f"❌ Insufficient balance. You have ${user_data['balance']:.2f}")
+            await update.message.reply_text(f"❌ Balance: ${user_data['balance']:.2f}")
             return
         
         # Check for PvP opponent mention (this part is complex and often relies on bot permissions)
@@ -774,7 +742,7 @@ Current Balance: ${house_balance:.2f}
         user_data = self.db.get_user(user_id)
         
         if not context.args:
-            await update.message.reply_text("Usage: `/roulette <amount>` or `/roulette all`", parse_mode="Markdown")
+            await update.message.reply_text("Usage: `/roulette <amount|all>`", parse_mode="Markdown")
             return
         
         wager = 0.0
@@ -784,15 +752,15 @@ Current Balance: ${house_balance:.2f}
             try:
                 wager = round(float(context.args[0]), 2)
             except ValueError:
-                await update.message.reply_text("❌ Invalid wager amount. Please enter a number.")
+                await update.message.reply_text("❌ Invalid amount")
                 return
         
         if wager <= 0.01:
-            await update.message.reply_text("❌ Wager must be at least $0.01.")
+            await update.message.reply_text("❌ Min: $0.01")
             return
         
         if wager > user_data['balance']:
-            await update.message.reply_text(f"❌ Insufficient balance. You have ${user_data['balance']:.2f}")
+            await update.message.reply_text(f"❌ Balance: ${user_data['balance']:.2f}")
             return
         
         keyboard = [
@@ -803,7 +771,7 @@ Current Balance: ${house_balance:.2f}
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         await update.message.reply_text(
-            f"🎰 **Roulette Wheel**\n\nWager: ${wager:.2f}\n\nChoose your bet:\n• Red/Black: 2x payout\n• Green (0/00): 14x payout",
+            f"🎰 Wager: ${wager:.2f}\n\nRed/Black: 2x\nGreen: 14x",
             reply_markup=reply_markup,
             parse_mode="Markdown"
         )
@@ -814,21 +782,21 @@ Current Balance: ${house_balance:.2f}
         user_data = self.db.get_user(user_id)
         
         if len(context.args) < 2:
-            await update.message.reply_text("Usage: `/tip <amount> <@username>`", parse_mode="Markdown")
+            await update.message.reply_text("Usage: `/tip <amount> @user`", parse_mode="Markdown")
             return
         
         try:
             amount = round(float(context.args[0]), 2)
         except ValueError:
-            await update.message.reply_text("❌ Invalid amount.")
+            await update.message.reply_text("❌ Invalid amount")
             return
             
         if amount <= 0.01:
-            await update.message.reply_text("❌ Tip amount must be at least $0.01.")
+            await update.message.reply_text("❌ Min: $0.01")
             return
             
         if amount > user_data['balance']:
-            await update.message.reply_text(f"❌ Insufficient balance. You have ${user_data['balance']:.2f}")
+            await update.message.reply_text(f"❌ Balance: ${user_data['balance']:.2f}")
             return
 
         recipient_username = context.args[1].lstrip('@')
@@ -877,9 +845,7 @@ Current Balance: ${house_balance:.2f}
         """Save a sticker file_id for roulette numbers"""
         if not context.args or len(context.args) < 2:
             await update.message.reply_text(
-                f"Usage: `/savesticker <number> <file_id>`\n\n"
-                f"Numbers: 00, 0, 1, 2, 3... 36\n\n"
-                f"To get a sticker's file_id, just send the sticker to me!",
+                f"Usage: `/savesticker <number> <file_id>`\nNumbers: 00, 0-36",
                 parse_mode="Markdown"
             )
             return
@@ -905,7 +871,7 @@ Current Balance: ${house_balance:.2f}
         
     async def list_stickers_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """List all configured stickers"""
-        sticker_text = "🎨 **Configured Roulette Stickers**\n\n"
+        sticker_text = "🎨 **Roulette Stickers**\n\n"
         
         roulette_stickers = self.stickers.get('roulette', {})
         
@@ -913,20 +879,7 @@ Current Balance: ${house_balance:.2f}
         all_numbers = ['00', '0'] + [str(i) for i in range(1, 37)]
         saved_count = sum(1 for num in all_numbers if num in roulette_stickers and roulette_stickers[num])
         
-        sticker_text += f"📊 Progress: {saved_count}/38 stickers saved\n\n"
-        
-        # Show first few and last few to give overview
-        for num in ['00', '0', '1', '2', '3']:
-            status = "✅" if roulette_stickers.get(num) else "❌"
-            sticker_text += f"{status} **{num}**\n"
-        
-        sticker_text += "...\n"
-        
-        for num in ['34', '35', '36']:
-            status = "✅" if roulette_stickers.get(num) else "❌"
-            sticker_text += f"{status} **{num}**\n"
-        
-        sticker_text += "\n💡 Send me any sticker to see its file_id, or use `/savesticker <number> <file_id>` to save one!"
+        sticker_text += f"Saved: {saved_count}/38"
         await update.message.reply_text(sticker_text, parse_mode="Markdown")
     
     async def save_roulette_stickers_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1075,7 +1028,7 @@ Current Balance: ${house_balance:.2f}
         
         # Check balance again (in case user spent money since button was generated)
         if wager > user_data['balance']:
-            await context.bot.send_message(chat_id=chat_id, text=f"❌ Insufficient balance. You have ${user_data['balance']:.2f}")
+            await context.bot.send_message(chat_id=chat_id, text=f"❌ Balance: ${user_data['balance']:.2f}")
             return
 
         # Send dice rolls (Telegram handles the animation)
@@ -1135,7 +1088,7 @@ Current Balance: ${house_balance:.2f}
         chat_id = query.message.chat_id
         
         if wager > user_data['balance']:
-            await context.bot.send_message(chat_id=chat_id, text=f"❌ Insufficient balance. You have ${user_data['balance']:.2f}")
+            await context.bot.send_message(chat_id=chat_id, text=f"❌ Balance: ${user_data['balance']:.2f}")
             return
 
         player_dice_msg = await context.bot.send_dice(chat_id=chat_id, emoji="🎯")
@@ -1189,7 +1142,7 @@ Current Balance: ${house_balance:.2f}
         chat_id = query.message.chat_id
         
         if wager > user_data['balance']:
-            await context.bot.send_message(chat_id=chat_id, text=f"❌ Insufficient balance. You have ${user_data['balance']:.2f}")
+            await context.bot.send_message(chat_id=chat_id, text=f"❌ Balance: ${user_data['balance']:.2f}")
             return
 
         player_dice_msg = await context.bot.send_dice(chat_id=chat_id, emoji="🏀")
@@ -1243,7 +1196,7 @@ Current Balance: ${house_balance:.2f}
         chat_id = query.message.chat_id
         
         if wager > user_data['balance']:
-            await context.bot.send_message(chat_id=chat_id, text=f"❌ Insufficient balance. You have ${user_data['balance']:.2f}")
+            await context.bot.send_message(chat_id=chat_id, text=f"❌ Balance: ${user_data['balance']:.2f}")
             return
 
         player_dice_msg = await context.bot.send_dice(chat_id=chat_id, emoji="⚽")
@@ -1431,7 +1384,7 @@ Current Balance: ${house_balance:.2f}
         chat_id = query.message.chat_id
         
         if wager > user_data['balance']:
-            await context.bot.send_message(chat_id=chat_id, text=f"❌ Insufficient balance. You have ${user_data['balance']:.2f}")
+            await context.bot.send_message(chat_id=chat_id, text=f"❌ Balance: ${user_data['balance']:.2f}")
             return
         
         # Send coin emoji (simulates flip animation)
@@ -1495,7 +1448,7 @@ Current Balance: ${house_balance:.2f}
         chat_id = query.message.chat_id
         
         if wager > user_data['balance']:
-            await context.bot.send_message(chat_id=chat_id, text=f"❌ Insufficient balance. You have ${user_data['balance']:.2f}")
+            await context.bot.send_message(chat_id=chat_id, text=f"❌ Balance: ${user_data['balance']:.2f}")
             return
         
         # Roulette numbers (American roulette: 0, 00, 1-36)
