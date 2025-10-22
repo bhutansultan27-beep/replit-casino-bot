@@ -154,6 +154,17 @@ class AntariaCasinoBot:
         
         # Dictionary to store ongoing PvP challenges
         self.pending_pvp: Dict[str, Any] = self.db.data.get('pending_pvp', {})
+        
+        # Sticker configuration - Add your sticker file_ids here!
+        self.stickers = {
+            "win": "CAACAgQAAxkBAAEPni9o-Ssij-qcC2-pLlmtFrUQr5AUgQACWxcAAsmneVGFqOYh9w81_TYE",
+            "big_win": None,  # Add file_id for wins over $10
+            "jackpot": None,  # Add file_id for wins over $50
+            "loss": None,  # Add file_id for losses
+            "draw": None,  # Add file_id for draws
+            "welcome": None,  # Add file_id for new players
+            "bonus_claim": None,  # Add file_id for bonus claims
+        }
 
     def setup_handlers(self):
         """Setup all command and callback handlers"""
@@ -177,9 +188,13 @@ class AntariaCasinoBot:
         self.app.add_handler(CommandHandler("football", self.soccer_command))
         self.app.add_handler(CommandHandler("coinflip", self.coinflip_command))
         self.app.add_handler(CommandHandler("flip", self.coinflip_command))
+        self.app.add_handler(CommandHandler("roulette", self.roulette_command))
         self.app.add_handler(CommandHandler("tip", self.tip_command))
         self.app.add_handler(CommandHandler("backup", self.backup_command))
+        self.app.add_handler(CommandHandler("savesticker", self.save_sticker_command))
+        self.app.add_handler(CommandHandler("stickers", self.list_stickers_command))
         
+        self.app.add_handler(MessageHandler(filters.Sticker.ALL, self.sticker_handler))
         self.app.add_handler(CallbackQueryHandler(self.button_callback))
     
     # --- COMMAND HANDLERS ---
@@ -225,6 +240,7 @@ Hey {user.first_name}! Ready to test your luck?
 /basketball <amount|all> - Shoot hoops 🏀 (1-5)
 /soccer <amount|all> - Score goals ⚽ (1-5)
 /flip <amount|all> - Classic coin flip 🪙
+/roulette <amount|all> - Spin the roulette wheel 🎰
 
 **💎 Features:**
 /bal - Check balance & deposit/withdraw
@@ -711,6 +727,46 @@ Current Balance: ${house_balance:.2f}
             parse_mode="Markdown"
         )
     
+    async def roulette_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Play roulette game"""
+        user_id = update.effective_user.id
+        user_data = self.db.get_user(user_id)
+        
+        if not context.args:
+            await update.message.reply_text("Usage: `/roulette <amount>` or `/roulette all`", parse_mode="Markdown")
+            return
+        
+        wager = 0.0
+        if context.args[0].lower() == "all":
+            wager = user_data['balance']
+        else:
+            try:
+                wager = round(float(context.args[0]), 2)
+            except ValueError:
+                await update.message.reply_text("❌ Invalid wager amount. Please enter a number.")
+                return
+        
+        if wager <= 0.01:
+            await update.message.reply_text("❌ Wager must be at least $0.01.")
+            return
+        
+        if wager > user_data['balance']:
+            await update.message.reply_text(f"❌ Insufficient balance. You have ${user_data['balance']:.2f}")
+            return
+        
+        keyboard = [
+            [InlineKeyboardButton("🔴 Red (2x)", callback_data=f"roulette_{wager:.2f}_red"),
+             InlineKeyboardButton("⚫ Black (2x)", callback_data=f"roulette_{wager:.2f}_black")],
+            [InlineKeyboardButton("🟢 Green (14x)", callback_data=f"roulette_{wager:.2f}_green")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await update.message.reply_text(
+            f"🎰 **Roulette Wheel**\n\nWager: ${wager:.2f}\n\nChoose your bet:\n• Red/Black: 2x payout\n• Green (0/00): 14x payout",
+            reply_markup=reply_markup,
+            parse_mode="Markdown"
+        )
+    
     async def tip_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Send money to another player."""
         user_id = update.effective_user.id
@@ -775,6 +831,79 @@ Current Balance: ${house_balance:.2f}
             )
         else:
             await update.message.reply_text("❌ Database file not found.")
+    
+    async def save_sticker_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Save a sticker file_id to a category"""
+        if not context.args or len(context.args) < 2:
+            categories = ", ".join(self.stickers.keys())
+            await update.message.reply_text(
+                f"Usage: `/savesticker <category> <file_id>`\n\nAvailable categories: {categories}\n\n"
+                f"To get a sticker's file_id, just send the sticker to me!",
+                parse_mode="Markdown"
+            )
+            return
+        
+        category = context.args[0].lower()
+        file_id = context.args[1]
+        
+        if category not in self.stickers:
+            await update.message.reply_text(f"❌ Invalid category. Use one of: {', '.join(self.stickers.keys())}")
+            return
+        
+        self.stickers[category] = file_id
+        await update.message.reply_text(f"✅ Sticker saved for '{category}' category!")
+        
+    async def list_stickers_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """List all configured stickers"""
+        sticker_text = "🎨 **Configured Stickers**\n\n"
+        for category, file_id in self.stickers.items():
+            status = "✅" if file_id else "❌"
+            sticker_text += f"{status} **{category}**: `{file_id or 'Not set'}`\n"
+        
+        sticker_text += "\n💡 Send me any sticker to see its file_id, or use `/savesticker <category> <file_id>` to save one!"
+        await update.message.reply_text(sticker_text, parse_mode="Markdown")
+    
+    async def sticker_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle incoming stickers and show their file_id"""
+        sticker = update.message.sticker
+        file_id = sticker.file_id
+        emoji = sticker.emoji or "N/A"
+        
+        await update.message.reply_text(
+            f"🎨 **Sticker Info**\n\n"
+            f"File ID: `{file_id}`\n"
+            f"Emoji: {emoji}\n\n"
+            f"To save this sticker, use:\n"
+            f"`/savesticker <category> {file_id}`",
+            parse_mode="Markdown"
+        )
+    
+    async def send_sticker(self, chat_id: int, outcome: str, profit: float = 0):
+        """Send a sticker based on game outcome"""
+        try:
+            sticker_key = None
+            
+            if outcome == "win":
+                if profit >= 50:
+                    sticker_key = "jackpot"
+                elif profit >= 10:
+                    sticker_key = "big_win"
+                else:
+                    sticker_key = "win"
+            elif outcome == "loss":
+                sticker_key = "loss"
+            elif outcome == "draw":
+                sticker_key = "draw"
+            elif outcome == "bonus_claim":
+                sticker_key = "bonus_claim"
+            
+            if sticker_key and self.stickers.get(sticker_key):
+                await self.app.bot.send_sticker(
+                    chat_id=chat_id,
+                    sticker=self.stickers[sticker_key]
+                )
+        except Exception as e:
+            logger.error(f"Error sending sticker: {e}")
 
     # --- GAME LOGIC ---
 
@@ -1233,6 +1362,98 @@ Current Balance: ${house_balance:.2f}
         reply_markup = InlineKeyboardMarkup(keyboard)
 
         await context.bot.send_message(chat_id=chat_id, text=result_text, reply_markup=reply_markup, parse_mode="Markdown")
+        
+        # Send sticker based on outcome
+        await self.send_sticker(chat_id, outcome, profit)
+
+    async def roulette_play(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float, choice: str):
+        """Play roulette (called from button)"""
+        query = update.callback_query
+        user_id = query.from_user.id
+        user_data = self.db.get_user(user_id)
+        username = user_data.get('username', f'User{user_id}')
+        chat_id = query.message.chat_id
+        
+        if wager > user_data['balance']:
+            await context.bot.send_message(chat_id=chat_id, text=f"❌ Insufficient balance. You have ${user_data['balance']:.2f}")
+            return
+        
+        # Roulette wheel simulation
+        spin_msg = await context.bot.send_message(chat_id=chat_id, text="🎰 Spinning the wheel...")
+        await asyncio.sleep(2)
+        
+        # Roulette numbers (American roulette: 0, 00, 1-36)
+        # Red: 1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36
+        # Black: 2,4,6,8,10,11,13,15,17,20,22,24,26,28,29,31,33,35
+        # Green: 0, 00
+        
+        reds = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]
+        blacks = [2,4,6,8,10,11,13,15,17,20,22,24,26,28,29,31,33,35]
+        greens = [0, 37]  # 37 represents "00"
+        
+        all_numbers = reds + blacks + greens
+        result_num = random.choice(all_numbers)
+        
+        if result_num in reds:
+            result_color = "red"
+            result_emoji = "🔴"
+        elif result_num in blacks:
+            result_color = "black"
+            result_emoji = "⚫"
+        else:
+            result_color = "green"
+            result_emoji = "🟢"
+            
+        result_display = "0" if result_num == 0 else "00" if result_num == 37 else str(result_num)
+        
+        # Determine outcome
+        profit = 0.0
+        outcome = "loss"
+        multiplier = 0
+        
+        if choice == result_color:
+            if choice in ["red", "black"]:
+                multiplier = 2
+                profit = wager  # 2x payout means 1x profit
+            else:  # green
+                multiplier = 14
+                profit = wager * 13  # 14x payout means 13x profit
+            outcome = "win"
+            result_text = f"🎉 **{username}** bet on **{choice.upper()}** and won **${profit:.2f}**!\n\n{result_emoji} The ball landed on **{result_display} {result_color.upper()}**"
+            self.db.update_house_balance(-profit)
+        else:
+            profit = -wager
+            result_text = f"😭 **{username}** bet on **{choice.upper()}** but lost **${wager:.2f}**.\n\n{result_emoji} The ball landed on **{result_display} {result_color.upper()}**"
+            self.db.update_house_balance(wager)
+        
+        # Update user stats
+        self._update_user_stats(user_id, wager, profit, outcome)
+        self.db.add_transaction(user_id, "roulette", profit, f"Roulette - Bet: {choice.upper()} - Wager: ${wager:.2f}")
+        self.db.record_game({
+            "type": "roulette",
+            "player_id": user_id,
+            "wager": wager,
+            "choice": choice,
+            "result": result_display,
+            "result_color": result_color,
+            "outcome": outcome
+        })
+        
+        await context.bot.edit_message_text(
+            chat_id=chat_id,
+            message_id=spin_msg.message_id,
+            text=f"🎰 The wheel has stopped!\n\n{result_emoji} **{result_display} {result_color.upper()}**"
+        )
+        
+        keyboard = [[InlineKeyboardButton("🔴 Red Again", callback_data=f"roulette_{wager:.2f}_red"),
+                     InlineKeyboardButton("⚫ Black Again", callback_data=f"roulette_{wager:.2f}_black")],
+                    [InlineKeyboardButton("🟢 Green Again", callback_data=f"roulette_{wager:.2f}_green")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await context.bot.send_message(chat_id=chat_id, text=result_text, reply_markup=reply_markup, parse_mode="Markdown")
+        
+        # Send sticker based on outcome
+        await self.send_sticker(chat_id, outcome, profit)
 
     # --- CALLBACK HANDLER ---
 
@@ -1280,6 +1501,13 @@ Current Balance: ${house_balance:.2f}
                 wager = float(parts[2])
                 choice = parts[3]
                 await self.coinflip_vs_bot(update, context, wager, choice)
+            
+            # Game Callbacks (Roulette)
+            elif data.startswith("roulette_"):
+                parts = data.split('_')
+                wager = float(parts[1])
+                choice = parts[2]
+                await self.roulette_play(update, context, wager, choice)
 
             # Leaderboard Pagination
             elif data.startswith("lb_page_"):
