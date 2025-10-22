@@ -23,7 +23,7 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "python main.py"
+args = "BOT_TOKEN=\"8218366688:AAHsYsgu_Y5VDzp_8Y1zJAdQVav-tiiB4cA\" python main.py"
 
 [workflows.workflow.metadata]
 outputType = "console"
