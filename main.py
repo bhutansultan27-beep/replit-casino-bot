@@ -178,6 +178,11 @@ class AntariaCasinoBot:
         # Dictionary to store ongoing PvP challenges
         self.pending_pvp: Dict[str, Any] = self.db.data.get('pending_pvp', {})
         
+        # Track button ownership: message_id -> user_id mapping
+        self.button_ownership: Dict[int, int] = {}
+        # Track clicked buttons to prevent re-use
+        self.clicked_buttons: set = set()
+        
         # Sticker configuration - Load from database or initialize with defaults
         if 'stickers' not in self.db.data:
             self.db.data['stickers'] = {
@@ -281,6 +286,17 @@ class AntariaCasinoBot:
             user_data = self.db.get_user(user.id)
         
         return user_data
+    
+    async def send_with_buttons(self, chat_id: int, text: str, keyboard: InlineKeyboardMarkup, user_id: int, parse_mode: str = "Markdown"):
+        """Send a message with buttons and register ownership"""
+        sent_message = await self.app.bot.send_message(
+            chat_id=chat_id,
+            text=text,
+            reply_markup=keyboard,
+            parse_mode=parse_mode
+        )
+        self.button_ownership[sent_message.message_id] = user_id
+        return sent_message
     
     def is_admin(self, user_id: int) -> bool:
         """Check if a user is an admin (environment or dynamic)"""
@@ -631,11 +647,12 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await update.message.reply_text(
+        sent_msg = await update.message.reply_text(
             f"🎲 **Dice Game**\n\nWager: ${wager:.2f}\n\nChoose your opponent:",
             reply_markup=reply_markup,
             parse_mode="Markdown"
         )
+        self.button_ownership[sent_msg.message_id] = user_id
     
     async def darts_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play darts game setup"""
@@ -669,11 +686,12 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await update.message.reply_text(
+        sent_msg = await update.message.reply_text(
             f"🎯 **Darts Game**\n\nWager: ${wager:.2f}",
             reply_markup=reply_markup,
             parse_mode="Markdown"
         )
+        self.button_ownership[sent_msg.message_id] = user_id
     
     async def basketball_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play basketball game setup"""
@@ -707,11 +725,12 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await update.message.reply_text(
+        sent_msg = await update.message.reply_text(
             f"🏀 **Basketball Game**\n\nWager: ${wager:.2f}",
             reply_markup=reply_markup,
             parse_mode="Markdown"
         )
+        self.button_ownership[sent_msg.message_id] = user_id
     
     async def soccer_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play soccer game setup"""
@@ -745,11 +764,12 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await update.message.reply_text(
+        sent_msg = await update.message.reply_text(
             f"⚽ **Soccer Game**\n\nWager: ${wager:.2f}",
             reply_markup=reply_markup,
             parse_mode="Markdown"
         )
+        self.button_ownership[sent_msg.message_id] = user_id
     
     async def coinflip_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play coinflip game setup"""
@@ -794,11 +814,12 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await update.message.reply_text(
+        sent_msg = await update.message.reply_text(
             f"🪙 **Coin Flip**\n\nWager: ${wager:.2f}\n\nChoose your game mode:",
             reply_markup=reply_markup,
             parse_mode="Markdown"
         )
+        self.button_ownership[sent_msg.message_id] = user_id
     
     async def roulette_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play roulette game"""
@@ -855,7 +876,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await update.message.reply_text(
+        sent_msg = await update.message.reply_text(
             f"🎰 **Roulette** - Wager: ${wager:.2f}\n\n"
             f"**Choose your bet:**\n"
             f"• Red/Black: 2x payout\n"
@@ -866,6 +887,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             reply_markup=reply_markup,
             parse_mode="Markdown"
         )
+        self.button_ownership[sent_msg.message_id] = user_id
     
     async def tip_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Send money to another player."""
@@ -1455,7 +1477,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         keyboard = [[InlineKeyboardButton("Play Again", callback_data=f"dice_bot_{wager:.2f}")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await context.bot.send_message(chat_id=chat_id, text=result_text, reply_markup=reply_markup, parse_mode="Markdown")
+        await self.send_with_buttons(chat_id, result_text, reply_markup, user_id)
 
     async def darts_vs_bot(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float):
         """Play darts against the bot (called from button)"""
@@ -1512,7 +1534,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         keyboard = [[InlineKeyboardButton("Play Again", callback_data=f"darts_bot_{wager:.2f}")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await context.bot.send_message(chat_id=chat_id, text=result_text, reply_markup=reply_markup, parse_mode="Markdown")
+        await self.send_with_buttons(chat_id, result_text, reply_markup, user_id)
 
     async def basketball_vs_bot(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float):
         """Play basketball against the bot (called from button)"""
@@ -1569,7 +1591,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         keyboard = [[InlineKeyboardButton("Play Again", callback_data=f"basketball_bot_{wager:.2f}")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await context.bot.send_message(chat_id=chat_id, text=result_text, reply_markup=reply_markup, parse_mode="Markdown")
+        await self.send_with_buttons(chat_id, result_text, reply_markup, user_id)
 
     async def soccer_vs_bot(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float):
         """Play soccer against the bot (called from button)"""
@@ -1626,7 +1648,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         keyboard = [[InlineKeyboardButton("Play Again", callback_data=f"soccer_bot_{wager:.2f}")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await context.bot.send_message(chat_id=chat_id, text=result_text, reply_markup=reply_markup, parse_mode="Markdown")
+        await self.send_with_buttons(chat_id, result_text, reply_markup, user_id)
 
     async def create_open_dice_challenge(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float):
         """Create an open dice challenge for anyone to accept"""
@@ -1822,7 +1844,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
 
         reply_markup = InlineKeyboardMarkup(keyboard)
 
-        await context.bot.send_message(chat_id=chat_id, text=result_text, reply_markup=reply_markup, parse_mode="Markdown")
+        await self.send_with_buttons(chat_id, result_text, reply_markup, user_id)
         
         # Send sticker based on outcome
         await self.send_sticker(chat_id, outcome, profit)
@@ -2009,20 +2031,41 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await context.bot.send_message(chat_id=chat_id, text=result_text, reply_markup=reply_markup, parse_mode="Markdown")
+        await self.send_with_buttons(chat_id, result_text, reply_markup, user_id)
 
     # --- CALLBACK HANDLER ---
 
     async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handles all inline button presses."""
         query = update.callback_query
-        await query.answer() # Acknowledge the button press immediately
         
         # Ensure user is registered and username is updated
         self.ensure_user_registered(update)
         
         data = query.data
         user_id = query.from_user.id
+        message_id = query.message.message_id
+        
+        # Check if button was already clicked (prevent spam)
+        button_key = f"{message_id}_{data}"
+        if button_key in self.clicked_buttons:
+            await query.answer("❌ This button has already been used!", show_alert=True)
+            return
+        
+        # Check button ownership (except for public buttons like challenges and leaderboard)
+        public_buttons = ["accept_dice_", "lb_page_", "transactions_history", "deposit_mock", "withdraw_mock"]
+        is_public = any(data.startswith(prefix) or data == prefix for prefix in public_buttons)
+        
+        if not is_public and message_id in self.button_ownership:
+            if self.button_ownership[message_id] != user_id:
+                await query.answer("❌ This button is not for you!", show_alert=True)
+                return
+        
+        await query.answer() # Acknowledge the button press
+        
+        # Mark button as clicked for game buttons (not utility buttons)
+        if any(data.startswith(prefix) for prefix in ["dice_bot_", "darts_bot_", "basketball_bot_", "soccer_bot_", "flip_bot_", "roulette_", "dice_player_open_", "claim_daily_bonus", "claim_referral"]):
+            self.clicked_buttons.add(button_key)
         
         try:
             # Game Callbacks (Dice vs Bot)
