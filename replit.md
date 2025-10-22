@@ -16,7 +16,11 @@ This is a complete Telegram gambling bot built with Python and the python-telegr
 
 **Enhanced Roulette Betting Options (2025-10-22)**
 - Simplified roulette betting with easy-to-use button interface
-- **Button Bets:** Red (2x), Black (2x), Odd (2x), Even (2x), Green (14x)
+- **Button Bets (all without emojis):** 
+  - Red (2x), Black (2x)
+  - Green (14x)
+  - Odd (2x), Even (2x)
+  - Low 1-18 (2x), High 19-36 (2x)
 - **Specific Number Bets:** Use `/roulette <amount> #<number>` for 36x payout
   - Example: `/roulette 5 #23` to bet $5 on number 23
   - Must include the # symbol before the number
