@@ -220,8 +220,11 @@ Hey {user.first_name}! Ready to test your luck?
 💰 **Your Balance**: ${user_data['balance']:.2f}{playthrough_msg}
 
 **🎮 Games:**
-/dice <amount|all> - Roll the highest number (1-6)
-/flip <amount|all> [@player] - Classic coin flip
+/dice <amount|all> - Roll the dice 🎲 (1-6)
+/darts <amount|all> - Hit the bullseye 🎯 (1-6)
+/basketball <amount|all> - Shoot hoops 🏀 (1-5)
+/soccer <amount|all> - Score goals ⚽ (1-5)
+/flip <amount|all> - Classic coin flip 🪙
 
 **💎 Features:**
 /bal - Check balance & deposit/withdraw
@@ -1388,10 +1391,10 @@ if __name__ == '__main__':
     # 1. Get your token from BotFather on Telegram.
     # 2. Replace the placeholder below with your actual token string.
     
-    BOT_TOKEN = "YOUR_BOT_TOKEN_HERE" 
+    BOT_TOKEN = os.getenv("BOT_TOKEN", "YOUR_BOT_TOKEN_HERE") 
     
     if BOT_TOKEN == "YOUR_BOT_TOKEN_HERE":
-        logger.error("!!! FATAL ERROR: Please replace 'YOUR_BOT_TOKEN_HERE' with your actual Telegram Bot Token. The bot will not run otherwise. !!!")
+        logger.error("!!! FATAL ERROR: Please set the BOT_TOKEN environment variable with your actual Telegram Bot Token. The bot will not run otherwise. !!!")
     else:
         logger.info("Starting Antaria Casino Bot...")
         bot = AntariaCasinoBot(token=BOT_TOKEN)
