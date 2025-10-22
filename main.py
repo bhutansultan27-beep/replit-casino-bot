@@ -393,33 +393,14 @@ Balance: ${user_data['balance']:.2f}{playthrough_msg}
         await update.message.reply_text(balance_text, reply_markup=reply_markup, parse_mode="Markdown")
     
     async def bonus_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Show daily bonus status"""
+        """Show bonus status"""
         user_data = self.ensure_user_registered(update)
         user_id = update.effective_user.id
-        
-        last_claim = user_data.get('last_bonus_claim')
-        can_claim = True
-        cooldown_text = ""
-        
-        if last_claim:
-            last_claim_time = datetime.fromisoformat(last_claim)
-            time_diff = datetime.now() - last_claim_time
-            if time_diff < timedelta(hours=24):
-                can_claim = False
-                remaining = timedelta(hours=24) - time_diff
-                hours = int(remaining.total_seconds() // 3600)
-                minutes = int((remaining.total_seconds() % 3600) // 60)
-                cooldown_text = f"\n⏰ Next bonus available in: {hours}h {minutes}m"
         
         wagered_since_withdrawal = user_data.get('wagered_since_last_withdrawal', 0)
         bonus_amount = wagered_since_withdrawal * 0.01
         
         bonus_text = f"🎁 Bonus: ${bonus_amount:.2f}\n"
-        
-        if not can_claim:
-            bonus_text += cooldown_text
-            await update.message.reply_text(bonus_text, parse_mode="Markdown")
-            return
         
         if bonus_amount < 0.01:
             bonus_text += "\n⚠️ Min: $0.01"
@@ -431,7 +412,8 @@ Balance: ${user_data['balance']:.2f}{playthrough_msg}
         keyboard = [[InlineKeyboardButton("💰 Claim Bonus", callback_data="claim_daily_bonus")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await update.message.reply_text(bonus_text, reply_markup=reply_markup, parse_mode="Markdown")
+        sent_msg = await update.message.reply_text(bonus_text, reply_markup=reply_markup, parse_mode="Markdown")
+        self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
     
     async def stats_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Show player statistics"""
@@ -2122,11 +2104,6 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             elif data == "claim_daily_bonus":
                 user_data = self.db.get_user(user_id)
                 bonus_amount = user_data.get('wagered_since_last_withdrawal', 0) * 0.01
-                
-                if bonus_amount >= 0.01 and user_data.get('last_bonus_claim') and \
-                   (datetime.now() - datetime.fromisoformat(user_data['last_bonus_claim'])) < timedelta(hours=24):
-                    await query.edit_message_text("❌ You can only claim your bonus once every 24 hours.")
-                    return
 
                 if bonus_amount < 0.01:
                      await query.edit_message_text("❌ Minimum bonus to claim is $0.01.")
@@ -2136,12 +2113,11 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 user_data['balance'] += bonus_amount
                 user_data['wagered_since_last_withdrawal'] = 0.0 # Reset wagered amount
                 user_data['playthrough_required'] += bonus_amount # Playthrough requirement for the bonus
-                user_data['last_bonus_claim'] = datetime.now().isoformat()
                 self.db.update_user(user_id, user_data)
                 
-                self.db.add_transaction(user_id, "bonus_claim", bonus_amount, "Daily Bonus Claim")
+                self.db.add_transaction(user_id, "bonus_claim", bonus_amount, "Bonus Claim")
                 
-                await query.edit_message_text(f"✅ **Daily Bonus Claimed!**\nYou received **${bonus_amount:.2f}**.\n\nYour new balance is ${user_data['balance']:.2f}.\n*Playthrough of ${bonus_amount:.2f} required for withdrawal.*", parse_mode="Markdown")
+                await query.edit_message_text(f"✅ **Bonus Claimed!**\nYou received **${bonus_amount:.2f}**.\n\nYour new balance is ${user_data['balance']:.2f}.\n*Playthrough of ${bonus_amount:.2f} required for withdrawal.*", parse_mode="Markdown")
 
             elif data == "claim_referral":
                 user_data = self.db.get_user(user_id)
