@@ -5,14 +5,23 @@ A feature-rich Telegram casino bot with dice and coinflip games, smart bonus sys
 ## Project Overview
 
 This is a complete Telegram gambling bot built with Python and the python-telegram-bot library. It includes:
-- Two casino games (Dice and CoinFlip) with PvP and bot modes
+- Five casino games using Telegram's native animated emojis (Dice, Darts, Basketball, Soccer, CoinFlip)
 - Smart bonus system with playthrough requirements
-- Achievement and leveling system
 - Referral program with commission tracking
 - Leaderboard with pagination
 - Complete user wallet and transaction management
+- Match history tracking
 
 ## Recent Changes
+
+**New Telegram Native Games (2025-10-22)**
+- Added `/darts <amount|all>` - Darts game 🎯 (scores 1-6, higher wins)
+- Added `/basketball <amount|all>` - Basketball game 🏀 (scores 1-5, higher wins)
+- Added `/soccer <amount|all>` - Soccer game ⚽ (scores 1-5, higher wins)
+- All new games use Telegram's native animated dice emojis
+- Support for "all" option to wager entire balance
+- Same 2x payout structure as dice game
+- Draw = bet refunded (when scores match)
 
 **Simplified Interface & Messaging (2025-10-20)**
 - Removed achievements system and all related commands
@@ -58,7 +67,12 @@ This is a complete Telegram gambling bot built with Python and the python-telegr
 - `casino_data.json` - Auto-generated JSON database (gitignored)
 
 ### Key Features
-1. **Games**: Dice (roll 1-6, highest wins) and CoinFlip (heads/tails, 2x payout)
+1. **Games**: 
+   - Dice 🎲 (1-6, highest wins)
+   - Darts 🎯 (1-6, highest wins)
+   - Basketball 🏀 (1-5, highest wins)
+   - Soccer ⚽ (1-5, highest wins)
+   - CoinFlip 🪙 (heads/tails, 2x payout)
 2. **Bonus System**: $5 locked first-time bonus + 1% daily bonus based on wagered amount
 3. **Referral System**: Unique referral links with 1% commission on referral volume
 4. **Leaderboard**: Paginated display of top players by total wagered
@@ -84,18 +98,38 @@ This is a complete Telegram gambling bot built with Python and the python-telegr
 - `/leaderboard [page]` - View top players by wagered amount
 - `/referral` - Get referral link and claim rewards
 - `/housebal` - View the house balance (starts at $6973)
-- `/dice <amount|all> [@player]` - Play dice game (PvP or vs bot), use "all" to wager entire balance
-- `/coinflip <amount|all> <heads/tails> [@player]` - Play coinflip (PvP or vs bot), use "all" to wager entire balance
+- `/dice <amount|all>` - Play dice game 🎲 (1-6), use "all" to wager entire balance
+- `/darts <amount|all>` - Play darts game 🎯 (1-6), use "all" to wager entire balance  
+- `/basketball <amount|all>` - Play basketball game 🏀 (1-5), use "all" to wager entire balance
+- `/soccer <amount|all>` - Play soccer game ⚽ (1-5), use "all" to wager entire balance
+- `/coinflip <amount|all> <heads/tails>` - Play coinflip game 🪙, use "all" to wager entire balance
 - `/backup` - Create manual database backup
 
 ## Game Rules
 
-### Dice
+All games use Telegram's native animated dice emojis for a fun, visual experience!
+
+### Dice 🎲
 - Roll 1-6, highest number wins
 - 2x payout on win
-- Draw = both players refunded (PvP only)
+- Draw = bet refunded
 
-### CoinFlip
+### Darts 🎯
+- Score 1-6, highest score wins
+- 2x payout on win
+- Draw = bet refunded
+
+### Basketball 🏀
+- Score 1-5, highest score wins
+- 2x payout on win
+- Draw = bet refunded
+
+### Soccer ⚽
+- Score 1-5, highest score wins
+- 2x payout on win
+- Draw = bet refunded
+
+### CoinFlip 🪙
 - Choose heads or tails
 - 2x payout on win
 - No draw possible
