@@ -48,6 +48,9 @@ class DatabaseManager:
             "transactions": {},
             "pending_pvp": {},
             "house_balance": 10000.00, # Initial house seed money
+            "stickers": {
+                "roulette": {}  # Will store stickers for roulette numbers: "00", "0", "1", "2", ... "36"
+            }
         }
 
     def save_data(self):
@@ -155,16 +158,10 @@ class AntariaCasinoBot:
         # Dictionary to store ongoing PvP challenges
         self.pending_pvp: Dict[str, Any] = self.db.data.get('pending_pvp', {})
         
-        # Sticker configuration - Add your sticker file_ids here!
-        self.stickers = {
-            "win": "CAACAgQAAxkBAAEPni9o-Ssij-qcC2-pLlmtFrUQr5AUgQACWxcAAsmneVGFqOYh9w81_TYE",
-            "big_win": None,  # Add file_id for wins over $10
-            "jackpot": None,  # Add file_id for wins over $50
-            "loss": None,  # Add file_id for losses
-            "draw": None,  # Add file_id for draws
-            "welcome": None,  # Add file_id for new players
-            "bonus_claim": None,  # Add file_id for bonus claims
-        }
+        # Sticker configuration - Load from database
+        self.stickers = self.db.data.get('stickers', {
+            "roulette": {}
+        })
 
     def setup_handlers(self):
         """Setup all command and callback handlers"""
@@ -833,34 +830,59 @@ Current Balance: ${house_balance:.2f}
             await update.message.reply_text("❌ Database file not found.")
     
     async def save_sticker_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Save a sticker file_id to a category"""
+        """Save a sticker file_id for roulette numbers"""
         if not context.args or len(context.args) < 2:
-            categories = ", ".join(self.stickers.keys())
             await update.message.reply_text(
-                f"Usage: `/savesticker <category> <file_id>`\n\nAvailable categories: {categories}\n\n"
+                f"Usage: `/savesticker <number> <file_id>`\n\n"
+                f"Numbers: 00, 0, 1, 2, 3... 36\n\n"
                 f"To get a sticker's file_id, just send the sticker to me!",
                 parse_mode="Markdown"
             )
             return
         
-        category = context.args[0].lower()
+        number = context.args[0]
         file_id = context.args[1]
         
-        if category not in self.stickers:
-            await update.message.reply_text(f"❌ Invalid category. Use one of: {', '.join(self.stickers.keys())}")
+        # Validate number is valid roulette number
+        valid_numbers = ['00', '0'] + [str(i) for i in range(1, 37)]
+        if number not in valid_numbers:
+            await update.message.reply_text(f"❌ Invalid number. Must be: 00, 0, 1, 2, 3... 36")
             return
         
-        self.stickers[category] = file_id
-        await update.message.reply_text(f"✅ Sticker saved for '{category}' category!")
+        # Save to database
+        if 'roulette' not in self.stickers:
+            self.stickers['roulette'] = {}
+        
+        self.stickers['roulette'][number] = file_id
+        self.db.data['stickers'] = self.stickers
+        self.db.save_data()
+        
+        await update.message.reply_text(f"✅ Sticker saved for roulette number '{number}'!")
         
     async def list_stickers_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """List all configured stickers"""
-        sticker_text = "🎨 **Configured Stickers**\n\n"
-        for category, file_id in self.stickers.items():
-            status = "✅" if file_id else "❌"
-            sticker_text += f"{status} **{category}**: `{file_id or 'Not set'}`\n"
+        sticker_text = "🎨 **Configured Roulette Stickers**\n\n"
         
-        sticker_text += "\n💡 Send me any sticker to see its file_id, or use `/savesticker <category> <file_id>` to save one!"
+        roulette_stickers = self.stickers.get('roulette', {})
+        
+        # Count how many are set
+        all_numbers = ['00', '0'] + [str(i) for i in range(1, 37)]
+        saved_count = sum(1 for num in all_numbers if num in roulette_stickers and roulette_stickers[num])
+        
+        sticker_text += f"📊 Progress: {saved_count}/38 stickers saved\n\n"
+        
+        # Show first few and last few to give overview
+        for num in ['00', '0', '1', '2', '3']:
+            status = "✅" if roulette_stickers.get(num) else "❌"
+            sticker_text += f"{status} **{num}**\n"
+        
+        sticker_text += "...\n"
+        
+        for num in ['34', '35', '36']:
+            status = "✅" if roulette_stickers.get(num) else "❌"
+            sticker_text += f"{status} **{num}**\n"
+        
+        sticker_text += "\n💡 Send me any sticker to see its file_id, or use `/savesticker <number> <file_id>` to save one!"
         await update.message.reply_text(sticker_text, parse_mode="Markdown")
     
     async def sticker_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):

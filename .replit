@@ -21,9 +21,9 @@ args = "Casino Bot"
 name = "Casino Bot"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "BOT_TOKEN=\"8218366688:AAHsYsgu_Y5VDzp_8Y1zJAdQVav-tiiB4cA\" python main.py"
-
 [workflows.workflow.metadata]
 outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "uv run python main.py"
