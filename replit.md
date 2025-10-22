@@ -15,13 +15,12 @@ This is a complete Telegram gambling bot built with Python and the python-telegr
 ## Recent Changes
 
 **Enhanced Roulette Betting Options (2025-10-22)**
-- Added comprehensive roulette betting system with all standard bet types
-- **Even Money Bets (2x payout):** Red/Black, Odd/Even, Low (1-18)/High (19-36)
-- **Column Bets (3x payout):** Three columns covering 12 numbers each
-- **Dozen Bets (3x payout):** 1st (1-12), 2nd (13-24), 3rd (25-36) dozens
-- **Green Bet (14x payout):** 0 and 00 (unchanged)
-- All bets displayed with interactive buttons for easy gameplay
-- Improved result messaging showing bet type and multiplier
+- Simplified roulette betting with easy-to-use button interface
+- **Button Bets:** Red (2x), Black (2x), Odd (2x), Even (2x), Green (14x)
+- **Specific Number Bets:** Use `/roulette <amount> #<number>` for 36x payout
+  - Example: `/roulette 5 #23` to bet $5 on number 23
+  - Must include the # symbol before the number
+  - Valid numbers: #0, #1, #2, ... #36, #00
 
 **New Telegram Native Games (2025-10-22)**
 - Added `/darts <amount|all>` - Darts game 🎯 (scores 1-6, higher wins)

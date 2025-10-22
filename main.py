@@ -742,7 +742,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         user_data = self.db.get_user(user_id)
         
         if not context.args:
-            await update.message.reply_text("Usage: `/roulette <amount|all>`", parse_mode="Markdown")
+            await update.message.reply_text("Usage: `/roulette <amount|all>` or `/roulette <amount> #<number>`", parse_mode="Markdown")
             return
         
         wager = 0.0
@@ -763,34 +763,39 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             await update.message.reply_text(f"❌ Balance: ${user_data['balance']:.2f}")
             return
         
+        if len(context.args) > 1 and context.args[1].startswith('#'):
+            try:
+                number_str = context.args[1][1:]
+                if number_str == "00":
+                    specific_num = 37
+                else:
+                    specific_num = int(number_str)
+                    if specific_num < 0 or specific_num > 36:
+                        await update.message.reply_text("❌ Number must be 0-36 or 00")
+                        return
+                
+                await self.roulette_play_direct(update, context, wager, f"num_{specific_num}")
+                return
+            except ValueError:
+                await update.message.reply_text("❌ Invalid number format. Use #0, #1, #2, ... #36, or #00")
+                return
+        
         keyboard = [
             [InlineKeyboardButton("🔴 Red (2x)", callback_data=f"roulette_{wager:.2f}_red"),
              InlineKeyboardButton("⚫ Black (2x)", callback_data=f"roulette_{wager:.2f}_black")],
             [InlineKeyboardButton("🟢 Green (14x)", callback_data=f"roulette_{wager:.2f}_green")],
             [InlineKeyboardButton("Odd (2x)", callback_data=f"roulette_{wager:.2f}_odd"),
-             InlineKeyboardButton("Even (2x)", callback_data=f"roulette_{wager:.2f}_even")],
-            [InlineKeyboardButton("Low 1-18 (2x)", callback_data=f"roulette_{wager:.2f}_low"),
-             InlineKeyboardButton("High 19-36 (2x)", callback_data=f"roulette_{wager:.2f}_high")],
-            [InlineKeyboardButton("Column 1 (3x)", callback_data=f"roulette_{wager:.2f}_col1"),
-             InlineKeyboardButton("Column 2 (3x)", callback_data=f"roulette_{wager:.2f}_col2"),
-             InlineKeyboardButton("Column 3 (3x)", callback_data=f"roulette_{wager:.2f}_col3")],
-            [InlineKeyboardButton("1st Dozen 1-12 (3x)", callback_data=f"roulette_{wager:.2f}_dozen1")],
-            [InlineKeyboardButton("2nd Dozen 13-24 (3x)", callback_data=f"roulette_{wager:.2f}_dozen2")],
-            [InlineKeyboardButton("3rd Dozen 25-36 (3x)", callback_data=f"roulette_{wager:.2f}_dozen3")]
+             InlineKeyboardButton("Even (2x)", callback_data=f"roulette_{wager:.2f}_even")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         await update.message.reply_text(
             f"🎰 **Roulette** - Wager: ${wager:.2f}\n\n"
-            f"**Even Money Bets (2x):**\n"
-            f"• Red/Black: 18 numbers each\n"
-            f"• Odd/Even: 18 numbers each\n"
-            f"• Low/High: 1-18 or 19-36\n\n"
-            f"**Column Bets (3x):**\n"
-            f"• 12 numbers per column\n\n"
-            f"**Dozen Bets (3x):**\n"
-            f"• 12 numbers per dozen\n\n"
-            f"**Green (14x):** 0 and 00",
+            f"**Choose your bet:**\n"
+            f"• Red/Black: 2x payout\n"
+            f"• Odd/Even: 2x payout\n"
+            f"• Green (0/00): 14x payout\n\n"
+            f"*Tip: Bet on a specific number with `/roulette <amount> #<number>` for 36x payout!*",
             reply_markup=reply_markup,
             parse_mode="Markdown"
         )
@@ -1458,36 +1463,20 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         # Send sticker based on outcome
         await self.send_sticker(chat_id, outcome, profit)
 
-    async def roulette_play(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float, choice: str):
-        """Play roulette (called from button)"""
-        query = update.callback_query
-        user_id = query.from_user.id
+    async def roulette_play_direct(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float, choice: str):
+        """Play roulette directly from command (for specific number bets)"""
+        user_id = update.effective_user.id
         user_data = self.db.get_user(user_id)
         username = user_data.get('username', f'User{user_id}')
-        chat_id = query.message.chat_id
+        chat_id = update.message.chat_id
         
         if wager > user_data['balance']:
-            await context.bot.send_message(chat_id=chat_id, text=f"❌ Balance: ${user_data['balance']:.2f}")
+            await update.message.reply_text(f"❌ Balance: ${user_data['balance']:.2f}")
             return
-        
-        # Roulette numbers (American roulette: 0, 00, 1-36)
-        # Red: 1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36
-        # Black: 2,4,6,8,10,11,13,15,17,20,22,24,26,28,29,31,33,35
-        # Green: 0, 00
         
         reds = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]
         blacks = [2,4,6,8,10,11,13,15,17,20,22,24,26,28,29,31,33,35]
-        greens = [0, 37]  # 37 represents "00"
-        
-        # Column definitions
-        col1 = [1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34]
-        col2 = [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35]
-        col3 = [3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36]
-        
-        # Dozen definitions
-        dozen1 = list(range(1, 13))  # 1-12
-        dozen2 = list(range(13, 25))  # 13-24
-        dozen3 = list(range(25, 37))  # 25-36
+        greens = [0, 37]
         
         all_numbers = reds + blacks + greens
         result_num = random.choice(all_numbers)
@@ -1504,27 +1493,92 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             
         result_display = "0" if result_num == 0 else "00" if result_num == 37 else str(result_num)
         
-        # Send the sticker for the winning number
         roulette_stickers = self.stickers.get('roulette', {})
         sticker_id = roulette_stickers.get(result_display)
         
         if sticker_id:
             await context.bot.send_sticker(chat_id=chat_id, sticker=sticker_id)
         else:
-            # Fallback if sticker not found
-            await context.bot.send_message(chat_id=chat_id, text="🎰 Spinning the wheel...")
+            await update.message.reply_text("🎰 Spinning the wheel...")
         
-        # Wait 2.5 seconds
         await asyncio.sleep(2.5)
         
-        # Determine outcome based on bet type
+        if choice.startswith("num_"):
+            bet_num = int(choice.split("_")[1])
+            bet_display = "0" if bet_num == 0 else "00" if bet_num == 37 else str(bet_num)
+            
+            if bet_num == result_num:
+                profit = wager * 35
+                outcome = "win"
+                result_text = f"🎉 **{username}** bet on **#{bet_display}** and won **${profit:.2f}**!\n\n{result_emoji} The ball landed on **{result_display} {result_color.upper()}** (36x payout)"
+                self.db.update_house_balance(-profit)
+            else:
+                profit = -wager
+                outcome = "loss"
+                result_text = f"😭 **{username}** bet on **#{bet_display}** but lost **${wager:.2f}**.\n\n{result_emoji} The ball landed on **{result_display} {result_color.upper()}**"
+                self.db.update_house_balance(wager)
+            
+            self._update_user_stats(user_id, wager, profit, outcome)
+            self.db.add_transaction(user_id, "roulette", profit, f"Roulette - Bet: #{bet_display} - Wager: ${wager:.2f}")
+            self.db.record_game({
+                "type": "roulette",
+                "player_id": user_id,
+                "wager": wager,
+                "choice": f"#{bet_display}",
+                "result": result_display,
+                "result_color": result_color,
+                "outcome": outcome
+            })
+            
+            await update.message.reply_text(result_text, parse_mode="Markdown")
+
+    async def roulette_play(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float, choice: str):
+        """Play roulette (called from button)"""
+        query = update.callback_query
+        user_id = query.from_user.id
+        user_data = self.db.get_user(user_id)
+        username = user_data.get('username', f'User{user_id}')
+        chat_id = query.message.chat_id
+        
+        if wager > user_data['balance']:
+            await context.bot.send_message(chat_id=chat_id, text=f"❌ Balance: ${user_data['balance']:.2f}")
+            return
+        
+        reds = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]
+        blacks = [2,4,6,8,10,11,13,15,17,20,22,24,26,28,29,31,33,35]
+        greens = [0, 37]
+        
+        all_numbers = reds + blacks + greens
+        result_num = random.choice(all_numbers)
+        
+        if result_num in reds:
+            result_color = "red"
+            result_emoji = "🔴"
+        elif result_num in blacks:
+            result_color = "black"
+            result_emoji = "⚫"
+        else:
+            result_color = "green"
+            result_emoji = "🟢"
+            
+        result_display = "0" if result_num == 0 else "00" if result_num == 37 else str(result_num)
+        
+        roulette_stickers = self.stickers.get('roulette', {})
+        sticker_id = roulette_stickers.get(result_display)
+        
+        if sticker_id:
+            await context.bot.send_sticker(chat_id=chat_id, sticker=sticker_id)
+        else:
+            await context.bot.send_message(chat_id=chat_id, text="🎰 Spinning the wheel...")
+        
+        await asyncio.sleep(2.5)
+        
         profit = 0.0
         outcome = "loss"
         multiplier = 0
         won = False
         bet_description = choice.upper()
         
-        # Check if bet wins based on choice type
         if choice == "red" and result_num in reds:
             won = True
             multiplier = 2
@@ -1545,38 +1599,6 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             won = True
             multiplier = 2
             bet_description = "EVEN"
-        elif choice == "low" and result_num >= 1 and result_num <= 18:
-            won = True
-            multiplier = 2
-            bet_description = "LOW (1-18)"
-        elif choice == "high" and result_num >= 19 and result_num <= 36:
-            won = True
-            multiplier = 2
-            bet_description = "HIGH (19-36)"
-        elif choice == "col1" and result_num in col1:
-            won = True
-            multiplier = 3
-            bet_description = "COLUMN 1"
-        elif choice == "col2" and result_num in col2:
-            won = True
-            multiplier = 3
-            bet_description = "COLUMN 2"
-        elif choice == "col3" and result_num in col3:
-            won = True
-            multiplier = 3
-            bet_description = "COLUMN 3"
-        elif choice == "dozen1" and result_num in dozen1:
-            won = True
-            multiplier = 3
-            bet_description = "1ST DOZEN (1-12)"
-        elif choice == "dozen2" and result_num in dozen2:
-            won = True
-            multiplier = 3
-            bet_description = "2ND DOZEN (13-24)"
-        elif choice == "dozen3" and result_num in dozen3:
-            won = True
-            multiplier = 3
-            bet_description = "3RD DOZEN (25-36)"
         
         if won:
             profit = wager * (multiplier - 1)
@@ -1588,7 +1610,6 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             result_text = f"😭 **{username}** bet on **{bet_description}** but lost **${wager:.2f}**.\n\n{result_emoji} The ball landed on **{result_display} {result_color.upper()}**"
             self.db.update_house_balance(wager)
         
-        # Update user stats
         self._update_user_stats(user_id, wager, profit, outcome)
         self.db.add_transaction(user_id, "roulette", profit, f"Roulette - Bet: {bet_description} - Wager: ${wager:.2f}")
         self.db.record_game({
@@ -1606,8 +1627,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
              InlineKeyboardButton("⚫ Black", callback_data=f"roulette_{wager:.2f}_black")],
             [InlineKeyboardButton("Odd", callback_data=f"roulette_{wager:.2f}_odd"),
              InlineKeyboardButton("Even", callback_data=f"roulette_{wager:.2f}_even")],
-            [InlineKeyboardButton("Low", callback_data=f"roulette_{wager:.2f}_low"),
-             InlineKeyboardButton("High", callback_data=f"roulette_{wager:.2f}_high")]
+            [InlineKeyboardButton("🟢 Green", callback_data=f"roulette_{wager:.2f}_green")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
