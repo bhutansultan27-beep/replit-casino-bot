@@ -240,6 +240,18 @@ class AntariaCasinoBot:
     
     # --- COMMAND HANDLERS ---
     
+    def ensure_user_registered(self, update: Update) -> Dict[str, Any]:
+        """Ensure user exists and has username set"""
+        user = update.effective_user
+        user_data = self.db.get_user(user.id)
+        
+        # Update username if it has changed or is not set
+        if user.username and user_data.get("username") != user.username:
+            self.db.update_user(user.id, {"username": user.username, "user_id": user.id})
+            user_data = self.db.get_user(user.id)
+        
+        return user_data
+    
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Welcome message and initial user setup."""
         user = update.effective_user
@@ -291,8 +303,8 @@ Balance: ${user_data['balance']:.2f}{playthrough_msg}
     
     async def balance_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Show balance with deposit/withdraw buttons"""
+        user_data = self.ensure_user_registered(update)
         user_id = update.effective_user.id
-        user_data = self.db.get_user(user_id)
         
         playthrough_remaining = user_data['playthrough_required']
         
@@ -314,8 +326,8 @@ Balance: ${user_data['balance']:.2f}{playthrough_msg}
     
     async def bonus_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Show daily bonus status"""
+        user_data = self.ensure_user_registered(update)
         user_id = update.effective_user.id
-        user_data = self.db.get_user(user_id)
         
         last_claim = user_data.get('last_bonus_claim')
         can_claim = True
@@ -355,8 +367,8 @@ Balance: ${user_data['balance']:.2f}{playthrough_msg}
     
     async def stats_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Show player statistics"""
+        user_data = self.ensure_user_registered(update)
         user_id = update.effective_user.id
-        user_data = self.db.get_user(user_id)
         
         games_played = user_data.get('games_played', 0)
         win_rate = (user_data.get('games_won', 0) / games_played * 100) if games_played > 0 else 0
@@ -536,8 +548,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
     
     async def dice_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play dice game setup"""
+        user_data = self.ensure_user_registered(update)
         user_id = update.effective_user.id
-        user_data = self.db.get_user(user_id)
         
         if not context.args:
             await update.message.reply_text("Usage: `/dice <amount|all>`", parse_mode="Markdown")
@@ -575,8 +587,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
     
     async def darts_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play darts game setup"""
+        user_data = self.ensure_user_registered(update)
         user_id = update.effective_user.id
-        user_data = self.db.get_user(user_id)
         
         if not context.args:
             await update.message.reply_text("Usage: `/darts <amount|all>`", parse_mode="Markdown")
@@ -613,8 +625,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
     
     async def basketball_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play basketball game setup"""
+        user_data = self.ensure_user_registered(update)
         user_id = update.effective_user.id
-        user_data = self.db.get_user(user_id)
         
         if not context.args:
             await update.message.reply_text("Usage: `/basketball <amount|all>`", parse_mode="Markdown")
@@ -651,8 +663,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
     
     async def soccer_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play soccer game setup"""
+        user_data = self.ensure_user_registered(update)
         user_id = update.effective_user.id
-        user_data = self.db.get_user(user_id)
         
         if not context.args:
             await update.message.reply_text("Usage: `/soccer <amount|all>`", parse_mode="Markdown")
@@ -689,8 +701,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
     
     async def coinflip_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play coinflip game setup"""
+        user_data = self.ensure_user_registered(update)
         user_id = update.effective_user.id
-        user_data = self.db.get_user(user_id)
         
         if not context.args:
             await update.message.reply_text("Usage: `/flip <amount|all>`", parse_mode="Markdown")
@@ -738,8 +750,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
     
     async def roulette_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play roulette game"""
+        user_data = self.ensure_user_registered(update)
         user_id = update.effective_user.id
-        user_data = self.db.get_user(user_id)
         
         if not context.args:
             await update.message.reply_text("Usage: `/roulette <amount|all>` or `/roulette <amount> #<number>`", parse_mode="Markdown")
@@ -805,8 +817,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
     
     async def tip_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Send money to another player."""
+        user_data = self.ensure_user_registered(update)
         user_id = update.effective_user.id
-        user_data = self.db.get_user(user_id)
         
         if len(context.args) < 2:
             await update.message.reply_text("Usage: `/tip <amount> @user`", parse_mode="Markdown")
@@ -1078,16 +1090,19 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         if player_roll > bot_roll:
             profit = wager
             result = "win"
-            result_text = f"🎉 **{username}** rolled **{player_roll}** vs Bot's **{bot_roll}** and won **${profit:.2f}**!"
+            user_display = f"@{username}" if user_data.get('username') else username
+            result_text = f"{user_display} won ${profit:.2f}"
             self.db.update_house_balance(-wager)
         elif player_roll < bot_roll:
             profit = -wager
             result = "loss"
-            result_text = f"😭 **{username}** rolled **{player_roll}** vs Bot's **{bot_roll}** and lost **${wager:.2f}**."
+            user_display = f"@{username}" if user_data.get('username') else username
+            result_text = f"{user_display} lost ${wager:.2f}"
             self.db.update_house_balance(wager)
         else:
             # Draw, wager is refunded (profit remains 0)
-            result_text = f"🤝 **{username}** and Bot both rolled **{player_roll}**. It's a draw, bet refunded."
+            user_display = f"@{username}" if user_data.get('username') else username
+            result_text = f"{user_display} - Draw, bet refunded"
             
         # Update user stats and database
         self._update_user_stats(user_id, wager, profit, result)
@@ -1513,12 +1528,14 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             if bet_num == result_num:
                 profit = wager * 35
                 outcome = "win"
-                result_text = f"🎉 **{username}** bet on **#{bet_display}** and won **${profit:.2f}**!\n\n{result_emoji} The ball landed on **{result_display} {result_color.upper()}** (36x payout)"
+                user_display = f"@{username}" if user_data.get('username') else username
+                result_text = f"{user_display} won ${profit:.2f}"
                 self.db.update_house_balance(-profit)
             else:
                 profit = -wager
                 outcome = "loss"
-                result_text = f"😭 **{username}** bet on **#{bet_display}** but lost **${wager:.2f}**.\n\n{result_emoji} The ball landed on **{result_display} {result_color.upper()}**"
+                user_display = f"@{username}" if user_data.get('username') else username
+                result_text = f"{user_display} lost ${wager:.2f}"
                 self.db.update_house_balance(wager)
             
             self._update_user_stats(user_id, wager, profit, outcome)
@@ -1614,11 +1631,13 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         if won:
             profit = wager * (multiplier - 1)
             outcome = "win"
-            result_text = f"🎉 **{username}** bet on **{bet_description}** and won **${profit:.2f}**!\n\n{result_emoji} The ball landed on **{result_display} {result_color.upper()}** ({multiplier}x payout)"
+            user_display = f"@{username}" if user_data.get('username') else username
+            result_text = f"{user_display} won ${profit:.2f}"
             self.db.update_house_balance(-profit)
         else:
             profit = -wager
-            result_text = f"😭 **{username}** bet on **{bet_description}** but lost **${wager:.2f}**.\n\n{result_emoji} The ball landed on **{result_display} {result_color.upper()}**"
+            user_display = f"@{username}" if user_data.get('username') else username
+            result_text = f"{user_display} lost ${wager:.2f}"
             self.db.update_house_balance(wager)
         
         self._update_user_stats(user_id, wager, profit, outcome)
@@ -1652,6 +1671,9 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         """Handles all inline button presses."""
         query = update.callback_query
         await query.answer() # Acknowledge the button press immediately
+        
+        # Ensure user is registered and username is updated
+        self.ensure_user_registered(update)
         
         data = query.data
         user_id = query.from_user.id
