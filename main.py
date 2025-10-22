@@ -766,12 +766,31 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         keyboard = [
             [InlineKeyboardButton("🔴 Red (2x)", callback_data=f"roulette_{wager:.2f}_red"),
              InlineKeyboardButton("⚫ Black (2x)", callback_data=f"roulette_{wager:.2f}_black")],
-            [InlineKeyboardButton("🟢 Green (14x)", callback_data=f"roulette_{wager:.2f}_green")]
+            [InlineKeyboardButton("🟢 Green (14x)", callback_data=f"roulette_{wager:.2f}_green")],
+            [InlineKeyboardButton("Odd (2x)", callback_data=f"roulette_{wager:.2f}_odd"),
+             InlineKeyboardButton("Even (2x)", callback_data=f"roulette_{wager:.2f}_even")],
+            [InlineKeyboardButton("Low 1-18 (2x)", callback_data=f"roulette_{wager:.2f}_low"),
+             InlineKeyboardButton("High 19-36 (2x)", callback_data=f"roulette_{wager:.2f}_high")],
+            [InlineKeyboardButton("Column 1 (3x)", callback_data=f"roulette_{wager:.2f}_col1"),
+             InlineKeyboardButton("Column 2 (3x)", callback_data=f"roulette_{wager:.2f}_col2"),
+             InlineKeyboardButton("Column 3 (3x)", callback_data=f"roulette_{wager:.2f}_col3")],
+            [InlineKeyboardButton("1st Dozen 1-12 (3x)", callback_data=f"roulette_{wager:.2f}_dozen1")],
+            [InlineKeyboardButton("2nd Dozen 13-24 (3x)", callback_data=f"roulette_{wager:.2f}_dozen2")],
+            [InlineKeyboardButton("3rd Dozen 25-36 (3x)", callback_data=f"roulette_{wager:.2f}_dozen3")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         await update.message.reply_text(
-            f"🎰 Wager: ${wager:.2f}\n\nRed/Black: 2x\nGreen: 14x",
+            f"🎰 **Roulette** - Wager: ${wager:.2f}\n\n"
+            f"**Even Money Bets (2x):**\n"
+            f"• Red/Black: 18 numbers each\n"
+            f"• Odd/Even: 18 numbers each\n"
+            f"• Low/High: 1-18 or 19-36\n\n"
+            f"**Column Bets (3x):**\n"
+            f"• 12 numbers per column\n\n"
+            f"**Dozen Bets (3x):**\n"
+            f"• 12 numbers per dozen\n\n"
+            f"**Green (14x):** 0 and 00",
             reply_markup=reply_markup,
             parse_mode="Markdown"
         )
@@ -1460,6 +1479,16 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         blacks = [2,4,6,8,10,11,13,15,17,20,22,24,26,28,29,31,33,35]
         greens = [0, 37]  # 37 represents "00"
         
+        # Column definitions
+        col1 = [1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34]
+        col2 = [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35]
+        col3 = [3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36]
+        
+        # Dozen definitions
+        dozen1 = list(range(1, 13))  # 1-12
+        dozen2 = list(range(13, 25))  # 13-24
+        dozen3 = list(range(25, 37))  # 25-36
+        
         all_numbers = reds + blacks + greens
         result_num = random.choice(all_numbers)
         
@@ -1488,29 +1517,80 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         # Wait 2.5 seconds
         await asyncio.sleep(2.5)
         
-        # Determine outcome
+        # Determine outcome based on bet type
         profit = 0.0
         outcome = "loss"
         multiplier = 0
+        won = False
+        bet_description = choice.upper()
         
-        if choice == result_color:
-            if choice in ["red", "black"]:
-                multiplier = 2
-                profit = wager  # 2x payout means 1x profit
-            else:  # green
-                multiplier = 14
-                profit = wager * 13  # 14x payout means 13x profit
+        # Check if bet wins based on choice type
+        if choice == "red" and result_num in reds:
+            won = True
+            multiplier = 2
+            bet_description = "RED"
+        elif choice == "black" and result_num in blacks:
+            won = True
+            multiplier = 2
+            bet_description = "BLACK"
+        elif choice == "green" and result_num in greens:
+            won = True
+            multiplier = 14
+            bet_description = "GREEN"
+        elif choice == "odd" and result_num > 0 and result_num != 37 and result_num % 2 == 1:
+            won = True
+            multiplier = 2
+            bet_description = "ODD"
+        elif choice == "even" and result_num > 0 and result_num != 37 and result_num % 2 == 0:
+            won = True
+            multiplier = 2
+            bet_description = "EVEN"
+        elif choice == "low" and result_num >= 1 and result_num <= 18:
+            won = True
+            multiplier = 2
+            bet_description = "LOW (1-18)"
+        elif choice == "high" and result_num >= 19 and result_num <= 36:
+            won = True
+            multiplier = 2
+            bet_description = "HIGH (19-36)"
+        elif choice == "col1" and result_num in col1:
+            won = True
+            multiplier = 3
+            bet_description = "COLUMN 1"
+        elif choice == "col2" and result_num in col2:
+            won = True
+            multiplier = 3
+            bet_description = "COLUMN 2"
+        elif choice == "col3" and result_num in col3:
+            won = True
+            multiplier = 3
+            bet_description = "COLUMN 3"
+        elif choice == "dozen1" and result_num in dozen1:
+            won = True
+            multiplier = 3
+            bet_description = "1ST DOZEN (1-12)"
+        elif choice == "dozen2" and result_num in dozen2:
+            won = True
+            multiplier = 3
+            bet_description = "2ND DOZEN (13-24)"
+        elif choice == "dozen3" and result_num in dozen3:
+            won = True
+            multiplier = 3
+            bet_description = "3RD DOZEN (25-36)"
+        
+        if won:
+            profit = wager * (multiplier - 1)
             outcome = "win"
-            result_text = f"🎉 **{username}** bet on **{choice.upper()}** and won **${profit:.2f}**!\n\n{result_emoji} The ball landed on **{result_display} {result_color.upper()}**"
+            result_text = f"🎉 **{username}** bet on **{bet_description}** and won **${profit:.2f}**!\n\n{result_emoji} The ball landed on **{result_display} {result_color.upper()}** ({multiplier}x payout)"
             self.db.update_house_balance(-profit)
         else:
             profit = -wager
-            result_text = f"😭 **{username}** bet on **{choice.upper()}** but lost **${wager:.2f}**.\n\n{result_emoji} The ball landed on **{result_display} {result_color.upper()}**"
+            result_text = f"😭 **{username}** bet on **{bet_description}** but lost **${wager:.2f}**.\n\n{result_emoji} The ball landed on **{result_display} {result_color.upper()}**"
             self.db.update_house_balance(wager)
         
         # Update user stats
         self._update_user_stats(user_id, wager, profit, outcome)
-        self.db.add_transaction(user_id, "roulette", profit, f"Roulette - Bet: {choice.upper()} - Wager: ${wager:.2f}")
+        self.db.add_transaction(user_id, "roulette", profit, f"Roulette - Bet: {bet_description} - Wager: ${wager:.2f}")
         self.db.record_game({
             "type": "roulette",
             "player_id": user_id,
@@ -1521,9 +1601,14 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             "outcome": outcome
         })
         
-        keyboard = [[InlineKeyboardButton("🔴 Red Again", callback_data=f"roulette_{wager:.2f}_red"),
-                     InlineKeyboardButton("⚫ Black Again", callback_data=f"roulette_{wager:.2f}_black")],
-                    [InlineKeyboardButton("🟢 Green Again", callback_data=f"roulette_{wager:.2f}_green")]]
+        keyboard = [
+            [InlineKeyboardButton("🔴 Red", callback_data=f"roulette_{wager:.2f}_red"),
+             InlineKeyboardButton("⚫ Black", callback_data=f"roulette_{wager:.2f}_black")],
+            [InlineKeyboardButton("Odd", callback_data=f"roulette_{wager:.2f}_odd"),
+             InlineKeyboardButton("Even", callback_data=f"roulette_{wager:.2f}_even")],
+            [InlineKeyboardButton("Low", callback_data=f"roulette_{wager:.2f}_low"),
+             InlineKeyboardButton("High", callback_data=f"roulette_{wager:.2f}_high")]
+        ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         await context.bot.send_message(chat_id=chat_id, text=result_text, reply_markup=reply_markup, parse_mode="Markdown")
