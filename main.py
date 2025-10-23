@@ -7,6 +7,9 @@ import logging
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List
 
+# Import Blackjack game logic
+from blackjack import BlackjackGame
+
 # External dependencies (assuming they are installed via pip install python-telegram-bot)
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
@@ -230,6 +233,9 @@ class AntariaCasinoBot:
             self.db.save_data()
         
         self.stickers = self.db.data['stickers']
+        
+        # Dictionary to store active Blackjack games: user_id -> BlackjackGame instance
+        self.blackjack_sessions: Dict[int, BlackjackGame] = {}
 
     def setup_handlers(self):
         """Setup all command and callback handlers"""
@@ -256,6 +262,8 @@ class AntariaCasinoBot:
         self.app.add_handler(CommandHandler("coinflip", self.coinflip_command))
         self.app.add_handler(CommandHandler("flip", self.coinflip_command))
         self.app.add_handler(CommandHandler("roulette", self.roulette_command))
+        self.app.add_handler(CommandHandler("blackjack", self.blackjack_command))
+        self.app.add_handler(CommandHandler("bj", self.blackjack_command))
         self.app.add_handler(CommandHandler("tip", self.tip_command))
         self.app.add_handler(CommandHandler("backup", self.backup_command))
         self.app.add_handler(CommandHandler("savesticker", self.save_sticker_command))
@@ -1146,6 +1154,183 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             parse_mode="Markdown"
         )
         self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
+    
+    async def blackjack_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Start a Blackjack game"""
+        user_data = self.ensure_user_registered(update)
+        user_id = update.effective_user.id
+        
+        # Check if user already has an active game
+        if user_id in self.blackjack_sessions:
+            await update.message.reply_text("❌ You already have an active Blackjack game. Finish it first or use /stand to end it.")
+            return
+        
+        if not context.args:
+            await update.message.reply_text(
+                "🃏 **Blackjack Rules**\n\n"
+                "Get as close to 21 as possible without going over!\n\n"
+                "**Card Values:**\n"
+                "• 2-10: Face value\n"
+                "• J, Q, K: 10 points\n"
+                "• Ace: 1 or 11 points\n\n"
+                "**Payouts:**\n"
+                "• Blackjack (Ace + 10): 3:2 (1.5x)\n"
+                "• Regular Win: 1:1\n"
+                "• Push (tie): Bet returned\n\n"
+                "**Actions:**\n"
+                "• Hit: Take another card\n"
+                "• Stand: Keep current hand\n"
+                "• Double: Double bet, get 1 card\n"
+                "• Split: Split pairs into 2 hands\n"
+                "• Surrender: Forfeit and lose half bet\n\n"
+                "**Usage:** `/blackjack <amount|all>`",
+                parse_mode="Markdown"
+            )
+            return
+        
+        # Parse wager
+        wager = 0.0
+        if context.args[0].lower() == "all":
+            wager = user_data['balance']
+        else:
+            try:
+                wager = round(float(context.args[0]), 2)
+            except ValueError:
+                await update.message.reply_text("❌ Invalid amount")
+                return
+        
+        if wager <= 0.01:
+            await update.message.reply_text("❌ Min: $0.01")
+            return
+        
+        if wager > user_data['balance']:
+            await update.message.reply_text(f"❌ Balance: ${user_data['balance']:.2f}")
+            return
+        
+        # Deduct wager from balance
+        user_data['balance'] -= wager
+        self.db.update_user(user_id, user_data)
+        
+        # Create new Blackjack game
+        game = BlackjackGame(bet_amount=wager)
+        game.start_game()
+        self.blackjack_sessions[user_id] = game
+        
+        # Display game state
+        await self._display_blackjack_state(update, context, user_id)
+    
+    async def _display_blackjack_state(self, update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int):
+        """Display the current Blackjack game state with action buttons"""
+        if user_id not in self.blackjack_sessions:
+            return
+        
+        game = self.blackjack_sessions[user_id]
+        state = game.get_game_state()
+        
+        # Build message text
+        message = "🃏 **Blackjack**\n\n"
+        message += f"**Dealer:** {state['dealer']['cards']} "
+        if state['game_over']:
+            message += f"(Value: {state['dealer']['value']})\n\n"
+        else:
+            message += f"(Showing: {state['dealer']['value']})\n\n"
+        
+        # Display all player hands
+        for hand in state['player_hands']:
+            hand_status = ""
+            if len(state['player_hands']) > 1:
+                hand_status = f"**Hand {hand['id'] + 1}:** "
+            
+            hand_status += f"{hand['cards']} (Value: {hand['value']}) "
+            hand_status += f"- Bet: ${hand['bet']:.2f}"
+            
+            if hand['status'] == 'Blackjack':
+                hand_status += " 🎉 BLACKJACK!"
+            elif hand['status'] == 'Bust':
+                hand_status += " 💥 BUST"
+            elif hand['is_current_turn']:
+                hand_status += " ⬅️ Your turn"
+            
+            message += hand_status + "\n"
+        
+        # Insurance info
+        if state['is_insurance_available']:
+            message += f"\n**Insurance available:** ${state['insurance_bet']:.2f}\n"
+        
+        # Game over - show results
+        if state['game_over']:
+            message += f"\n**Final Result:**\n"
+            if state['dealer']['final_status'] == 'Bust':
+                message += f"Dealer busts with {state['dealer']['value']}!\n\n"
+            elif state['dealer']['is_blackjack']:
+                message += "Dealer has Blackjack!\n\n"
+            
+            total_payout = state['total_payout']
+            if total_payout > 0:
+                message += f"✅ **You won ${total_payout:.2f}!**"
+            elif total_payout < 0:
+                message += f"❌ **You lost ${abs(total_payout):.2f}**"
+            else:
+                message += "🤝 **Push** - Bet returned"
+            
+            # Update user balance
+            user_data = self.db.get_user(user_id)
+            user_data['balance'] += total_payout + sum(h['bet'] for h in state['player_hands'])
+            user_data['total_wagered'] += sum(h['bet'] for h in state['player_hands'])
+            user_data['total_pnl'] += total_payout
+            user_data['games_played'] += 1
+            if total_payout > 0:
+                user_data['games_won'] += 1
+            self.db.update_user(user_id, user_data)
+            
+            # Record game
+            self.db.record_game({
+                'game_type': 'blackjack',
+                'user_id': user_id,
+                'username': user_data.get('username', 'Unknown'),
+                'wager': sum(h['bet'] for h in state['player_hands']),
+                'payout': total_payout,
+                'result': 'win' if total_payout > 0 else ('loss' if total_payout < 0 else 'push')
+            })
+            
+            # Remove session
+            del self.blackjack_sessions[user_id]
+            
+            await update.effective_message.reply_text(message, parse_mode="Markdown")
+            return
+        
+        # Build action buttons for current hand
+        keyboard = []
+        current_hand = state['player_hands'][state['current_hand_index']]
+        
+        if current_hand['is_current_turn']:
+            actions = current_hand.get('actions', {})
+            
+            # Always show Hit and Stand
+            keyboard.append([
+                InlineKeyboardButton("Hit", callback_data=f"bj_{user_id}_hit"),
+                InlineKeyboardButton("Stand", callback_data=f"bj_{user_id}_stand")
+            ])
+            
+            # Double Down button
+            if actions.get('can_double'):
+                keyboard.append([InlineKeyboardButton("Double Down", callback_data=f"bj_{user_id}_double")])
+            
+            # Split button
+            if actions.get('can_split'):
+                keyboard.append([InlineKeyboardButton("Split", callback_data=f"bj_{user_id}_split")])
+            
+            # Surrender button
+            if actions.get('can_surrender'):
+                keyboard.append([InlineKeyboardButton("Surrender", callback_data=f"bj_{user_id}_surrender")])
+        
+        # Insurance button
+        if state['is_insurance_available']:
+            keyboard.append([InlineKeyboardButton("Take Insurance", callback_data=f"bj_{user_id}_insurance")])
+        
+        reply_markup = InlineKeyboardMarkup(keyboard) if keyboard else None
+        
+        await update.effective_message.reply_text(message, reply_markup=reply_markup, parse_mode="Markdown")
     
     async def tip_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Send money to another player."""
@@ -2837,6 +3022,78 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                      self.db.save_data()
                 else:
                     await query.answer("❌ Only the challenger can cancel this game.", show_alert=True)
+            
+            # Blackjack button handlers
+            elif data.startswith("bj_"):
+                parts = data.split('_')
+                game_user_id = int(parts[1])
+                action = parts[2]
+                
+                # Verify this is the correct user's game
+                if user_id != game_user_id:
+                    await query.answer("❌ This is not your game!", show_alert=True)
+                    return
+                
+                if game_user_id not in self.blackjack_sessions:
+                    await query.edit_message_text("❌ Game session expired. Start a new game with /blackjack")
+                    return
+                
+                game = self.blackjack_sessions[game_user_id]
+                
+                # Execute the action
+                if action == "hit":
+                    game.hit()
+                elif action == "stand":
+                    game.stand()
+                elif action == "double":
+                    # Check if user has enough balance for double down
+                    user_data = self.db.get_user(user_id)
+                    current_hand = game.player_hands[game.current_hand_index]
+                    additional_bet = current_hand['bet']
+                    
+                    if user_data['balance'] < additional_bet:
+                        await query.answer("❌ Insufficient balance to double down!", show_alert=True)
+                        return
+                    
+                    # Deduct additional bet
+                    user_data['balance'] -= additional_bet
+                    self.db.update_user(user_id, user_data)
+                    
+                    game.double_down()
+                elif action == "split":
+                    # Check if user has enough balance for split
+                    user_data = self.db.get_user(user_id)
+                    current_hand = game.player_hands[game.current_hand_index]
+                    additional_bet = current_hand['bet']
+                    
+                    if user_data['balance'] < additional_bet:
+                        await query.answer("❌ Insufficient balance to split!", show_alert=True)
+                        return
+                    
+                    # Deduct additional bet
+                    user_data['balance'] -= additional_bet
+                    self.db.update_user(user_id, user_data)
+                    
+                    game.split()
+                elif action == "surrender":
+                    game.surrender()
+                elif action == "insurance":
+                    # Check if user has enough balance for insurance
+                    user_data = self.db.get_user(user_id)
+                    insurance_cost = game.initial_bet / 2
+                    
+                    if user_data['balance'] < insurance_cost:
+                        await query.answer("❌ Insufficient balance for insurance!", show_alert=True)
+                        return
+                    
+                    # Deduct insurance cost
+                    user_data['balance'] -= insurance_cost
+                    self.db.update_user(user_id, user_data)
+                    
+                    game.take_insurance()
+                
+                # Update the display with new game state
+                await self._display_blackjack_state(update, context, user_id)
             
             else:
                 await query.edit_message_text("Something went wrong or this button is for a different command!")

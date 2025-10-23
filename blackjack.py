@@ -61,7 +61,7 @@ class Hand:
         self.cards.append(card)
         self.value, self.soft = self._calculate_value()
 
-    def _calculate_value(self) -> (int, bool):
+    def _calculate_value(self) -> tuple[int, bool]:
         """Calculates the best possible score (value) and determines if it is soft."""
         value = sum(card.value for card in self.cards)
         num_aces = sum(1 for card in self.cards if card.rank == 'A')
@@ -101,8 +101,8 @@ class Hand:
 class BlackjackGame:
     """Manages the state and rules for a single game of Blackjack."""
     
-    # Standard Casino Rule: Dealer stands on all 17s (S17)
-    DEALER_STANDS_ON_SOFT_17 = True
+    # Standard Casino Rule: Dealer hits on soft 17 (H17)
+    DEALER_STANDS_ON_SOFT_17 = False
 
     def __init__(self, bet_amount: int, deck: Optional[Deck] = None):
         self.deck = deck if deck else Deck()
