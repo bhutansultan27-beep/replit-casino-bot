@@ -251,6 +251,9 @@ class AntariaCasinoBot:
         self.app.add_handler(CommandHandler("bball", self.basketball_command))
         self.app.add_handler(CommandHandler("soccer", self.soccer_command))
         self.app.add_handler(CommandHandler("football", self.soccer_command))
+        self.app.add_handler(CommandHandler("bowling", self.bowling_command))
+        self.app.add_handler(CommandHandler("slots", self.slots_command))
+        self.app.add_handler(CommandHandler("predict", self.predict_command))
         self.app.add_handler(CommandHandler("coinflip", self.coinflip_command))
         self.app.add_handler(CommandHandler("flip", self.coinflip_command))
         self.app.add_handler(CommandHandler("roulette", self.roulette_command))
@@ -888,6 +891,234 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         )
         self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
     
+    async def bowling_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Play bowling game setup"""
+        user_data = self.ensure_user_registered(update)
+        user_id = update.effective_user.id
+        
+        if not context.args:
+            await update.message.reply_text("Usage: `/bowling <amount|all>`", parse_mode="Markdown")
+            return
+        
+        wager = 0.0
+        if context.args[0].lower() == "all":
+            wager = user_data['balance']
+        else:
+            try:
+                wager = round(float(context.args[0]), 2)
+            except ValueError:
+                await update.message.reply_text("❌ Invalid amount")
+                return
+        
+        if wager <= 0.01:
+            await update.message.reply_text("❌ Min: $0.01")
+            return
+        
+        if wager > user_data['balance']:
+            await update.message.reply_text(f"❌ Balance: ${user_data['balance']:.2f}")
+            return
+        
+        keyboard = [
+            [InlineKeyboardButton("🤖 Play vs Bot", callback_data=f"bowling_bot_{wager:.2f}")],
+            [InlineKeyboardButton("👥 Create PvP Challenge", callback_data=f"bowling_player_open_{wager:.2f}")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        sent_msg = await update.message.reply_text(
+            f"🎳 **Bowling Game**\n\nWager: ${wager:.2f}\n\nChoose your opponent:",
+            reply_markup=reply_markup,
+            parse_mode="Markdown"
+        )
+        self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
+    
+    async def slots_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Play slots game"""
+        user_data = self.ensure_user_registered(update)
+        user_id = update.effective_user.id
+        
+        if not context.args:
+            help_text = (
+                "🎰 **Slot Machine**\n\n"
+                "**Winning Combinations:**\n"
+                "🎰🎰🎰 **777 Jackpot** - 10x payout\n"
+                "🎰🎰🎰 **Triple Match** - 5x payout\n"
+                "🎰🎰 **Double Match** - 2x payout\n"
+                "❌ **No Match** - Lose bet\n\n"
+                "**Usage:** `/slots <amount|all>`\n"
+                "**Example:** `/slots 5` or `/slots all`"
+            )
+            await update.message.reply_text(help_text, parse_mode="Markdown")
+            return
+        
+        wager = 0.0
+        if context.args[0].lower() == "all":
+            wager = user_data['balance']
+        else:
+            try:
+                wager = round(float(context.args[0]), 2)
+            except ValueError:
+                await update.message.reply_text("❌ Invalid amount")
+                return
+        
+        if wager <= 0.01:
+            await update.message.reply_text("❌ Min: $0.01")
+            return
+        
+        if wager > user_data['balance']:
+            await update.message.reply_text(f"❌ Balance: ${user_data['balance']:.2f}")
+            return
+        
+        # Deduct wager from user balance
+        self.db.update_user(user_id, {'balance': user_data['balance'] - wager})
+        
+        # Send the slot machine emoji and wait for result
+        dice_message = await update.message.reply_dice(emoji="🎰")
+        slot_value = dice_message.dice.value
+        
+        # Slot machine values range from 1-64
+        # Jackpot combinations (value 64): 777 = 10x payout
+        # Triple match (values 22, 43, 64): 5x payout
+        # Double match (values 1-21, 23-42, 44-63): 2x payout
+        # No match: 0x payout (lose bet)
+        
+        await asyncio.sleep(3)
+        
+        payout_multiplier = 0
+        result_text = ""
+        
+        if slot_value == 64:
+            payout_multiplier = 10
+            result_text = "🎰🎰🎰 JACKPOT!"
+        elif slot_value in [22, 43]:
+            payout_multiplier = 5
+            result_text = "🎉 Triple Match!"
+        elif slot_value >= 1:
+            payout_multiplier = 2
+            result_text = "👍 Double Match!"
+        
+        payout = wager * payout_multiplier
+        profit = payout - wager
+        
+        # Update user balance and stats
+        if payout > 0:
+            new_balance = user_data['balance'] + payout
+            self.db.update_user(user_id, {
+                'balance': new_balance,
+                'total_wagered': user_data['total_wagered'] + wager,
+                'wagered_since_last_withdrawal': user_data.get('wagered_since_last_withdrawal', 0) + wager,
+                'games_played': user_data['games_played'] + 1,
+                'games_won': user_data['games_won'] + 1
+            })
+            self.db.update_house_balance(-profit)
+            await update.message.reply_text(f"{result_text} @{user_data['username']} won ${profit:.2f}")
+        else:
+            self.db.update_user(user_id, {
+                'total_wagered': user_data['total_wagered'] + wager,
+                'wagered_since_last_withdrawal': user_data.get('wagered_since_last_withdrawal', 0) + wager,
+                'games_played': user_data['games_played'] + 1
+            })
+            self.db.update_house_balance(wager)
+            await update.message.reply_text(f"No match. @{user_data['username']} lost ${wager:.2f}")
+        
+        # Record game
+        self.db.record_game({
+            'type': 'slots_bot',
+            'player_id': user_id,
+            'wager': wager,
+            'slot_value': slot_value,
+            'result': 'win' if profit > 0 else 'loss',
+            'payout': profit
+        })
+    
+    async def predict_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Play dice predict game - predict what you'll roll"""
+        user_data = self.ensure_user_registered(update)
+        user_id = update.effective_user.id
+        
+        if len(context.args) < 2:
+            await update.message.reply_text("Usage: `/predict <amount|all> #<number>`\nExample: `/predict 5 #6`", parse_mode="Markdown")
+            return
+        
+        wager = 0.0
+        if context.args[0].lower() == "all":
+            wager = user_data['balance']
+        else:
+            try:
+                wager = round(float(context.args[0]), 2)
+            except ValueError:
+                await update.message.reply_text("❌ Invalid amount")
+                return
+        
+        # Parse the predicted number
+        predicted_str = context.args[1]
+        if not predicted_str.startswith('#'):
+            await update.message.reply_text("❌ Prediction must start with # (e.g., #6)")
+            return
+        
+        try:
+            predicted_number = int(predicted_str[1:])
+        except ValueError:
+            await update.message.reply_text("❌ Invalid number")
+            return
+        
+        if predicted_number < 1 or predicted_number > 6:
+            await update.message.reply_text("❌ Prediction must be between #1 and #6")
+            return
+        
+        if wager <= 0.01:
+            await update.message.reply_text("❌ Min: $0.01")
+            return
+        
+        if wager > user_data['balance']:
+            await update.message.reply_text(f"❌ Balance: ${user_data['balance']:.2f}")
+            return
+        
+        # Deduct wager from user balance
+        self.db.update_user(user_id, {'balance': user_data['balance'] - wager})
+        
+        # Send the dice emoji and wait for result
+        dice_message = await update.message.reply_dice(emoji="🎲")
+        actual_roll = dice_message.dice.value
+        
+        await asyncio.sleep(3)
+        
+        # Check if prediction matches
+        if actual_roll == predicted_number:
+            # Win! 6x payout (since odds are 1/6)
+            payout = wager * 6
+            profit = payout - wager
+            new_balance = user_data['balance'] + payout
+            
+            self.db.update_user(user_id, {
+                'balance': new_balance,
+                'total_wagered': user_data['total_wagered'] + wager,
+                'wagered_since_last_withdrawal': user_data.get('wagered_since_last_withdrawal', 0) + wager,
+                'games_played': user_data['games_played'] + 1,
+                'games_won': user_data['games_won'] + 1
+            })
+            self.db.update_house_balance(-profit)
+            await update.message.reply_text(f"🎉 Predicted #{predicted_number} and rolled {actual_roll}! @{user_data['username']} won ${profit:.2f}")
+        else:
+            # Loss
+            self.db.update_user(user_id, {
+                'total_wagered': user_data['total_wagered'] + wager,
+                'wagered_since_last_withdrawal': user_data.get('wagered_since_last_withdrawal', 0) + wager,
+                'games_played': user_data['games_played'] + 1
+            })
+            self.db.update_house_balance(wager)
+            await update.message.reply_text(f"Predicted #{predicted_number} but rolled {actual_roll}. @{user_data['username']} lost ${wager:.2f}")
+        
+        # Record game
+        self.db.record_game({
+            'type': 'dice_predict',
+            'player_id': user_id,
+            'wager': wager,
+            'predicted': predicted_number,
+            'actual_roll': actual_roll,
+            'result': 'win' if actual_roll == predicted_number else 'loss',
+            'payout': (wager * 6) if actual_roll == predicted_number else 0
+        })
+    
     async def coinflip_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play coinflip game setup"""
         user_data = self.ensure_user_registered(update)
@@ -1165,19 +1396,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         await update.message.reply_text("✅ All 38 roulette stickers have been saved to the database!")
     
     async def sticker_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle incoming stickers and show their file_id"""
-        sticker = update.message.sticker
-        file_id = sticker.file_id
-        emoji = sticker.emoji or "N/A"
-        
-        await update.message.reply_text(
-            f"🎨 **Sticker Info**\n\n"
-            f"File ID: `{file_id}`\n"
-            f"Emoji: {emoji}\n\n"
-            f"To save this sticker, use:\n"
-            f"`/savesticker <category> {file_id}`",
-            parse_mode="Markdown"
-        )
+        """Handle incoming stickers silently"""
+        pass
     
     # --- ADMIN COMMANDS ---
     
@@ -1679,6 +1899,43 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         
         await context.bot.send_message(chat_id=chat_id, text=f"@{username} your turn", parse_mode="Markdown")
 
+    async def bowling_vs_bot(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float):
+        """Play bowling against the bot (called from button)"""
+        query = update.callback_query
+        user_id = query.from_user.id
+        user_data = self.db.get_user(user_id)
+        username = user_data.get('username', f'User{user_id}')
+        chat_id = query.message.chat_id
+        
+        if wager > user_data['balance']:
+            await context.bot.send_message(chat_id=chat_id, text=f"❌ Balance: ${user_data['balance']:.2f}")
+            return
+        
+        # Deduct wager from player
+        self.db.update_user(user_id, {'balance': user_data['balance'] - wager})
+        
+        # Bot sends its emoji
+        bot_dice_msg = await context.bot.send_dice(chat_id=chat_id, emoji="🎳")
+        await asyncio.sleep(4)
+        bot_roll = bot_dice_msg.dice.value
+        
+        # Store pending game and wait for player emoji
+        game_id = f"bowling_bot_{user_id}_{int(datetime.now().timestamp())}"
+        self.pending_pvp[game_id] = {
+            "type": "bowling_bot",
+            "player": user_id,
+            "bot_roll": bot_roll,
+            "wager": wager,
+            "emoji": "🎳",
+            "chat_id": chat_id,
+            "waiting_for_emoji": True,
+            "emoji_wait_started": datetime.now().isoformat()
+        }
+        self.db.data['pending_pvp'] = self.pending_pvp
+        self.db.save_data()
+        
+        await context.bot.send_message(chat_id=chat_id, text=f"@{username} your turn", parse_mode="Markdown")
+
     async def create_open_dice_challenge(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float):
         """Create an open dice challenge for anyone to accept"""
         query = update.callback_query
@@ -1936,7 +2193,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         wager = challenge_to_resolve['wager']
         
         # Check if it's a bot vs player game
-        if game_type in ['dice_bot', 'darts_bot', 'basketball_bot', 'soccer_bot']:
+        if game_type in ['dice_bot', 'darts_bot', 'basketball_bot', 'soccer_bot', 'bowling_bot']:
             await self.resolve_bot_vs_player_game(update, context, challenge_to_resolve, challenge_id_to_resolve, roll_value)
             return
         
@@ -2331,7 +2588,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             return
         
         # Check button ownership (except for public buttons like challenges and leaderboard)
-        public_buttons = ["accept_dice_", "accept_darts_", "accept_basketball_", "accept_soccer_", "accept_coinflip_", "lb_page_", "transactions_history", "deposit_mock", "withdraw_mock"]
+        public_buttons = ["accept_dice_", "accept_darts_", "accept_basketball_", "accept_soccer_", "accept_bowling_", "accept_coinflip_", "lb_page_", "transactions_history", "deposit_mock", "withdraw_mock"]
         is_public = any(data.startswith(prefix) or data == prefix for prefix in public_buttons)
         
         ownership_key = (chat_id, message_id)
@@ -2343,7 +2600,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         await query.answer() # Acknowledge the button press
         
         # Mark button as clicked for game buttons (not utility buttons)
-        if any(data.startswith(prefix) for prefix in ["dice_bot_", "darts_bot_", "basketball_bot_", "soccer_bot_", "flip_bot_", "roulette_", "dice_player_open_", "darts_player_open_", "basketball_player_open_", "soccer_player_open_", "accept_darts_", "accept_basketball_", "accept_soccer_", "claim_daily_bonus", "claim_referral"]):
+        if any(data.startswith(prefix) for prefix in ["dice_bot_", "darts_bot_", "basketball_bot_", "soccer_bot_", "bowling_bot_", "flip_bot_", "roulette_", "dice_player_open_", "darts_player_open_", "basketball_player_open_", "soccer_player_open_", "bowling_player_open_", "accept_darts_", "accept_basketball_", "accept_soccer_", "accept_bowling_", "claim_daily_bonus", "claim_referral"]):
             self.clicked_buttons.add(button_key)
         
         try:
@@ -2366,6 +2623,11 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             elif data.startswith("soccer_bot_"):
                 wager = float(data.split('_')[2])
                 await self.soccer_vs_bot(update, context, wager)
+                
+            # Game Callbacks (Bowling vs Bot)
+            elif data.startswith("bowling_bot_"):
+                wager = float(data.split('_')[2])
+                await self.bowling_vs_bot(update, context, wager)
                 
             # Game Callbacks (Dice PvP)
             elif data.startswith("dice_player_open_"):
@@ -2400,6 +2662,15 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 await self.create_emoji_pvp_challenge(update, context, wager, "soccer", "⚽")
             
             elif data.startswith("accept_soccer_"):
+                challenge_id = data.split('_', 2)[2]
+                await self.accept_emoji_pvp_challenge(update, context, challenge_id)
+            
+            # Game Callbacks (Bowling PvP)
+            elif data.startswith("bowling_player_open_"):
+                wager = float(data.split('_')[3])
+                await self.create_emoji_pvp_challenge(update, context, wager, "bowling", "🎳")
+            
+            elif data.startswith("accept_bowling_"):
                 challenge_id = data.split('_', 2)[2]
                 await self.accept_emoji_pvp_challenge(update, context, challenge_id)
             
