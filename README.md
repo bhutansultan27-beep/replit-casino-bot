@@ -43,6 +43,49 @@ Classic heads or tails - double or nothing!
 - Win = 2x your bet
 - Lose = lose your bet
 
+### 🎰 Slots
+Spin the slot machine and match symbols for big wins!
+
+**Commands:**
+```
+/slots 10         # Bet $10 on a spin
+/slots all        # Bet all your balance
+```
+
+**Winning Combinations:**
+- 🎰🎰🎰 **777 Jackpot** - 10x payout
+- 🎰🎰🎰 **Triple Match** - 5x payout
+- 🎰🎰 **Double Match** - 2x payout
+
+### 🔮 Predict
+Predict what number you'll roll on the dice!
+
+**Commands:**
+```
+/predict 10 #6    # Bet $10 predicting you'll roll a 6
+/predict all #3   # Bet all predicting you'll roll a 3
+```
+
+**Rules:**
+- Predict any number 1-6
+- Correct prediction = 5x payout
+- Wrong prediction = lose your bet
+
+### 🎳 Bowling
+Roll a bowling ball and score strikes and spares!
+
+**Commands:**
+```
+/bowling 10       # Bet $10 on a bowling game
+/bowling all      # Bet all your balance
+```
+
+**Payouts:**
+- 🎳 **Strike** (all 6 pins) - 3x payout
+- **Spare** (5 pins) - 2x payout
+- **4+ pins** - 1.5x payout
+- **Less than 4 pins** - lose your bet
+
 ## 💰 Bonus System
 
 ### First-Time Bonus
