@@ -1693,23 +1693,18 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         # Deduct wager from challenger balance immediately
         self.db.update_user(user_id, {'balance': user_data['balance'] - wager})
         
-        # Send emoji for challenger's roll
-        await query.edit_message_text(f"{emoji} **{game_type.upper()} PvP Challenge!**\n\nChallenger: @{username} is rolling...", parse_mode="Markdown")
-        
         chat_id = query.message.chat_id
-        challenger_roll_msg = await context.bot.send_dice(chat_id=chat_id, emoji=emoji)
-        await asyncio.sleep(3)
-        challenger_roll = challenger_roll_msg.dice.value
         
         challenge_id = f"{game_type}_open_{user_id}_{int(datetime.now().timestamp())}"
         self.pending_pvp[challenge_id] = {
             "type": game_type,
             "challenger": user_id,
-            "challenger_roll": challenger_roll,
+            "challenger_roll": None,
             "opponent": None,
             "wager": wager,
             "emoji": emoji,
             "chat_id": chat_id,
+            "waiting_for_challenger_emoji": False,
             "created_at": datetime.now().isoformat()
         }
         self.db.data['pending_pvp'] = self.pending_pvp
@@ -1718,12 +1713,11 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         keyboard = [[InlineKeyboardButton("✅ Accept Challenge", callback_data=f"accept_{game_type}_{challenge_id}")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text=f"{emoji} **{game_type.upper()} PvP Challenge!**\n\n"
-                 f"Challenger: @{username} (Rolled: {challenger_roll})\n"
-                 f"Wager: **${wager:.2f}**\n\n"
-                 f"Click below to accept and send your {emoji} emoji!",
+        await query.edit_message_text(
+            f"{emoji} **{game_type.upper()} PvP Challenge!**\n\n"
+            f"Challenger: @{username}\n"
+            f"Wager: **${wager:.2f}**\n\n"
+            f"Click below to accept!",
             reply_markup=reply_markup,
             parse_mode="Markdown"
         )
@@ -1745,7 +1739,6 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         game_type = challenge['type']
         emoji = challenge['emoji']
         chat_id = challenge['chat_id']
-        challenger_roll = challenge['challenger_roll']
         
         if acceptor_id == challenger_id:
             await query.answer("❌ You cannot accept your own challenge.", show_alert=True)
@@ -1758,15 +1751,16 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         # Deduct wager from acceptor balance
         self.db.update_user(acceptor_id, {'balance': acceptor_user['balance'] - wager})
         
-        # Tell acceptor to send their emoji
+        # Tell challenger to send their emoji first
         await query.edit_message_text(
-            f"@{acceptor_user['username']} your turn",
+            f"@{challenger_user['username']} your turn",
             parse_mode="Markdown"
         )
         
-        # Update challenge to mark acceptor
+        # Update challenge to mark acceptor and wait for challenger emoji
         challenge['opponent'] = acceptor_id
-        challenge['waiting_for_emoji'] = True
+        challenge['waiting_for_challenger_emoji'] = True
+        challenge['waiting_for_emoji'] = False
         self.pending_pvp[challenge_id] = challenge
         self.db.data['pending_pvp'] = self.pending_pvp
         self.db.save_data()
@@ -1792,7 +1786,33 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         challenge_to_resolve = None
         
         for cid, challenge in self.pending_pvp.items():
-            logger.info(f"Checking challenge {cid}: emoji={challenge.get('emoji')}, waiting={challenge.get('waiting_for_emoji')}, chat={challenge.get('chat_id')}, player={challenge.get('player')}, opponent={challenge.get('opponent')}")
+            logger.info(f"Checking challenge {cid}: emoji={challenge.get('emoji')}, waiting_for_challenger={challenge.get('waiting_for_challenger_emoji')}, waiting={challenge.get('waiting_for_emoji')}, chat={challenge.get('chat_id')}, player={challenge.get('player')}, opponent={challenge.get('opponent')}")
+            
+            # Check if waiting for challenger's emoji
+            if (challenge.get('waiting_for_challenger_emoji') and 
+                challenge.get('emoji') == emoji and
+                challenge.get('chat_id') == chat_id and
+                challenge.get('challenger') == user_id):
+                challenge_id_to_resolve = cid
+                challenge_to_resolve = challenge
+                logger.info(f"Found challenger emoji challenge: {cid}")
+                
+                # Wait for animation
+                await asyncio.sleep(3)
+                
+                # Save challenger's roll and tell acceptor to go
+                challenge['challenger_roll'] = roll_value
+                challenge['waiting_for_challenger_emoji'] = False
+                challenge['waiting_for_emoji'] = True
+                self.pending_pvp[cid] = challenge
+                self.db.data['pending_pvp'] = self.pending_pvp
+                self.db.save_data()
+                
+                acceptor_user = self.db.get_user(challenge['opponent'])
+                await context.bot.send_message(chat_id=chat_id, text=f"@{acceptor_user['username']} your turn", parse_mode="Markdown")
+                return
+            
+            # Check if waiting for acceptor's emoji (or bot vs player)
             if (challenge.get('waiting_for_emoji') and 
                 challenge.get('emoji') == emoji and
                 challenge.get('chat_id') == chat_id):
