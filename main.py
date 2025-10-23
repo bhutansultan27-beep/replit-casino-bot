@@ -252,7 +252,6 @@ class AntariaCasinoBot:
         self.app.add_handler(CommandHandler("soccer", self.soccer_command))
         self.app.add_handler(CommandHandler("football", self.soccer_command))
         self.app.add_handler(CommandHandler("bowling", self.bowling_command))
-        self.app.add_handler(CommandHandler("slots", self.slots_command))
         self.app.add_handler(CommandHandler("predict", self.predict_command))
         self.app.add_handler(CommandHandler("coinflip", self.coinflip_command))
         self.app.add_handler(CommandHandler("flip", self.coinflip_command))
@@ -495,7 +494,6 @@ Balance: ${user_data['balance']:.2f}{playthrough_msg}
 /soccer <amount> - Soccer ⚽
 /bowling <amount> - Bowling 🎳
 /flip <amount> - Coin flip 🪙
-/slots <amount> - Slot machine 🎰
 /predict <amount> #<1-6> - Predict dice 🔮
 /roulette <amount> - Roulette 🎡
 
@@ -933,130 +931,6 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             parse_mode="Markdown"
         )
         self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
-    
-    async def slots_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Play slots game"""
-        user_data = self.ensure_user_registered(update)
-        user_id = update.effective_user.id
-        
-        if not context.args:
-            help_text = (
-                "🎰 **Slot Machine**\n\n"
-                "**Winning Combinations:**\n"
-                "🎰🎰🎰 **777 JACKPOT** - 20x payout! 💰\n"
-                "🍇🍇🍇 / 🍋🍋🍋 / 7️⃣7️⃣7️⃣ **Triple Match** - 8x payout\n"
-                "🍇🍇 / 🍋🍋 / 7️⃣7️⃣ **Double Match** - 2.5x payout\n"
-                "BAR **Single Bar** - 1.5x payout\n"
-                "❌ **No Match** - Lose bet\n\n"
-                "**Usage:** `/slots <amount|all>`\n"
-                "**Example:** `/slots 5` or `/slots all`"
-            )
-            await update.message.reply_text(help_text, parse_mode="Markdown")
-            return
-        
-        wager = 0.0
-        if context.args[0].lower() == "all":
-            wager = user_data['balance']
-        else:
-            try:
-                wager = round(float(context.args[0]), 2)
-            except ValueError:
-                await update.message.reply_text("❌ Invalid amount")
-                return
-        
-        if wager <= 0.01:
-            await update.message.reply_text("❌ Min: $0.01")
-            return
-        
-        if wager > user_data['balance']:
-            await update.message.reply_text(f"❌ Balance: ${user_data['balance']:.2f}")
-            return
-        
-        # Deduct wager from user balance
-        self.db.update_user(user_id, {'balance': user_data['balance'] - wager})
-        
-        # Send the slot machine emoji and wait for result
-        dice_message = await update.message.reply_dice(emoji="🎰")
-        slot_value = dice_message.dice.value
-        
-        # Telegram slot machine values (1-64) mapped to outcomes
-        # Value 64: 777 jackpot - highest payout
-        # Values 1, 22, 43: Triple matches (grapes, lemons, sevens)
-        # Values with double matches get medium payout
-        # Single bar symbols get small payout
-        
-        await asyncio.sleep(3)
-        
-        payout_multiplier = 0
-        result_text = ""
-        
-        if slot_value == 64:
-            # Jackpot - 777
-            payout_multiplier = 20
-            result_text = "🎰🎰🎰 **JACKPOT!** 777 💰💰💰"
-        elif slot_value in [1, 22, 43]:
-            # Triple matches
-            payout_multiplier = 8
-            result_text = "🎰 **TRIPLE MATCH!** 🍇🍇🍇"
-        elif slot_value in [2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 16, 17, 18, 19, 20,
-                            23, 24, 25, 26, 27, 30, 31, 32, 33, 34, 37, 38, 39, 40, 41,
-                            44, 45, 46, 47, 48, 51, 52, 53, 54, 55, 58, 59, 60, 61, 62]:
-            # Double matches
-            payout_multiplier = 2.5
-            result_text = "🎰 **Double Match!** 🍋🍋"
-        elif slot_value in [7, 8, 14, 15, 21, 28, 29, 35, 36, 42, 49, 50, 56, 57, 63]:
-            # Single bar or partial match
-            payout_multiplier = 1.5
-            result_text = "🎰 **BAR!** Small win!"
-        else:
-            # Loss
-            payout_multiplier = 0
-            result_text = "❌ **No match** - Better luck next time!"
-        
-        payout = wager * payout_multiplier
-        profit = payout - wager
-        
-        # Add play-again button
-        keyboard = [[InlineKeyboardButton("🎰 Spin Again", callback_data=f"slots_{wager:.2f}")]]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        # Update user balance and stats
-        if payout > 0:
-            new_balance = user_data['balance'] + payout
-            self.db.update_user(user_id, {
-                'balance': new_balance,
-                'total_wagered': user_data['total_wagered'] + wager,
-                'wagered_since_last_withdrawal': user_data.get('wagered_since_last_withdrawal', 0) + wager,
-                'games_played': user_data['games_played'] + 1,
-                'games_won': user_data['games_won'] + 1
-            })
-            self.db.update_house_balance(-profit)
-            
-            message_text = f"{result_text}\n\n💵 Bet: ${wager:.2f}\n💰 Won: ${profit:.2f}\n💳 New Balance: ${new_balance:.2f}"
-            sent_msg = await update.message.reply_text(message_text, parse_mode="Markdown", reply_markup=reply_markup)
-            self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
-        else:
-            new_balance = user_data['balance']
-            self.db.update_user(user_id, {
-                'total_wagered': user_data['total_wagered'] + wager,
-                'wagered_since_last_withdrawal': user_data.get('wagered_since_last_withdrawal', 0) + wager,
-                'games_played': user_data['games_played'] + 1
-            })
-            self.db.update_house_balance(wager)
-            
-            message_text = f"{result_text}\n\n💵 Lost: ${wager:.2f}\n💳 Balance: ${new_balance:.2f}"
-            sent_msg = await update.message.reply_text(message_text, parse_mode="Markdown", reply_markup=reply_markup)
-            self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
-        
-        # Record game
-        self.db.record_game({
-            'type': 'slots_bot',
-            'player_id': user_id,
-            'wager': wager,
-            'slot_value': slot_value,
-            'result': 'win' if profit > 0 else 'loss',
-            'payout': profit
-        })
     
     async def predict_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play dice predict game - predict what you'll roll"""

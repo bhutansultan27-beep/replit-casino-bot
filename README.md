@@ -43,21 +43,6 @@ Classic heads or tails - double or nothing!
 - Win = 2x your bet
 - Lose = lose your bet
 
-### 🎰 Slots
-Spin the slot machine and match symbols for big wins!
-
-**Commands:**
-```
-/slots 10         # Bet $10 on a spin
-/slots all        # Bet all your balance
-```
-
-**Winning Combinations:**
-- 🎰🎰🎰 **777 JACKPOT** - 20x payout! 💰
-- 🍇🍇🍇 **Triple Match** - 8x payout
-- 🍋🍋 **Double Match** - 2.5x payout
-- **BAR** - 1.5x payout (small win)
-
 ### 🔮 Predict
 Predict what number you'll roll on the dice!
 
