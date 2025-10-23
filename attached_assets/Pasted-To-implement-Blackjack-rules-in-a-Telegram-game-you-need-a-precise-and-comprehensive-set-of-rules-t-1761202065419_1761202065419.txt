@@ -1,0 +1,95 @@
+To implement Blackjack rules in a Telegram game, you need a precise and comprehensive set of rules that an AI can interpret and apply programmatically. Below is a detailed breakdown of standard Blackjack rules, written clearly for implementation purposes, covering all essential aspects including gameplay, payouts, and edge cases. These rules assume a standard 52-card deck and typical casino-style Blackjack (also known as "21").Blackjack Rules for Implementation1. ObjectiveThe goal is for players to achieve a hand value as close to 21 as possible without exceeding it ("busting").
+Players compete against the dealer, not each other.
+
+2. Deck and CardsDeck: Use one or more standard 52-card decks (no jokers). Common configurations are 1, 2, 4, 6, or 8 decks. For Telegram, 1 or 2 decks is simpler for performance.
+Card Values:Number cards (2-10): Worth their face value (e.g., 2 = 2 points, 10 = 10 points).
+Face cards (Jack, Queen, King): Worth 10 points each.
+Ace: Worth either 1 or 11 points, chosen to maximize the hand value without busting (e.g., Ace + 6 = 17, but Ace + 10 = 21, not 31).
+Suits: Irrelevant to gameplay (e.g., a 5 of Hearts = 5 of Spades).
+Shuffling: Shuffle the deck(s) before each round or when the shoe (deck) is depleted (e.g., less than 20% of cards remain). For simplicity, shuffle after every round in a Telegram game.
+
+3. Game SetupPlayers: One or more players plus a dealer (the AI acts as the dealer).
+Betting: Each player places a bet before cards are dealt (e.g., using virtual currency or points in Telegram).
+Minimum and maximum bet limits should be defined (e.g., 1-100 units).
+Dealing:Each player receives two cards, face-up.
+The dealer receives two cards: one face-up (the "upcard"), one face-down (the "hole card").
+Cards are dealt one at a time in rotation (e.g., Player 1 card 1, Player 2 card 1, Dealer card 1, etc.).
+4. Hand ValuesTotal Hand Value: Sum of all card values in a hand.If a hand includes an Ace, calculate the total with Ace = 11 ("soft" hand) unless it causes a bust, then use Ace = 1 ("hard" hand).
+Example: Ace + 7 = Soft 18; Ace + 7 + 6 = Hard 14 (Ace counts as 1 to avoid busting).
+Blackjack: A two-card hand totaling exactly 21 (Ace + 10-value card, e.g., Ace + King).
+Bust: A hand value exceeding 21 (e.g., 10 + 7 + 5 = 22). A bust results in an automatic loss.
+
+5. Player ActionsAfter receiving their initial two cards, players take turns choosing actions. The AI must process these choices:Hit: Take one additional card. Players can hit multiple times until they stand or bust.
+Stand: End their turn, keeping their current hand value.
+Double Down:Double the initial bet and receive exactly one more card, then stand.
+Allowed only on the first action after receiving two cards.
+Restriction: Often limited to hands with a total of 9, 10, or 11 (configurable).
+Split:If the two cards are of the same rank (e.g., two 8s or two Kings), split them into two separate hands.
+Player places an additional bet equal to the original for the second hand.
+Each hand receives a new second card.
+Play each hand separately with normal actions (hit, stand, etc.).
+Special cases:Aces Split: Typically, each split Ace receives only one additional card, and no further hits are allowed. A two-card 21 after splitting Aces is not a Blackjack (pays 1:1, not 3:2).
+10-value cards: Some implementations allow splitting different 10-value cards (e.g., King + Queen). For simplicity, restrict to identical ranks (e.g., two Kings).
+Surrender (optional, less common in casual games):Forfeit the hand and lose half the bet after seeing the dealer’s upcard.
+Allowed only as the first action.
+Not recommended for a Telegram game due to complexity.
+6. Dealer’s TurnAfter all players complete their actions, the dealer reveals their hole card and plays according to fixed rules:Hit: If the dealer’s hand value is 16 or less, they must hit.
+Stand: If the dealer’s hand value is 17 or more, they must stand.
+Soft 17 Rule: Decide whether the dealer hits on a soft 17 (e.g., Ace + 6). Standard rule: Dealer hits on soft 17 (configurable for Telegram).
+If the dealer busts, all non-busted players win.
+
+7. Winning and PayoutsCompare Hands:If the player busts, they lose their bet, regardless of the dealer’s outcome.
+If the dealer busts, non-busted players win.
+If neither busts, compare hand values:Higher hand value wins.
+Equal hand values result in a push (tie; bet is returned).
+Blackjack:A player’s Blackjack (two-card 21) beats a dealer’s non-Blackjack 21 (e.g., 10 + 6 + 5).
+If both player and dealer have Blackjack, it’s a push (unless specified otherwise).
+Payouts:Standard Win: Pays 1:1 (e.g., bet 10 units, win 10 units + original bet returned).
+Blackjack: Pays 3:2 (e.g., bet 10 units, win 15 units + original bet returned). Optionally, use 6:5 for simpler math in Telegram, but note this reduces player odds.
+Push: Bet is returned, no win or loss.
+Split Hands: Each hand is evaluated independently against the dealer.
+Double Down: If the player wins after doubling, they receive 1:1 on the doubled bet (e.g., bet 10, double to 20, win 20 + 20 returned).
+8. Insurance (Optional)If the dealer’s upcard is an Ace, offer players the option to place an insurance bet:Insurance bet is up to half the original bet (e.g., 5 units on a 10-unit bet).
+If the dealer has Blackjack (checks hole card), insurance pays 2:1, and the player loses their original bet unless they also have Blackjack (push).
+If the dealer does not have Blackjack, the insurance bet is lost, and play continues normally.
+Recommendation: Skip insurance for a Telegram game to keep it simple, as it’s rarely advantageous for players.
+
+9. Edge Cases and ClarificationsMultiple Splits: Allow splitting up to 3-4 hands total (e.g., if a player gets another pair after splitting). For simplicity, limit to one split in Telegram.
+Dealer Blackjack:If the dealer’s upcard is an Ace or 10-value card, check for Blackjack before players act (to avoid unnecessary actions).
+If the dealer has Blackjack, non-Blackjack player hands lose immediately (except for player Blackjacks, which push).
+Five-Card Charlie (optional, non-standard):If a player has five cards without busting, they automatically win (pays 1:1). Rarely used; avoid for Telegram to reduce complexity.
+Invalid Actions:If a player tries an invalid action (e.g., doubling on a soft 18), reject it and prompt for a valid choice.
+Ensure the AI enforces rules (e.g., no hitting after doubling).
+10. Game Flow for TelegramStart Round:Prompt players to place bets via Telegram buttons or commands (e.g., /bet 10).
+Display the deal: player’s two cards and dealer’s upcard (e.g., “Your hand: 7, K (17). Dealer: A”).
+Player Choices:Offer buttons or commands for actions: /hit, /stand, /double, /split (if applicable).
+Update the hand display after each action (e.g., “Hit: 7, K, 4 (21)”).
+Dealer’s Turn:Reveal dealer’s hole card and resolve their actions automatically.
+Display final hands (e.g., “Dealer: A, 10 (Blackjack). You: 7, K (17)”).
+Resolve Bets:Announce outcomes and update player balances (e.g., “You lose 10 units” or “Blackjack! You win 15 units”).
+New Round:Prompt for new bets or end the game.
+11. Implementation Notes for TelegramState Management: Track game state (bets, hands, dealer cards, balances) per user or chat session.
+Randomization: Use a random number generator for shuffling and dealing cards (e.g., Python’s random.shuffle for a deck array).
+User Interface:Use Telegram’s inline keyboards for actions (e.g., buttons for Hit, Stand, etc.).
+Display cards with emojis (e.g., , , , ) for clarity.
+Keep messages concise to avoid cluttering the chat.
+Multiplayer (if applicable):Handle multiple players in a group chat by tracking each player’s hand and bet separately.
+Process turns sequentially, showing each player’s actions to the group.
+Error Handling:Validate bets (e.g., within balance and limits).
+Prevent invalid actions (e.g., splitting non-pairs).
+Persistence: Store player balances and game history (e.g., in a database or Telegram’s session storage) to maintain state across sessions.
+
+12. Configurable OptionsTo simplify or customize for Telegram:Number of Decks: Use 1 deck for simplicity.
+Blackjack Payout: Use 3:2 for authenticity or 1:1 for easier math.
+Dealer Soft 17: Dealer hits on soft 17 (standard) or stands (simpler).
+Double Down Restrictions: Allow on any two cards or limit to 9-11.
+Split Limits: Allow one split or multiple.
+Insurance/Surrender: Exclude to reduce complexity.
+Betting Currency: Use virtual points or a Telegram-specific currency.
+
+13. Example RoundPlayer bets 10 units.
+Deal: Player gets 8, 9 (17); Dealer shows Q.
+Player chooses /stand.
+Dealer reveals hole card: 6 (total 16), hits, gets 7 (total 23, bust).
+Player wins: “You win 10 units! New balance: 110 units.”
+

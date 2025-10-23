@@ -2860,7 +2860,7 @@ if __name__ == '__main__':
     # 1. Get your token from BotFather on Telegram.
     # 2. Replace the placeholder below with your actual token string.
     
-    BOT_TOKEN = os.getenv("BOT_TOKEN", "YOUR_BOT_TOKEN_HERE") 
+    BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE") 
     
     if BOT_TOKEN == "YOUR_BOT_TOKEN_HERE":
         logger.error("!!! FATAL ERROR: Please set the BOT_TOKEN environment variable with your actual Telegram Bot Token. The bot will not run otherwise. !!!")
