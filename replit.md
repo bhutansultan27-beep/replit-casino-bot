@@ -5,7 +5,7 @@ A feature-rich Telegram casino bot with dice and coinflip games, smart bonus sys
 ## Project Overview
 
 This is a complete Telegram gambling bot built with Python and the python-telegram-bot library. It includes:
-- Five casino games using Telegram's native animated emojis (Dice, Darts, Basketball, Soccer, CoinFlip)
+- Eight casino games using Telegram's native animated emojis (Dice, Darts, Basketball, Soccer, Bowling, Slots, Predict, CoinFlip)
 - Smart bonus system with playthrough requirements
 - Referral program with commission tracking
 - Leaderboard with pagination
@@ -13,6 +13,21 @@ This is a complete Telegram gambling bot built with Python and the python-telegr
 - Match history tracking
 
 ## Recent Changes
+
+**New Games & Sticker Improvements (2025-10-23)**
+- Added `/bowling <amount|all>` - Bowling game 🎳 (scores 1-6, higher wins)
+  - Supports bot vs player mode and PvP challenges
+  - 2x payout on win, draw = bet refunded
+- Added `/slots <amount|all>` - Slot machine game 🎰
+  - Instant single-player game with animated slots
+  - 777 Jackpot: 10x payout
+  - Triple match: 5x payout
+  - Double match: 2x payout
+  - Type `/slots` without amount to see winning combinations
+- Added `/predict <amount|all> #<number>` - Dice prediction game
+  - Predict what you'll roll (1-6) for 6x payout
+  - Example: `/predict 5 #6` to bet $5 on rolling a 6
+- Removed sticker reply messages - bot now silently handles sticker uploads
 
 **Dice Game Manual Emoji Sending (2025-10-23)**
 - Dice game now works exactly like darts, basketball, and soccer
@@ -153,6 +168,9 @@ This is a complete Telegram gambling bot built with Python and the python-telegr
    - Darts 🎯 (1-6, highest wins)
    - Basketball 🏀 (1-5, highest wins)
    - Soccer ⚽ (1-5, highest wins)
+   - Bowling 🎳 (1-6, highest wins)
+   - Slots 🎰 (jackpot, triple/double match payouts)
+   - Predict 🎲 (guess dice roll, 6x payout)
    - CoinFlip 🪙 (heads/tails, 2x payout)
 2. **Bonus System**: $5 locked first-time bonus + 1% daily bonus based on wagered amount
 3. **Referral System**: Unique referral links with 1% commission on referral volume
@@ -192,6 +210,9 @@ This is a complete Telegram gambling bot built with Python and the python-telegr
 - `/darts <amount|all>` - Play darts game 🎯 (1-6), use "all" to wager entire balance  
 - `/basketball <amount|all>` - Play basketball game 🏀 (1-5), use "all" to wager entire balance
 - `/soccer <amount|all>` - Play soccer game ⚽ (1-5), use "all" to wager entire balance
+- `/bowling <amount|all>` - Play bowling game 🎳 (1-6), use "all" to wager entire balance
+- `/slots <amount|all>` - Play slot machine 🎰, type `/slots` alone for winning combinations
+- `/predict <amount|all> #<number>` - Predict dice roll (#1-#6) for 6x payout
 - `/coinflip <amount|all> <heads/tails>` - Play coinflip game 🪙, use "all" to wager entire balance
 
 ## Admin Commands
@@ -238,6 +259,24 @@ All games use Telegram's native animated dice emojis for a fun, visual experienc
 - Score 1-5, highest score wins
 - 2x payout on win
 - Draw = bet refunded
+
+### Bowling 🎳
+- Score 1-6, highest score wins
+- 2x payout on win
+- Draw = bet refunded
+
+### Slots 🎰
+- Instant single-player game
+- 777 Jackpot: 10x payout
+- Triple match: 5x payout
+- Double match: 2x payout
+- No match: Lose bet
+
+### Predict 🎲
+- Guess what you'll roll (1-6)
+- 6x payout if correct
+- Wrong prediction: Lose bet
+- Example: `/predict 5 #6` bets $5 on rolling a 6
 
 ### CoinFlip 🪙
 - Choose heads or tails
