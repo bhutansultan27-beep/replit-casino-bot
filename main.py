@@ -1275,7 +1275,9 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             
             # Update user balance
             user_data = self.db.get_user(user_id)
-            user_data['balance'] += total_payout + sum(h['bet'] for h in state['player_hands'])
+            # Add back: total payout + all hand bets + insurance bet (if taken)
+            insurance_refund = state['insurance_bet'] if state['insurance_bet'] > 0 else 0
+            user_data['balance'] += total_payout + sum(h['bet'] for h in state['player_hands']) + insurance_refund
             user_data['total_wagered'] += sum(h['bet'] for h in state['player_hands'])
             user_data['total_pnl'] += total_payout
             user_data['games_played'] += 1

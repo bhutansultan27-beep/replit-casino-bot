@@ -172,6 +172,7 @@ This is a complete Telegram gambling bot built with Python and the python-telegr
    - Slots 🎰 (jackpot, triple/double match payouts)
    - Predict 🎲 (guess dice roll, 6x payout)
    - CoinFlip 🪙 (heads/tails, 2x payout)
+   - Blackjack 🃏 (get 21, 3:2 payout on blackjack)
 2. **Bonus System**: $5 locked first-time bonus + 1% daily bonus based on wagered amount
 3. **Referral System**: Unique referral links with 1% commission on referral volume
 4. **Leaderboard**: Paginated display of top players by total wagered
@@ -214,6 +215,7 @@ This is a complete Telegram gambling bot built with Python and the python-telegr
 - `/slots <amount|all>` - Play slot machine 🎰, type `/slots` alone for winning combinations
 - `/predict <amount|all> #<number>` - Predict dice roll (#1-#6) for 6x payout
 - `/coinflip <amount|all> <heads/tails>` - Play coinflip game 🪙, use "all" to wager entire balance
+- `/blackjack <amount|all>` or `/bj <amount|all>` - Play Blackjack 🃏, type `/blackjack` alone for rules
 
 ## Admin Commands
 
@@ -282,6 +284,15 @@ All games use Telegram's native animated dice emojis for a fun, visual experienc
 - Choose heads or tails
 - 2x payout on win
 - No draw possible
+
+### Blackjack 🃏
+- Get as close to 21 as possible without going over
+- Card values: 2-10 face value, J/Q/K = 10, Ace = 1 or 11
+- Dealer hits on soft 17 (standard casino rules)
+- Actions: Hit, Stand, Double Down, Split, Surrender, Insurance
+- Blackjack (Ace + 10): 3:2 payout (1.5x)
+- Regular win: 1:1 payout
+- Push (tie): Bet returned
 
 ## Database Structure
 

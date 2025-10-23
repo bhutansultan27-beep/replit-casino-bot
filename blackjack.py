@@ -43,6 +43,7 @@ class Deck:
     def deal_card(self) -> Card:
         """Deals one card from the deck. Reshuffles if empty."""
         if not self.cards or len(self.cards) < 52: # Reshuffle if less than one full deck remains
+            self.cards = []  # Clear the deck first
             self._initialize_cards(6)
             self.shuffle()
         return self.cards.pop()
