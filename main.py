@@ -274,6 +274,55 @@ class AntariaCasinoBot:
         self.app.add_handler(MessageHandler(filters.Dice.ALL, self.handle_emoji_response))
         self.app.add_handler(CallbackQueryHandler(self.button_callback))
     
+    async def check_expired_challenges(self, context: ContextTypes.DEFAULT_TYPE):
+        """Check for challenges older than 30 seconds and refund them"""
+        try:
+            current_time = datetime.now()
+            expired_challenges = []
+            
+            for challenge_id, challenge in list(self.pending_pvp.items()):
+                # Only check PvP challenges that haven't been accepted yet
+                if 'created_at' in challenge and challenge.get('opponent') is None:
+                    created_at = datetime.fromisoformat(challenge['created_at'])
+                    time_diff = (current_time - created_at).total_seconds()
+                    
+                    if time_diff > 30:
+                        expired_challenges.append(challenge_id)
+                        
+                        # Refund the challenger
+                        challenger_id = challenge['challenger']
+                        wager = challenge['wager']
+                        challenger_data = self.db.get_user(challenger_id)
+                        
+                        # Give money back
+                        self.db.update_user(challenger_id, {
+                            'balance': challenger_data['balance'] + wager
+                        })
+                        
+                        # Notify the challenger
+                        chat_id = challenge.get('chat_id')
+                        if chat_id:
+                            try:
+                                await self.app.bot.send_message(
+                                    chat_id=chat_id,
+                                    text=f"⏰ Challenge expired after 30 seconds. ${wager:.2f} has been refunded to @{challenger_data['username']}.",
+                                    parse_mode="Markdown"
+                                )
+                            except Exception as e:
+                                logger.error(f"Failed to send expiration message: {e}")
+            
+            # Remove expired challenges
+            for challenge_id in expired_challenges:
+                del self.pending_pvp[challenge_id]
+            
+            if expired_challenges:
+                self.db.data['pending_pvp'] = self.pending_pvp
+                self.db.save_data()
+                logger.info(f"Expired and refunded {len(expired_challenges)} challenge(s)")
+                
+        except Exception as e:
+            logger.error(f"Error checking expired challenges: {e}")
+    
     # --- COMMAND HANDLERS ---
     
     def ensure_user_registered(self, update: Update) -> Dict[str, Any]:
@@ -1595,6 +1644,14 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         if not challenge:
             await query.edit_message_text("❌ This challenge has expired or was canceled.")
             return
+        
+        # Check if challenge has expired (>30 seconds old)
+        if 'created_at' in challenge:
+            created_at = datetime.fromisoformat(challenge['created_at'])
+            time_diff = (datetime.now() - created_at).total_seconds()
+            if time_diff > 30:
+                await query.edit_message_text("❌ This challenge has expired after 30 seconds.")
+                return
 
         acceptor_id = query.from_user.id
         wager = challenge['wager']
@@ -1678,6 +1735,14 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         if not challenge:
             await query.answer("❌ This challenge has expired or was canceled.", show_alert=True)
             return
+        
+        # Check if challenge has expired (>30 seconds old)
+        if 'created_at' in challenge:
+            created_at = datetime.fromisoformat(challenge['created_at'])
+            time_diff = (datetime.now() - created_at).total_seconds()
+            if time_diff > 30:
+                await query.answer("❌ This challenge has expired after 30 seconds.", show_alert=True)
+                return
         
         acceptor_id = query.from_user.id
         wager = challenge['wager']
@@ -2359,6 +2424,10 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
 
     def run(self):
         """Start the bot."""
+        # Schedule task to check for expired challenges every 5 seconds
+        job_queue = self.app.job_queue
+        job_queue.run_repeating(self.check_expired_challenges, interval=5, first=5)
+        
         self.app.run_polling(poll_interval=1.0)
 
 
