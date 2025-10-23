@@ -480,28 +480,24 @@ class AntariaCasinoBot:
                         parse_mode="Markdown"
                     )
         
-        playthrough_msg = f"\n⚠️ Playthrough Required: ${user_data['playthrough_required']:.2f}" if user_data['playthrough_required'] > 0 else ""
-        
         welcome_text = f"""
 🎰 **Antaria Casino**
-
-Balance: ${user_data['balance']:.2f}{playthrough_msg}
+💰 Balance: ${user_data['balance']:.2f}
 
 **Games:**
-/dice <amount> - Roll dice 🎲
-/darts <amount> - Darts 🎯
-/basketball <amount> - Hoops 🏀
-/soccer <amount> - Soccer ⚽
-/bowling <amount> - Bowling 🎳
-/flip <amount> - Coin flip 🪙
-/predict <amount> #<1-6> - Predict dice 🔮
-/roulette <amount> - Roulette 🎡
+/dice 10 - Dice 🎲
+/darts 10 - Darts 🎯
+/basketball 10 - Basketball 🏀
+/soccer 10 - Soccer ⚽
+/bowling 10 - Bowling 🎳
+/flip 10 heads - Coin Flip 🪙
+/predict 10 #6 - Predict 🔮
+/roulette 10 - Roulette 🎡
 
-**Other:**
+**Menu:**
 /bal - Balance
-/bonus - Daily bonus
-/stats - Stats
-/ref - Referral link
+/bonus - Get bonus
+/stats - Your stats
 """
         await update.message.reply_text(welcome_text, parse_mode="Markdown")
     
@@ -512,17 +508,14 @@ Balance: ${user_data['balance']:.2f}{playthrough_msg}
         
         playthrough_remaining = user_data['playthrough_required']
         
-        balance_text = f"💰 Balance: ${user_data['balance']:.2f}"
+        balance_text = f"💰 **Balance: ${user_data['balance']:.2f}**"
         
         if playthrough_remaining > 0:
-            balance_text += f"\n⚠️ Wager ${playthrough_remaining:.2f} to unlock withdrawals"
-        else:
-            balance_text += "\n✅ Withdrawals unlocked"
+            balance_text += f"\n⚠️ Wager ${playthrough_remaining:.2f} more to withdraw"
         
         keyboard = [
-            [InlineKeyboardButton("💵 Deposit (Mock)", callback_data="deposit_mock"),
-             InlineKeyboardButton("💸 Withdraw (Mock)", callback_data="withdraw_mock")],
-            [InlineKeyboardButton("📜 Transaction History", callback_data="transactions_history")]
+            [InlineKeyboardButton("💵 Deposit", callback_data="deposit_mock"),
+             InlineKeyboardButton("💸 Withdraw", callback_data="withdraw_mock")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
@@ -536,16 +529,13 @@ Balance: ${user_data['balance']:.2f}{playthrough_msg}
         wagered_since_withdrawal = user_data.get('wagered_since_last_withdrawal', 0)
         bonus_amount = wagered_since_withdrawal * 0.01
         
-        bonus_text = f"🎁 Bonus: ${bonus_amount:.2f}\n"
-        
         if bonus_amount < 0.01:
-            bonus_text += "\n⚠️ Min: $0.01"
-            await update.message.reply_text(bonus_text, parse_mode="Markdown")
+            await update.message.reply_text("🎁 No bonus available yet\n\nPlay games to earn bonus!", parse_mode="Markdown")
             return
         
-        bonus_text += "\n✅ Ready to claim"
+        bonus_text = f"🎁 **Bonus Available: ${bonus_amount:.2f}**\n\nClaim it below!"
         
-        keyboard = [[InlineKeyboardButton("💰 Claim Bonus", callback_data="claim_daily_bonus")]]
+        keyboard = [[InlineKeyboardButton("💰 Claim Now", callback_data="claim_daily_bonus")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         sent_msg = await update.message.reply_text(bonus_text, reply_markup=reply_markup, parse_mode="Markdown")
@@ -557,22 +547,17 @@ Balance: ${user_data['balance']:.2f}{playthrough_msg}
         user_id = update.effective_user.id
         
         games_played = user_data.get('games_played', 0)
-        win_rate = (user_data.get('games_won', 0) / games_played * 100) if games_played > 0 else 0
-        
-        first_wager = user_data.get('first_wager_date')
-        if first_wager:
-            first_wager_str = datetime.fromisoformat(first_wager).strftime("%Y-%m-%d")
-        else:
-            first_wager_str = "Never"
+        games_won = user_data.get('games_won', 0)
+        win_rate = (games_won / games_played * 100) if games_played > 0 else 0
         
         stats_text = f"""
-📊 **Stats**
+📊 **Your Stats**
 
-Games: {games_played}
-Win Rate: {win_rate:.1f}%
-Wagered: ${user_data.get('total_wagered', 0):.2f}
-P&L: ${user_data.get('total_pnl', 0):.2f}
-Best Streak: {user_data.get('best_win_streak', 0)}
+🎮 Games: {games_played} played, {games_won} won
+📈 Win Rate: {win_rate:.0f}%
+💵 Total Wagered: ${user_data.get('total_wagered', 0):.2f}
+💰 Profit/Loss: ${user_data.get('total_pnl', 0):.2f}
+🔥 Best Streak: {user_data.get('best_win_streak', 0)} wins
 """
         
         await update.message.reply_text(stats_text, parse_mode="Markdown")
@@ -1010,7 +995,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                  InlineKeyboardButton("#6", callback_data=f"predict_{wager:.2f}_6")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
-            sent_msg = await update.message.reply_text(f"@{user_data['username']} won ${profit:.2f}", reply_markup=reply_markup)
+            sent_msg = await update.message.reply_text(f"✅ Won ${profit:.2f}!", reply_markup=reply_markup)
             self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
         else:
             # Loss
@@ -1031,7 +1016,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                  InlineKeyboardButton("#6", callback_data=f"predict_{wager:.2f}_6")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
-            sent_msg = await update.message.reply_text(f"@{user_data['username']} lost ${wager:.2f}", reply_markup=reply_markup)
+            sent_msg = await update.message.reply_text(f"❌ Lost ${wager:.2f}", reply_markup=reply_markup)
             self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
         
         # Record game
@@ -2144,16 +2129,16 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         if challenger_roll > acceptor_roll:
             winner_id = challenger_id
             loser_id = user_id
-            result_text = f"@{challenger_user['username']} won ${wager:.2f}"
+            result_text = f"✅ @{challenger_user['username']} won ${wager:.2f}!"
         elif acceptor_roll > challenger_roll:
             winner_id = user_id
             loser_id = challenger_id
-            result_text = f"@{acceptor_user['username']} won ${wager:.2f}"
+            result_text = f"✅ @{acceptor_user['username']} won ${wager:.2f}!"
         else:
             # Draw: refund both wagers
             self.db.update_user(challenger_id, {'balance': challenger_user['balance'] + wager})
             self.db.update_user(user_id, {'balance': acceptor_user['balance'] + wager})
-            result_text = f"Draw - Bets refunded"
+            result_text = "🤝 Draw! Refunded"
             
             self._update_user_stats(challenger_id, wager, 0.0, "draw")
             self._update_user_stats(user_id, wager, 0.0, "draw")
@@ -2184,7 +2169,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         self.db.add_transaction(loser_id, f"{game_type}_pvp_loss", -wager, f"{game_type.upper()} PvP Loss vs {self.db.get_user(winner_id)['username']}")
         self.db.record_game({"type": f"{game_type}_pvp", "challenger": challenger_id, "opponent": user_id, "wager": wager, "result": "win"})
         
-        final_text = f"@{winner_user['username']} won ${wager:.2f}"
+        final_text = f"✅ @{winner_user['username']} won ${wager:.2f}!"
         
         keyboard = [
             [InlineKeyboardButton("🤖 Play vs Bot", callback_data=f"{game_type}_bot_{wager:.2f}")],
@@ -2218,12 +2203,12 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         if player_roll > bot_roll:
             profit = wager
             result = "win"
-            result_text = f"@{username} won ${profit:.2f}"
+            result_text = f"✅ Won ${profit:.2f}!"
             self.db.update_house_balance(-wager)
         elif player_roll < bot_roll:
             profit = -wager
             result = "loss"
-            result_text = f"@{username} lost ${wager:.2f}"
+            result_text = f"❌ Lost ${wager:.2f}"
             self.db.update_house_balance(wager)
         else:
             # Draw - refund wager
@@ -2357,13 +2342,13 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 profit = wager * 35
                 outcome = "win"
                 user_display = f"@{username}" if user_data.get('username') else username
-                result_text = f"{user_display} won ${profit:.2f}"
+                result_text = f"✅ Won ${profit:.2f}!"
                 self.db.update_house_balance(-profit)
             else:
                 profit = -wager
                 outcome = "loss"
                 user_display = f"@{username}" if user_data.get('username') else username
-                result_text = f"{user_display} lost ${wager:.2f}"
+                result_text = f"❌ Lost ${wager:.2f}"
                 self.db.update_house_balance(wager)
             
             self._update_user_stats(user_id, wager, profit, outcome)
