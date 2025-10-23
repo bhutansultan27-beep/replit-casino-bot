@@ -794,14 +794,13 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
 
         # Default is Bot vs. Player with Heads/Tails selection
         keyboard = [
-            [InlineKeyboardButton("Heads (vs Bot)", callback_data=f"flip_bot_{wager:.2f}_heads")],
-            [InlineKeyboardButton("Tails (vs Bot)", callback_data=f"flip_bot_{wager:.2f}_tails")],
-            [InlineKeyboardButton("Create PvP Challenge", callback_data=f"flip_player_open_{wager:.2f}")]
+            [InlineKeyboardButton("Heads", callback_data=f"flip_bot_{wager:.2f}_heads")],
+            [InlineKeyboardButton("Tails", callback_data=f"flip_bot_{wager:.2f}_tails")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         sent_msg = await update.message.reply_text(
-            f"🪙 **Coin Flip**\n\nWager: ${wager:.2f}\n\nChoose your game mode:",
+            f"🪙 **Coin Flip**\n\nWager: ${wager:.2f}\n\nChoose heads or tails:",
             reply_markup=reply_markup,
             parse_mode="Markdown"
         )
@@ -1804,7 +1803,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     logger.info(f"Found matching challenge: {cid}")
                     break
         
-        if not challenge_to_resolve:
+        if not challenge_to_resolve or not challenge_id_to_resolve:
             logger.info("No matching pending game found")
             return  # Not a pending emoji response
         
