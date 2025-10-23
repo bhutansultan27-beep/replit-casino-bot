@@ -275,13 +275,16 @@ class AntariaCasinoBot:
         self.app.add_handler(CallbackQueryHandler(self.button_callback))
     
     async def check_expired_challenges(self, context: ContextTypes.DEFAULT_TYPE):
-        """Check for challenges older than 30 seconds and refund them"""
+        """Check for challenges older than 30 seconds and handle refunds/forfeits"""
         try:
             current_time = datetime.now()
             expired_challenges = []
             
             for challenge_id, challenge in list(self.pending_pvp.items()):
-                # Only check PvP challenges that haven't been accepted yet
+                chat_id = challenge.get('chat_id')
+                wager = challenge.get('wager', 0)
+                
+                # Case 1: Unaccepted challenges - refund challenger
                 if 'created_at' in challenge and challenge.get('opponent') is None:
                     created_at = datetime.fromisoformat(challenge['created_at'])
                     time_diff = (current_time - created_at).total_seconds()
@@ -291,16 +294,12 @@ class AntariaCasinoBot:
                         
                         # Refund the challenger
                         challenger_id = challenge['challenger']
-                        wager = challenge['wager']
                         challenger_data = self.db.get_user(challenger_id)
                         
-                        # Give money back
                         self.db.update_user(challenger_id, {
                             'balance': challenger_data['balance'] + wager
                         })
                         
-                        # Notify the challenger
-                        chat_id = challenge.get('chat_id')
                         if chat_id:
                             try:
                                 await self.app.bot.send_message(
@@ -310,6 +309,89 @@ class AntariaCasinoBot:
                                 )
                             except Exception as e:
                                 logger.error(f"Failed to send expiration message: {e}")
+                
+                # Case 2: Waiting for challenger emoji - challenger forfeits, acceptor gets refund
+                elif challenge.get('waiting_for_challenger_emoji') and 'emoji_wait_started' in challenge:
+                    wait_started = datetime.fromisoformat(challenge['emoji_wait_started'])
+                    time_diff = (current_time - wait_started).total_seconds()
+                    
+                    if time_diff > 30:
+                        expired_challenges.append(challenge_id)
+                        
+                        challenger_id = challenge['challenger']
+                        acceptor_id = challenge['opponent']
+                        challenger_data = self.db.get_user(challenger_id)
+                        acceptor_data = self.db.get_user(acceptor_id)
+                        
+                        # Challenger forfeits to house
+                        self.db.update_house_balance(wager)
+                        
+                        # Acceptor gets refunded
+                        self.db.update_user(acceptor_id, {
+                            'balance': acceptor_data['balance'] + wager
+                        })
+                        
+                        if chat_id:
+                            try:
+                                await self.app.bot.send_message(
+                                    chat_id=chat_id,
+                                    text=f"⏰ @{challenger_data['username']} didn't send their emoji within 30 seconds and forfeited ${wager:.2f} to the house. @{acceptor_data['username']} has been refunded ${wager:.2f}.",
+                                    parse_mode="Markdown"
+                                )
+                            except Exception as e:
+                                logger.error(f"Failed to send forfeit message: {e}")
+                
+                # Case 3: Waiting for opponent/player emoji - opponent forfeits, challenger/bot gets paid
+                elif challenge.get('waiting_for_emoji') and 'emoji_wait_started' in challenge:
+                    wait_started = datetime.fromisoformat(challenge['emoji_wait_started'])
+                    time_diff = (current_time - wait_started).total_seconds()
+                    
+                    if time_diff > 30:
+                        expired_challenges.append(challenge_id)
+                        
+                        # Check if PvP or bot vs player
+                        if challenge.get('opponent'):
+                            # PvP case: opponent forfeits, challenger gets refund
+                            challenger_id = challenge['challenger']
+                            opponent_id = challenge['opponent']
+                            challenger_data = self.db.get_user(challenger_id)
+                            opponent_data = self.db.get_user(opponent_id)
+                            
+                            # Opponent forfeits to house
+                            self.db.update_house_balance(wager)
+                            
+                            # Challenger gets refunded
+                            self.db.update_user(challenger_id, {
+                                'balance': challenger_data['balance'] + wager
+                            })
+                            
+                            if chat_id:
+                                try:
+                                    await self.app.bot.send_message(
+                                        chat_id=chat_id,
+                                        text=f"⏰ @{opponent_data['username']} didn't send their emoji within 30 seconds and forfeited ${wager:.2f} to the house. @{challenger_data['username']} has been refunded ${wager:.2f}.",
+                                        parse_mode="Markdown"
+                                    )
+                                except Exception as e:
+                                    logger.error(f"Failed to send forfeit message: {e}")
+                        
+                        elif challenge.get('player'):
+                            # Bot vs player: player forfeits, house keeps money
+                            player_id = challenge['player']
+                            player_data = self.db.get_user(player_id)
+                            
+                            # Player forfeits to house (money already taken)
+                            self.db.update_house_balance(wager)
+                            
+                            if chat_id:
+                                try:
+                                    await self.app.bot.send_message(
+                                        chat_id=chat_id,
+                                        text=f"⏰ @{player_data['username']} didn't send their emoji within 30 seconds and forfeited ${wager:.2f} to the house.",
+                                        parse_mode="Markdown"
+                                    )
+                                except Exception as e:
+                                    logger.error(f"Failed to send forfeit message: {e}")
             
             # Remove expired challenges
             for challenge_id in expired_challenges:
@@ -318,7 +400,7 @@ class AntariaCasinoBot:
             if expired_challenges:
                 self.db.data['pending_pvp'] = self.pending_pvp
                 self.db.save_data()
-                logger.info(f"Expired and refunded {len(expired_challenges)} challenge(s)")
+                logger.info(f"Expired/forfeited {len(expired_challenges)} challenge(s)")
                 
         except Exception as e:
             logger.error(f"Error checking expired challenges: {e}")
@@ -1478,7 +1560,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             "wager": wager,
             "emoji": "🎲",
             "chat_id": chat_id,
-            "waiting_for_emoji": True
+            "waiting_for_emoji": True,
+            "emoji_wait_started": datetime.now().isoformat()
         }
         self.db.data['pending_pvp'] = self.pending_pvp
         self.db.save_data()
@@ -1514,7 +1597,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             "wager": wager,
             "emoji": "🎯",
             "chat_id": chat_id,
-            "waiting_for_emoji": True
+            "waiting_for_emoji": True,
+            "emoji_wait_started": datetime.now().isoformat()
         }
         self.db.data['pending_pvp'] = self.pending_pvp
         self.db.save_data()
@@ -1550,7 +1634,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             "wager": wager,
             "emoji": "🏀",
             "chat_id": chat_id,
-            "waiting_for_emoji": True
+            "waiting_for_emoji": True,
+            "emoji_wait_started": datetime.now().isoformat()
         }
         self.db.data['pending_pvp'] = self.pending_pvp
         self.db.save_data()
@@ -1586,7 +1671,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             "wager": wager,
             "emoji": "⚽",
             "chat_id": chat_id,
-            "waiting_for_emoji": True
+            "waiting_for_emoji": True,
+            "emoji_wait_started": datetime.now().isoformat()
         }
         self.db.data['pending_pvp'] = self.pending_pvp
         self.db.save_data()
@@ -1680,6 +1766,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         challenge['opponent'] = acceptor_id
         challenge['waiting_for_challenger_emoji'] = True
         challenge['waiting_for_emoji'] = False
+        challenge['emoji_wait_started'] = datetime.now().isoformat()
         self.pending_pvp[challenge_id] = challenge
         self.db.data['pending_pvp'] = self.pending_pvp
         self.db.save_data()
@@ -1774,6 +1861,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         challenge['opponent'] = acceptor_id
         challenge['waiting_for_challenger_emoji'] = True
         challenge['waiting_for_emoji'] = False
+        challenge['emoji_wait_started'] = datetime.now().isoformat()
         self.pending_pvp[challenge_id] = challenge
         self.db.data['pending_pvp'] = self.pending_pvp
         self.db.save_data()
@@ -1817,6 +1905,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 challenge['challenger_roll'] = roll_value
                 challenge['waiting_for_challenger_emoji'] = False
                 challenge['waiting_for_emoji'] = True
+                challenge['emoji_wait_started'] = datetime.now().isoformat()
                 self.pending_pvp[cid] = challenge
                 self.db.data['pending_pvp'] = self.pending_pvp
                 self.db.save_data()
