@@ -1786,11 +1786,18 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         roll_value = update.message.dice.value
         chat_id = update.message.chat_id
         
+        # Reload pending_pvp from database to ensure we have the latest state
+        self.pending_pvp = self.db.data.get('pending_pvp', {})
+        
+        logger.info(f"Received emoji {emoji} from user {user_id} in chat {chat_id}, value: {roll_value}")
+        logger.info(f"Pending games: {self.pending_pvp}")
+        
         # Find pending challenge waiting for this user's emoji
         challenge_id_to_resolve = None
         challenge_to_resolve = None
         
         for cid, challenge in self.pending_pvp.items():
+            logger.info(f"Checking challenge {cid}: emoji={challenge.get('emoji')}, waiting={challenge.get('waiting_for_emoji')}, chat={challenge.get('chat_id')}, player={challenge.get('player')}, opponent={challenge.get('opponent')}")
             if (challenge.get('waiting_for_emoji') and 
                 challenge.get('emoji') == emoji and
                 challenge.get('chat_id') == chat_id):
@@ -1798,9 +1805,11 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 if challenge.get('opponent') == user_id or challenge.get('player') == user_id:
                     challenge_id_to_resolve = cid
                     challenge_to_resolve = challenge
+                    logger.info(f"Found matching challenge: {cid}")
                     break
         
         if not challenge_to_resolve:
+            logger.info("No matching pending game found")
             return  # Not a pending emoji response
         
         # Resolve the challenge
