@@ -14,6 +14,16 @@ This is a complete Telegram gambling bot built with Python and the python-telegr
 
 ## Recent Changes
 
+**Dice Game Manual Emoji Sending (2025-10-23)**
+- Dice game now works exactly like darts, basketball, and soccer
+- Players must manually send their own dice emoji 🎲
+- **Bot vs Player Mode:**
+  - Bot sends its dice emoji first
+  - Bot displays "@username your turn" to prompt the player
+  - Player manually sends their own dice emoji to compete
+  - Results are calculated and displayed after both emojis are sent
+- More engaging and interactive gameplay experience matching other emoji games
+
 **Player Manual Emoji Sending (2025-10-22)**
 - All emoji games (darts, basketball, soccer) now require players to manually send their own emojis
 - **Bot vs Player Mode:**

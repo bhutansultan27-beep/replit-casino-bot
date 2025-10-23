@@ -1409,61 +1409,34 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         username = user_data.get('username', f'User{user_id}')
         chat_id = query.message.chat_id
         
-        # Check balance again (in case user spent money since button was generated)
         if wager > user_data['balance']:
             await context.bot.send_message(chat_id=chat_id, text=f"❌ Balance: ${user_data['balance']:.2f}")
             return
-
-        # Send dice rolls (Telegram handles the animation)
-        # Player roll
-        player_dice_msg = await context.bot.send_dice(chat_id=chat_id, emoji="🎲")
-        await asyncio.sleep(2) # Wait for animation
-        player_roll = player_dice_msg.dice.value
         
-        # Bot roll
+        # Deduct wager from player
+        self.db.update_user(user_id, {'balance': user_data['balance'] - wager})
+        
+        # Bot sends its emoji
+        await query.edit_message_text("🎲 Bot is rolling...")
         bot_dice_msg = await context.bot.send_dice(chat_id=chat_id, emoji="🎲")
-        await asyncio.sleep(2) # Wait for animation
+        await asyncio.sleep(3)
         bot_roll = bot_dice_msg.dice.value
         
-        await asyncio.sleep(0.5) # Final pause for results
-
-        # Determine result
-        profit = 0.0
-        result = "draw"
-        
-        if player_roll > bot_roll:
-            profit = wager
-            result = "win"
-            user_display = f"@{username}" if user_data.get('username') else username
-            result_text = f"{user_display} won ${profit:.2f}"
-            self.db.update_house_balance(-wager)
-        elif player_roll < bot_roll:
-            profit = -wager
-            result = "loss"
-            user_display = f"@{username}" if user_data.get('username') else username
-            result_text = f"{user_display} lost ${wager:.2f}"
-            self.db.update_house_balance(wager)
-        else:
-            # Draw, wager is refunded (profit remains 0)
-            user_display = f"@{username}" if user_data.get('username') else username
-            result_text = f"{user_display} - Draw, bet refunded"
-            
-        # Update user stats and database
-        self._update_user_stats(user_id, wager, profit, result)
-        self.db.add_transaction(user_id, "dice_bot", profit, f"Dice vs Bot - Wager: ${wager:.2f}")
-        self.db.record_game({
+        # Store pending game and wait for player emoji
+        game_id = f"dice_bot_{user_id}_{int(datetime.now().timestamp())}"
+        self.pending_pvp[game_id] = {
             "type": "dice_bot",
-            "player_id": user_id,
-            "wager": wager,
-            "player_roll": player_roll,
+            "player": user_id,
             "bot_roll": bot_roll,
-            "result": result
-        })
+            "wager": wager,
+            "emoji": "🎲",
+            "chat_id": chat_id,
+            "waiting_for_emoji": True
+        }
+        self.db.data['pending_pvp'] = self.pending_pvp
+        self.db.save_data()
         
-        keyboard = [[InlineKeyboardButton("Play Again", callback_data=f"dice_bot_{wager:.2f}")]]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await self.send_with_buttons(chat_id, result_text, reply_markup, user_id)
+        await context.bot.send_message(chat_id=chat_id, text=f"@{username} your turn", parse_mode="Markdown")
 
     async def darts_vs_bot(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float):
         """Play darts against the bot (called from button)"""
@@ -1837,7 +1810,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         wager = challenge_to_resolve['wager']
         
         # Check if it's a bot vs player game
-        if game_type in ['darts_bot', 'basketball_bot', 'soccer_bot']:
+        if game_type in ['dice_bot', 'darts_bot', 'basketball_bot', 'soccer_bot']:
             await self.resolve_bot_vs_player_game(update, context, challenge_to_resolve, challenge_id_to_resolve, roll_value)
             return
         
