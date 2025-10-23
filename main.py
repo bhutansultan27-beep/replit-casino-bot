@@ -1978,11 +1978,10 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             "outcome": outcome # win or loss
         })
 
-        keyboard = []
-        if outcome == "win":
-             keyboard.append([InlineKeyboardButton(f"Play {choice.capitalize()} Again", callback_data=f"flip_bot_{wager:.2f}_{choice}")])
-        else:
-            keyboard.append([InlineKeyboardButton(f"Try Again", callback_data=f"flip_bot_{wager:.2f}_{choice}")])
+        keyboard = [
+            [InlineKeyboardButton("Heads again", callback_data=f"flip_bot_{wager:.2f}_heads")],
+            [InlineKeyboardButton("Tails again", callback_data=f"flip_bot_{wager:.2f}_tails")]
+        ]
 
         reply_markup = InlineKeyboardMarkup(keyboard)
 
