@@ -53,9 +53,10 @@ Spin the slot machine and match symbols for big wins!
 ```
 
 **Winning Combinations:**
-- 🎰🎰🎰 **777 Jackpot** - 10x payout
-- 🎰🎰🎰 **Triple Match** - 5x payout
-- 🎰🎰 **Double Match** - 2x payout
+- 🎰🎰🎰 **777 JACKPOT** - 20x payout! 💰
+- 🍇🍇🍇 **Triple Match** - 8x payout
+- 🍋🍋 **Double Match** - 2.5x payout
+- **BAR** - 1.5x payout (small win)
 
 ### 🔮 Predict
 Predict what number you'll roll on the dice!

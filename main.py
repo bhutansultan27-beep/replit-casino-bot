@@ -943,9 +943,10 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             help_text = (
                 "🎰 **Slot Machine**\n\n"
                 "**Winning Combinations:**\n"
-                "🎰🎰🎰 **777 Jackpot** - 10x payout\n"
-                "🎰🎰🎰 **Triple Match** - 5x payout\n"
-                "🎰🎰 **Double Match** - 2x payout\n"
+                "🎰🎰🎰 **777 JACKPOT** - 20x payout! 💰\n"
+                "🍇🍇🍇 / 🍋🍋🍋 / 7️⃣7️⃣7️⃣ **Triple Match** - 8x payout\n"
+                "🍇🍇 / 🍋🍋 / 7️⃣7️⃣ **Double Match** - 2.5x payout\n"
+                "BAR **Single Bar** - 1.5x payout\n"
                 "❌ **No Match** - Lose bet\n\n"
                 "**Usage:** `/slots <amount|all>`\n"
                 "**Example:** `/slots 5` or `/slots all`"
@@ -978,30 +979,45 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         dice_message = await update.message.reply_dice(emoji="🎰")
         slot_value = dice_message.dice.value
         
-        # Slot machine values range from 1-64
-        # Based on Telegram's slot machine API:
-        # Value 64: 777 (jackpot) - 10x payout
-        # Values 1, 22, 43: Triple matches - 5x payout
-        # Values 2-21, 23-42, 44-63: Some have double matches - 2x payout
-        # Specific double match values (two matching symbols)
-        double_match_values = [2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 16, 17, 18, 19, 20, 23, 24, 25, 26, 27, 30, 31, 32, 33, 34, 37, 38, 39, 40, 41, 44, 45, 46, 47, 48, 51, 52, 53, 54, 55, 58, 59, 60, 61, 62]
+        # Telegram slot machine values (1-64) mapped to outcomes
+        # Value 64: 777 jackpot - highest payout
+        # Values 1, 22, 43: Triple matches (grapes, lemons, sevens)
+        # Values with double matches get medium payout
+        # Single bar symbols get small payout
         
         await asyncio.sleep(3)
         
         payout_multiplier = 0
+        result_text = ""
         
         if slot_value == 64:
-            payout_multiplier = 10
+            # Jackpot - 777
+            payout_multiplier = 20
+            result_text = "🎰🎰🎰 **JACKPOT!** 777 💰💰💰"
         elif slot_value in [1, 22, 43]:
-            payout_multiplier = 5
-        elif slot_value in double_match_values:
-            payout_multiplier = 2
+            # Triple matches
+            payout_multiplier = 8
+            result_text = "🎰 **TRIPLE MATCH!** 🍇🍇🍇"
+        elif slot_value in [2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 16, 17, 18, 19, 20,
+                            23, 24, 25, 26, 27, 30, 31, 32, 33, 34, 37, 38, 39, 40, 41,
+                            44, 45, 46, 47, 48, 51, 52, 53, 54, 55, 58, 59, 60, 61, 62]:
+            # Double matches
+            payout_multiplier = 2.5
+            result_text = "🎰 **Double Match!** 🍋🍋"
+        elif slot_value in [7, 8, 14, 15, 21, 28, 29, 35, 36, 42, 49, 50, 56, 57, 63]:
+            # Single bar or partial match
+            payout_multiplier = 1.5
+            result_text = "🎰 **BAR!** Small win!"
+        else:
+            # Loss
+            payout_multiplier = 0
+            result_text = "❌ **No match** - Better luck next time!"
         
         payout = wager * payout_multiplier
         profit = payout - wager
         
         # Add play-again button
-        keyboard = [[InlineKeyboardButton("Play Again", callback_data=f"slots_{wager:.2f}")]]
+        keyboard = [[InlineKeyboardButton("🎰 Spin Again", callback_data=f"slots_{wager:.2f}")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         # Update user balance and stats
@@ -1015,16 +1031,21 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 'games_won': user_data['games_won'] + 1
             })
             self.db.update_house_balance(-profit)
-            sent_msg = await update.message.reply_text(f"@{user_data['username']} won ${profit:.2f}", reply_markup=reply_markup)
+            
+            message_text = f"{result_text}\n\n💵 Bet: ${wager:.2f}\n💰 Won: ${profit:.2f}\n💳 New Balance: ${new_balance:.2f}"
+            sent_msg = await update.message.reply_text(message_text, parse_mode="Markdown", reply_markup=reply_markup)
             self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
         else:
+            new_balance = user_data['balance']
             self.db.update_user(user_id, {
                 'total_wagered': user_data['total_wagered'] + wager,
                 'wagered_since_last_withdrawal': user_data.get('wagered_since_last_withdrawal', 0) + wager,
                 'games_played': user_data['games_played'] + 1
             })
             self.db.update_house_balance(wager)
-            sent_msg = await update.message.reply_text(f"@{user_data['username']} lost ${wager:.2f}", reply_markup=reply_markup)
+            
+            message_text = f"{result_text}\n\n💵 Lost: ${wager:.2f}\n💳 Balance: ${new_balance:.2f}"
+            sent_msg = await update.message.reply_text(message_text, parse_mode="Markdown", reply_markup=reply_markup)
             self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
         
         # Record game
