@@ -493,8 +493,11 @@ Balance: ${user_data['balance']:.2f}{playthrough_msg}
 /darts <amount> - Darts 🎯
 /basketball <amount> - Hoops 🏀
 /soccer <amount> - Soccer ⚽
+/bowling <amount> - Bowling 🎳
 /flip <amount> - Coin flip 🪙
-/roulette <amount> - Roulette 🎰
+/slots <amount> - Slot machine 🎰
+/predict <amount> #<1-6> - Predict dice 🔮
+/roulette <amount> - Roulette 🎡
 
 **Other:**
 /bal - Balance
