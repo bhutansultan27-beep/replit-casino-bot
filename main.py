@@ -1854,7 +1854,11 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             self._update_user_stats(user_id, wager, 0.0, "draw")
             
             self.db.record_game({"type": f"{game_type}_pvp", "challenger": challenger_id, "opponent": user_id, "wager": wager, "result": "draw"})
-            await context.bot.send_message(chat_id=chat_id, text=f"{emoji} {result_text}", parse_mode="Markdown")
+            
+            keyboard = [[InlineKeyboardButton("🤖 Play vs Bot", callback_data=f"{game_type}_bot_{wager:.2f}")]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await context.bot.send_message(chat_id=chat_id, text=result_text, reply_markup=reply_markup, parse_mode="Markdown")
             return
         
         # Handle Win/Loss
@@ -1872,8 +1876,12 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         self.db.add_transaction(loser_id, f"{game_type}_pvp_loss", -wager, f"{game_type.upper()} PvP Loss vs {self.db.get_user(winner_id)['username']}")
         self.db.record_game({"type": f"{game_type}_pvp", "challenger": challenger_id, "opponent": user_id, "wager": wager, "result": "win"})
         
-        final_text = f"{emoji} **PVP RESULT: ${wager * 2:.2f} Pot!**\n\n{result_text}\n\n🏆 **@{winner_user['username']}** wins **${winnings:.2f}**!"
-        await context.bot.send_message(chat_id=chat_id, text=final_text, parse_mode="Markdown")
+        final_text = f"@{winner_user['username']} won ${wager:.2f}"
+        
+        keyboard = [[InlineKeyboardButton("🤖 Play vs Bot", callback_data=f"{game_type}_bot_{wager:.2f}")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await context.bot.send_message(chat_id=chat_id, text=final_text, reply_markup=reply_markup, parse_mode="Markdown")
 
     async def resolve_bot_vs_player_game(self, update: Update, context: ContextTypes.DEFAULT_TYPE, challenge: Dict, challenge_id: str, player_roll: int):
         """Resolve a bot vs player game"""
