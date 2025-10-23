@@ -1855,7 +1855,10 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             
             self.db.record_game({"type": f"{game_type}_pvp", "challenger": challenger_id, "opponent": user_id, "wager": wager, "result": "draw"})
             
-            keyboard = [[InlineKeyboardButton("🤖 Play vs Bot", callback_data=f"{game_type}_bot_{wager:.2f}")]]
+            keyboard = [
+                [InlineKeyboardButton("🤖 Play vs Bot", callback_data=f"{game_type}_bot_{wager:.2f}")],
+                [InlineKeyboardButton("👥 Create PvP Challenge", callback_data=f"{game_type}_player_open_{wager:.2f}")]
+            ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             
             await context.bot.send_message(chat_id=chat_id, text=result_text, reply_markup=reply_markup, parse_mode="Markdown")
@@ -1878,7 +1881,10 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         
         final_text = f"@{winner_user['username']} won ${wager:.2f}"
         
-        keyboard = [[InlineKeyboardButton("🤖 Play vs Bot", callback_data=f"{game_type}_bot_{wager:.2f}")]]
+        keyboard = [
+            [InlineKeyboardButton("🤖 Play vs Bot", callback_data=f"{game_type}_bot_{wager:.2f}")],
+            [InlineKeyboardButton("👥 Create PvP Challenge", callback_data=f"{game_type}_player_open_{wager:.2f}")]
+        ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         await context.bot.send_message(chat_id=chat_id, text=final_text, reply_markup=reply_markup, parse_mode="Markdown")
