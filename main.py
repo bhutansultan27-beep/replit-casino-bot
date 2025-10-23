@@ -1417,7 +1417,6 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         self.db.update_user(user_id, {'balance': user_data['balance'] - wager})
         
         # Bot sends its emoji
-        await query.edit_message_text("🎲 Bot is rolling...")
         bot_dice_msg = await context.bot.send_dice(chat_id=chat_id, emoji="🎲")
         await asyncio.sleep(3)
         bot_roll = bot_dice_msg.dice.value
@@ -1454,7 +1453,6 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         self.db.update_user(user_id, {'balance': user_data['balance'] - wager})
         
         # Bot sends its emoji
-        await query.edit_message_text("🎯 Bot is throwing...")
         bot_dice_msg = await context.bot.send_dice(chat_id=chat_id, emoji="🎯")
         await asyncio.sleep(3)
         bot_roll = bot_dice_msg.dice.value
@@ -1491,7 +1489,6 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         self.db.update_user(user_id, {'balance': user_data['balance'] - wager})
         
         # Bot sends its emoji
-        await query.edit_message_text("🏀 Bot is shooting...")
         bot_dice_msg = await context.bot.send_dice(chat_id=chat_id, emoji="🏀")
         await asyncio.sleep(4)
         bot_roll = bot_dice_msg.dice.value
@@ -1528,7 +1525,6 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         self.db.update_user(user_id, {'balance': user_data['balance'] - wager})
         
         # Bot sends its emoji
-        await query.edit_message_text("⚽ Bot is kicking...")
         bot_dice_msg = await context.bot.send_dice(chat_id=chat_id, emoji="⚽")
         await asyncio.sleep(4)
         bot_roll = bot_dice_msg.dice.value
