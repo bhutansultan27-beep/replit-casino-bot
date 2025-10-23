@@ -2177,7 +2177,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             return
         
         # Check button ownership (except for public buttons like challenges and leaderboard)
-        public_buttons = ["accept_dice_", "lb_page_", "transactions_history", "deposit_mock", "withdraw_mock"]
+        public_buttons = ["accept_dice_", "accept_darts_", "accept_basketball_", "accept_soccer_", "accept_coinflip_", "lb_page_", "transactions_history", "deposit_mock", "withdraw_mock"]
         is_public = any(data.startswith(prefix) or data == prefix for prefix in public_buttons)
         
         ownership_key = (chat_id, message_id)
