@@ -1558,12 +1558,18 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         # Deduct wager from challenger balance immediately
         self.db.update_user(user_id, {'balance': user_data['balance'] - wager})
 
+        chat_id = query.message.chat_id
+        
         challenge_id = f"dice_open_{user_id}_{int(datetime.now().timestamp())}"
         self.pending_pvp[challenge_id] = {
             "type": "dice",
             "challenger": user_id,
+            "challenger_roll": None,
             "opponent": None,
             "wager": wager,
+            "emoji": "🎲",
+            "chat_id": chat_id,
+            "waiting_for_challenger_emoji": False,
             "created_at": datetime.now().isoformat()
         }
         self.db.data['pending_pvp'] = self.pending_pvp
@@ -1573,10 +1579,10 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         await query.edit_message_text(
-            f"🎲 **Open Dice Challenge!**\n\n"
+            f"🎲 **Dice PvP Challenge!**\n\n"
             f"Challenger: @{username}\n"
             f"Wager: **${wager:.2f}**\n\n"
-            f"Anyone can accept this challenge! Wager deducted from challenger's balance.",
+            f"Click below to accept!",
             reply_markup=reply_markup,
             parse_mode="Markdown"
         )
@@ -1584,7 +1590,6 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
     async def accept_dice_challenge(self, update: Update, context: ContextTypes.DEFAULT_TYPE, challenge_id: str):
         """Accept a pending dice challenge and resolve it."""
         query = update.callback_query
-        challenger_id = query.message.reply_to_message.from_user.id if query.message.reply_to_message else None
 
         challenge = self.pending_pvp.get(challenge_id)
         if not challenge:
@@ -1608,76 +1613,19 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         # Deduct wager from acceptor balance
         self.db.update_user(acceptor_id, {'balance': acceptor_user['balance'] - wager})
         
-        # Resolve the challenge
-        del self.pending_pvp[challenge_id]
+        # Tell challenger to send their emoji first
+        await query.edit_message_text(
+            f"@{challenger_user['username']} your turn",
+            parse_mode="Markdown"
+        )
+        
+        # Update challenge to mark acceptor and wait for challenger emoji
+        challenge['opponent'] = acceptor_id
+        challenge['waiting_for_challenger_emoji'] = True
+        challenge['waiting_for_emoji'] = False
+        self.pending_pvp[challenge_id] = challenge
         self.db.data['pending_pvp'] = self.pending_pvp
         self.db.save_data()
-        
-        # Inform users and perform rolls
-        await query.edit_message_text(f"🎲 **Challenge Accepted!**\n@{acceptor_user['username']} accepted @{challenger_user['username']}'s challenge. Rolling dice...")
-        
-        chat_id = query.message.chat_id
-        
-        # Challenger's roll
-        challenger_roll_msg = await context.bot.send_dice(chat_id=chat_id, emoji="🎲")
-        await asyncio.sleep(2)
-        challenger_roll = challenger_roll_msg.dice.value
-        
-        # Acceptor's roll
-        acceptor_roll_msg = await context.bot.send_dice(chat_id=chat_id, emoji="🎲")
-        await asyncio.sleep(2)
-        acceptor_roll = acceptor_roll_msg.dice.value
-
-        await asyncio.sleep(0.5)
-
-        # Determine winner
-        winner_id = None
-        loser_id = None
-        result_text = ""
-        
-        if challenger_roll > acceptor_roll:
-            winner_id = challenger_id
-            loser_id = acceptor_id
-            challenger_display = f"@{challenger_user['username']}" if challenger_user.get('username') else f"User{challenger_id}"
-            result_text = f"{challenger_display} won ${wager:.2f}"
-        elif acceptor_roll > challenger_roll:
-            winner_id = acceptor_id
-            loser_id = challenger_id
-            acceptor_display = f"@{acceptor_user['username']}" if acceptor_user.get('username') else f"User{acceptor_id}"
-            result_text = f"{acceptor_display} won ${wager:.2f}"
-        else:
-            # Draw: refund both wagers (challenger's was deducted earlier, acceptor's was deducted above)
-            self.db.update_user(challenger_id, {'balance': challenger_user['balance'] + wager})
-            self.db.update_user(acceptor_id, {'balance': acceptor_user['balance'] + wager})
-            result_text = f"Draw - Bets refunded"
-            
-            self._update_user_stats(challenger_id, wager, 0.0, "draw")
-            self._update_user_stats(acceptor_id, wager, 0.0, "draw")
-            
-            self.db.record_game({"type": "dice_pvp", "challenger": challenger_id, "opponent": acceptor_id, "wager": wager, "result": "draw"})
-            await context.bot.send_message(chat_id=chat_id, text=result_text, parse_mode="Markdown")
-            return
-
-        # Handle Win/Loss
-        winnings = wager * 2 # Challenger's wager + Acceptor's wager
-        
-        # Winner gets the pot (wager is already deducted, so profit is just their opponent's wager)
-        winner_profit = wager 
-        
-        # Update winner balance (winnings = their wager (already paid) + winner_profit)
-        winner_user = self.db.get_user(winner_id)
-        winner_user['balance'] += winnings # Add back initial wager + profit
-        self.db.update_user(winner_id, winner_user)
-
-        self._update_user_stats(winner_id, wager, winner_profit, "win")
-        self._update_user_stats(loser_id, wager, -wager, "loss")
-
-        self.db.add_transaction(winner_id, "dice_pvp_win", winner_profit, f"Dice PvP Win vs {self.db.get_user(loser_id)['username']}")
-        self.db.add_transaction(loser_id, "dice_pvp_loss", -wager, f"Dice PvP Loss vs {self.db.get_user(winner_id)['username']}")
-        self.db.record_game({"type": "dice_pvp", "challenger": challenger_id, "opponent": acceptor_id, "wager": wager, "result": "win"})
-
-        final_text = f"🎉 **PVP RESULT: ${wager * 2:.2f} Pot!**\n\n{result_text}\n\n🏆 **@{winner_user['username']}** wins **${winnings:.2f}**!"
-        await context.bot.send_message(chat_id=chat_id, text=final_text, parse_mode="Markdown")
 
     async def create_emoji_pvp_challenge(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float, game_type: str, emoji: str):
         """Create an emoji-based PvP challenge (darts, basketball, soccer)"""
