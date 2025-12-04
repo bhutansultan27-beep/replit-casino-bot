@@ -514,12 +514,7 @@ class AntariaCasinoBot:
         user_data = self.ensure_user_registered(update)
         user_id = update.effective_user.id
         
-        playthrough_remaining = user_data['playthrough_required']
-        
         balance_text = f"💰 **Balance: ${user_data['balance']:.2f}**"
-        
-        if playthrough_remaining > 0:
-            balance_text += f"\n⚠️ Wager ${playthrough_remaining:.2f} more to withdraw"
         
         keyboard = [
             [InlineKeyboardButton("💵 Deposit", callback_data="deposit_mock"),
