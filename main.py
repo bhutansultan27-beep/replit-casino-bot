@@ -69,12 +69,12 @@ class DatabaseManager:
         """Retrieves user data, initializing a new user if necessary."""
         user_id_str = str(user_id)
         if user_id_str not in self.data['users']:
-            # New player default: $5 starter bonus
+            # New player default: $0 starting balance
             new_user = {
                 "user_id": user_id,
                 "username": f"User{user_id}",
-                "balance": 5.00,
-                "playthrough_required": 5.00, # Must wager initial bonus before withdrawal
+                "balance": 0.0,
+                "playthrough_required": 0.0,
                 "last_bonus_claim": None,
                 "total_wagered": 0.0,
                 "total_pnl": 0.0,
