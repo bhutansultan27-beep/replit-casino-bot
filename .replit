@@ -27,3 +27,9 @@ args = "python main.py"
 
 [workflows.workflow.metadata]
 outputType = "console"
+
+[userenv]
+
+[userenv.shared]
+TELEGRAM_BOT_TOKEN = "8575155625:AAFd40dO3bjJ6b6P74QcjH3mHUzuN7MilEA"
+ADMIN_IDS = "7748988189"
