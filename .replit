@@ -37,11 +37,8 @@ ADMIN_IDS = "7748988189"
 DEPOSIT_FEE_PERCENT = "2"
 LTC_USD_RATE = "100"
 LTC_REQUIRED_CONFIRMATIONS = "3"
+LTC_MASTER_ADDRESS = "ltc1qjzwa9ywdl5e7kv5m23vn87m3uerpuf85r3r2cx"
 
 [[ports]]
 localPort = 5000
 externalPort = 80
-
-[[ports]]
-localPort = 41681
-externalPort = 3000
