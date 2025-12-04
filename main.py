@@ -265,6 +265,8 @@ class AntariaCasinoBot:
         self.app.add_handler(CommandHandler("blackjack", self.blackjack_command))
         self.app.add_handler(CommandHandler("bj", self.blackjack_command))
         self.app.add_handler(CommandHandler("tip", self.tip_command))
+        self.app.add_handler(CommandHandler("deposit", self.deposit_command))
+        self.app.add_handler(CommandHandler("withdraw", self.withdraw_command))
         self.app.add_handler(CommandHandler("backup", self.backup_command))
         self.app.add_handler(CommandHandler("savesticker", self.save_sticker_command))
         self.app.add_handler(CommandHandler("stickers", self.list_stickers_command))
@@ -279,6 +281,10 @@ class AntariaCasinoBot:
         self.app.add_handler(CommandHandler("addadmin", self.addadmin_command))
         self.app.add_handler(CommandHandler("removeadmin", self.removeadmin_command))
         self.app.add_handler(CommandHandler("listadmins", self.listadmins_command))
+        self.app.add_handler(CommandHandler("pendingdeposits", self.pending_deposits_command))
+        self.app.add_handler(CommandHandler("approvedeposit", self.approve_deposit_command))
+        self.app.add_handler(CommandHandler("pendingwithdraws", self.pending_withdraws_command))
+        self.app.add_handler(CommandHandler("processwithdraw", self.process_withdraw_command))
         
         self.app.add_handler(MessageHandler(filters.Sticker.ALL, self.sticker_handler))
         self.app.add_handler(MessageHandler(filters.Dice.ALL, self.handle_emoji_response))
@@ -1377,6 +1383,268 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             f"✅ Success! You tipped @{recipient_username} **${amount:.2f}**.",
             parse_mode="Markdown"
         )
+
+    async def deposit_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Submit a deposit notification for admin review."""
+        user_data = self.ensure_user_registered(update)
+        user_id = update.effective_user.id
+        username = user_data.get('username', f'User{user_id}')
+        
+        if len(context.args) < 2:
+            ltc_address = os.getenv("LTC_DEPOSIT_ADDRESS", "")
+            if ltc_address:
+                await update.message.reply_text(
+                    f"💰 **LTC Deposit**\n\nSend LTC to:\n`{ltc_address}`\n\nThen use: `/deposit <amount> <tx_id>`\n\n**Example:** `/deposit 50 abc123txid`",
+                    parse_mode="Markdown"
+                )
+            else:
+                await update.message.reply_text("❌ Deposit not configured. Contact admin.")
+            return
+        
+        try:
+            amount = round(float(context.args[0]), 2)
+        except ValueError:
+            await update.message.reply_text("❌ Invalid amount. Use: `/deposit <amount> <tx_id>`", parse_mode="Markdown")
+            return
+        
+        if amount <= 0:
+            await update.message.reply_text("❌ Amount must be positive.")
+            return
+        
+        tx_id = context.args[1]
+        
+        # Store pending deposit in database
+        if 'pending_deposits' not in self.db.data:
+            self.db.data['pending_deposits'] = []
+        
+        deposit_request = {
+            'user_id': user_id,
+            'username': username,
+            'amount': amount,
+            'tx_id': tx_id,
+            'timestamp': datetime.now().isoformat(),
+            'status': 'pending'
+        }
+        
+        self.db.data['pending_deposits'].append(deposit_request)
+        self.db.save_data()
+        
+        await update.message.reply_text(
+            f"✅ **Deposit Request Submitted**\n\nAmount: **${amount:.2f}**\nTX ID: `{tx_id}`\n\nAn admin will verify and credit your balance soon.",
+            parse_mode="Markdown"
+        )
+        
+        # Notify admins
+        for admin_id in list(self.env_admin_ids) + list(self.dynamic_admin_ids):
+            try:
+                await self.app.bot.send_message(
+                    chat_id=admin_id,
+                    text=f"🔔 **New Deposit Request**\n\nUser: @{username} (ID: {user_id})\nAmount: ${amount:.2f}\nTX ID: `{tx_id}`\n\nUse `/approvedeposit {user_id} {amount}` to approve.",
+                    parse_mode="Markdown"
+                )
+            except Exception as e:
+                logger.error(f"Failed to notify admin {admin_id}: {e}")
+
+    async def withdraw_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Submit a withdrawal request for admin processing."""
+        user_data = self.ensure_user_registered(update)
+        user_id = update.effective_user.id
+        username = user_data.get('username', f'User{user_id}')
+        
+        if len(context.args) < 2:
+            await update.message.reply_text(
+                f"💸 **Withdraw LTC**\n\nYour balance: **${user_data['balance']:.2f}**\n\nUsage: `/withdraw <amount> <your_ltc_address>`\n\n**Example:** `/withdraw 50 LTC1abc123...`",
+                parse_mode="Markdown"
+            )
+            return
+        
+        try:
+            amount = round(float(context.args[0]), 2)
+        except ValueError:
+            await update.message.reply_text("❌ Invalid amount.", parse_mode="Markdown")
+            return
+        
+        if amount <= 0:
+            await update.message.reply_text("❌ Amount must be positive.")
+            return
+        
+        if amount > user_data['balance']:
+            await update.message.reply_text(f"❌ Insufficient balance. You have ${user_data['balance']:.2f}")
+            return
+        
+        if amount < 1.00:
+            await update.message.reply_text("❌ Minimum withdrawal is $1.00")
+            return
+        
+        ltc_address = context.args[1]
+        
+        # Deduct balance immediately (hold for withdrawal)
+        user_data['balance'] -= amount
+        self.db.update_user(user_id, user_data)
+        
+        # Store pending withdrawal
+        if 'pending_withdrawals' not in self.db.data:
+            self.db.data['pending_withdrawals'] = []
+        
+        withdrawal_request = {
+            'user_id': user_id,
+            'username': username,
+            'amount': amount,
+            'ltc_address': ltc_address,
+            'timestamp': datetime.now().isoformat(),
+            'status': 'pending'
+        }
+        
+        self.db.data['pending_withdrawals'].append(withdrawal_request)
+        self.db.save_data()
+        
+        await update.message.reply_text(
+            f"✅ **Withdrawal Request Submitted**\n\nAmount: **${amount:.2f}**\nTo: `{ltc_address}`\n\nAn admin will process your withdrawal soon.\n\nNew balance: ${user_data['balance']:.2f}",
+            parse_mode="Markdown"
+        )
+        
+        # Notify admins
+        for admin_id in list(self.env_admin_ids) + list(self.dynamic_admin_ids):
+            try:
+                await self.app.bot.send_message(
+                    chat_id=admin_id,
+                    text=f"🔔 **New Withdrawal Request**\n\nUser: @{username} (ID: {user_id})\nAmount: ${amount:.2f}\nLTC Address: `{ltc_address}`\n\nUse `/processwithdraw {user_id}` after sending.",
+                    parse_mode="Markdown"
+                )
+            except Exception as e:
+                logger.error(f"Failed to notify admin {admin_id}: {e}")
+
+    async def pending_deposits_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """View all pending deposits (Admin only)."""
+        if not self.is_admin(update.effective_user.id):
+            await update.message.reply_text("❌ Admin only.")
+            return
+        
+        pending = self.db.data.get('pending_deposits', [])
+        pending = [d for d in pending if d.get('status') == 'pending']
+        
+        if not pending:
+            await update.message.reply_text("✅ No pending deposits.")
+            return
+        
+        text = "📥 **Pending Deposits**\n\n"
+        for i, dep in enumerate(pending[-20:], 1):
+            text += f"{i}. @{dep['username']} (ID: {dep['user_id']})\n   Amount: ${dep['amount']:.2f}\n   TX: `{dep['tx_id']}`\n\n"
+        
+        text += "Use `/approvedeposit <user_id> <amount>` to approve."
+        await update.message.reply_text(text, parse_mode="Markdown")
+
+    async def approve_deposit_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Approve a deposit and credit user balance (Admin only)."""
+        if not self.is_admin(update.effective_user.id):
+            await update.message.reply_text("❌ Admin only.")
+            return
+        
+        if len(context.args) < 2:
+            await update.message.reply_text("Usage: `/approvedeposit <user_id> <amount>`", parse_mode="Markdown")
+            return
+        
+        try:
+            target_user_id = int(context.args[0])
+            amount = round(float(context.args[1]), 2)
+        except ValueError:
+            await update.message.reply_text("❌ Invalid user ID or amount.")
+            return
+        
+        user_data = self.db.get_user(target_user_id)
+        user_data['balance'] += amount
+        self.db.update_user(target_user_id, user_data)
+        self.db.add_transaction(target_user_id, "deposit", amount, "LTC Deposit (Approved)")
+        
+        # Mark deposit as approved
+        pending = self.db.data.get('pending_deposits', [])
+        for dep in pending:
+            if dep['user_id'] == target_user_id and dep.get('status') == 'pending':
+                dep['status'] = 'approved'
+                break
+        self.db.save_data()
+        
+        await update.message.reply_text(
+            f"✅ **Deposit Approved**\n\nUser ID: {target_user_id}\nAmount: ${amount:.2f}\nNew Balance: ${user_data['balance']:.2f}",
+            parse_mode="Markdown"
+        )
+        
+        # Notify user
+        try:
+            await self.app.bot.send_message(
+                chat_id=target_user_id,
+                text=f"✅ **Deposit Approved!**\n\nAmount: **${amount:.2f}** has been credited.\n\nNew Balance: ${user_data['balance']:.2f}",
+                parse_mode="Markdown"
+            )
+        except Exception as e:
+            logger.error(f"Failed to notify user {target_user_id}: {e}")
+
+    async def pending_withdraws_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """View all pending withdrawals (Admin only)."""
+        if not self.is_admin(update.effective_user.id):
+            await update.message.reply_text("❌ Admin only.")
+            return
+        
+        pending = self.db.data.get('pending_withdrawals', [])
+        pending = [w for w in pending if w.get('status') == 'pending']
+        
+        if not pending:
+            await update.message.reply_text("✅ No pending withdrawals.")
+            return
+        
+        text = "📤 **Pending Withdrawals**\n\n"
+        for i, wit in enumerate(pending[-20:], 1):
+            text += f"{i}. @{wit['username']} (ID: {wit['user_id']})\n   Amount: ${wit['amount']:.2f}\n   LTC: `{wit['ltc_address']}`\n\n"
+        
+        text += "Use `/processwithdraw <user_id>` after sending LTC."
+        await update.message.reply_text(text, parse_mode="Markdown")
+
+    async def process_withdraw_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Mark a withdrawal as processed (Admin only)."""
+        if not self.is_admin(update.effective_user.id):
+            await update.message.reply_text("❌ Admin only.")
+            return
+        
+        if len(context.args) < 1:
+            await update.message.reply_text("Usage: `/processwithdraw <user_id>`", parse_mode="Markdown")
+            return
+        
+        try:
+            target_user_id = int(context.args[0])
+        except ValueError:
+            await update.message.reply_text("❌ Invalid user ID.")
+            return
+        
+        # Find and mark withdrawal as processed
+        pending = self.db.data.get('pending_withdrawals', [])
+        processed = None
+        for wit in pending:
+            if wit['user_id'] == target_user_id and wit.get('status') == 'pending':
+                wit['status'] = 'processed'
+                processed = wit
+                break
+        
+        if not processed:
+            await update.message.reply_text("❌ No pending withdrawal found for this user.")
+            return
+        
+        self.db.add_transaction(target_user_id, "withdrawal", -processed['amount'], f"LTC Withdrawal to {processed['ltc_address'][:20]}...")
+        self.db.save_data()
+        
+        await update.message.reply_text(
+            f"✅ **Withdrawal Processed**\n\nUser ID: {target_user_id}\nAmount: ${processed['amount']:.2f}\nSent to: `{processed['ltc_address']}`",
+            parse_mode="Markdown"
+        )
+        
+        # Notify user
+        try:
+            await self.app.bot.send_message(
+                chat_id=target_user_id,
+                text=f"✅ **Withdrawal Sent!**\n\n**${processed['amount']:.2f}** has been sent to your LTC address.",
+                parse_mode="Markdown"
+            )
+        except Exception as e:
+            logger.error(f"Failed to notify user {target_user_id}: {e}")
 
     async def backup_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Sends the database file as a backup (Admin only)."""
@@ -2970,21 +3238,45 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 
                 await query.edit_message_text(f"✅ **Referral Earnings Claimed!**\nYou received **${claim_amount:.2f}**.\n\nYour new balance is ${user_data['balance']:.2f}.", parse_mode="Markdown")
 
-            # Mock Deposit/Withdrawal buttons
+            # Deposit/Withdrawal buttons
             elif data == "deposit_mock":
-                await query.edit_message_text("💵 **Deposit**: In a real bot, this would provide payment instructions. Since this is a mock, we'll give you $100.\n\nNew Balance: ${:.2f}".format(self.db.get_user(user_id)['balance'] + 100), parse_mode="Markdown")
-                self.db.update_user(user_id, {'balance': self.db.get_user(user_id)['balance'] + 100})
+                ltc_address = os.getenv("LTC_DEPOSIT_ADDRESS", "")
+                if not ltc_address:
+                    await query.edit_message_text("❌ Deposit address not configured. Please contact admin.", parse_mode="Markdown")
+                    return
+                
+                deposit_text = f"""💰 **LTC Deposit**
+
+Send Litecoin to:
+`{ltc_address}`
+
+**Instructions:**
+1. Send LTC to the address above
+2. Use /deposit <amount> <tx_id> to notify us
+3. Admin will verify and credit your balance
+
+**Example:** `/deposit 50 abc123txid`
+
+⚠️ Deposits are processed manually. Please allow time for verification."""
+                
+                await query.edit_message_text(deposit_text, parse_mode="Markdown")
             
             elif data == "withdraw_mock":
                 user_data = self.db.get_user(user_id)
                 if user_data['balance'] < 1.00:
                     await query.edit_message_text(f"❌ **Withdrawal Failed**: Minimum withdrawal is $1.00. Current balance: ${user_data['balance']:.2f}", parse_mode="Markdown")
                 else:
-                    withdraw_amount = user_data['balance'] # Withdraw all
-                    self.db.update_user(user_id, {'balance': 0.0})
-                    self.db.add_transaction(user_id, "withdrawal", -withdraw_amount, "Mock Withdrawal")
-                    self.db.update_user(user_id, {'wagered_since_last_withdrawal': 0.0}) # Reset wagered stats
-                    await query.edit_message_text(f"💸 **Withdrawal Complete!**\n\n**${withdraw_amount:.2f}** has been 'sent' (Mock transaction).\n\nNew Balance: $0.00", parse_mode="Markdown")
+                    withdraw_text = f"""💸 **LTC Withdrawal Request**
+
+Your balance: **${user_data['balance']:.2f}**
+
+To withdraw, use:
+`/withdraw <amount> <your_ltc_address>`
+
+**Example:** `/withdraw 50 LTC1abc123...`
+
+⚠️ Withdrawals are processed manually by admin."""
+                    await query.edit_message_text(withdraw_text, parse_mode="Markdown")
 
             elif data == "transactions_history":
                 user_transactions = self.db.data['transactions'].get(str(user_id), [])[-10:] # Last 10
