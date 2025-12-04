@@ -1385,65 +1385,47 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         )
 
     async def deposit_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Submit a deposit notification for admin review."""
+        """Show user their unique deposit address for automatic deposits."""
         user_data = self.ensure_user_registered(update)
         user_id = update.effective_user.id
-        username = user_data.get('username', f'User{user_id}')
         
-        if len(context.args) < 2:
-            ltc_address = os.getenv("LTC_DEPOSIT_ADDRESS", "")
-            if ltc_address:
-                await update.message.reply_text(
-                    f"💰 **LTC Deposit**\n\nSend LTC to:\n`{ltc_address}`\n\nThen use: `/deposit <amount> <tx_id>`\n\n**Example:** `/deposit 50 abc123txid`",
-                    parse_mode="Markdown"
-                )
+        user_deposit_address = user_data.get('ltc_deposit_address')
+        
+        if not user_deposit_address:
+            master_address = os.getenv("LTC_MASTER_ADDRESS", "")
+            if master_address:
+                user_deposit_address = master_address
+                deposit_memo = f"User ID: {user_id}"
             else:
-                await update.message.reply_text("❌ Deposit not configured. Contact admin.")
-            return
+                await update.message.reply_text("❌ Deposits not configured. Contact admin.")
+                return
+        else:
+            deposit_memo = None
         
-        try:
-            amount = round(float(context.args[0]), 2)
-        except ValueError:
-            await update.message.reply_text("❌ Invalid amount. Use: `/deposit <amount> <tx_id>`", parse_mode="Markdown")
-            return
+        deposit_fee = float(os.getenv('DEPOSIT_FEE_PERCENT', '2'))
+        ltc_rate = float(os.getenv('LTC_USD_RATE', '100'))
         
-        if amount <= 0:
-            await update.message.reply_text("❌ Amount must be positive.")
-            return
+        deposit_text = f"""💰 **LTC Deposit**
+
+Send Litecoin to this address:
+`{user_deposit_address}`"""
         
-        tx_id = context.args[1]
+        if deposit_memo:
+            deposit_text += f"""
+
+**Important:** Include your User ID in the memo/note:
+`{user_id}`"""
         
-        # Store pending deposit in database
-        if 'pending_deposits' not in self.db.data:
-            self.db.data['pending_deposits'] = []
+        deposit_text += f"""
+
+**Rate:** 1 LTC = ${ltc_rate:.2f}
+**Fee:** {deposit_fee}%
+
+Your balance will be credited automatically after 3 confirmations (~10 minutes).
+
+⚠️ Only send LTC to this address!"""
         
-        deposit_request = {
-            'user_id': user_id,
-            'username': username,
-            'amount': amount,
-            'tx_id': tx_id,
-            'timestamp': datetime.now().isoformat(),
-            'status': 'pending'
-        }
-        
-        self.db.data['pending_deposits'].append(deposit_request)
-        self.db.save_data()
-        
-        await update.message.reply_text(
-            f"✅ **Deposit Request Submitted**\n\nAmount: **${amount:.2f}**\nTX ID: `{tx_id}`\n\nAn admin will verify and credit your balance soon.",
-            parse_mode="Markdown"
-        )
-        
-        # Notify admins
-        for admin_id in list(self.env_admin_ids) + list(self.dynamic_admin_ids):
-            try:
-                await self.app.bot.send_message(
-                    chat_id=admin_id,
-                    text=f"🔔 **New Deposit Request**\n\nUser: @{username} (ID: {user_id})\nAmount: ${amount:.2f}\nTX ID: `{tx_id}`\n\nUse `/approvedeposit {user_id} {amount}` to approve.",
-                    parse_mode="Markdown"
-                )
-            except Exception as e:
-                logger.error(f"Failed to notify admin {admin_id}: {e}")
+        await update.message.reply_text(deposit_text, parse_mode="Markdown")
 
     async def withdraw_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Submit a withdrawal request for admin processing."""
@@ -3240,24 +3222,31 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
 
             # Deposit/Withdrawal buttons
             elif data == "deposit_mock":
-                ltc_address = os.getenv("LTC_DEPOSIT_ADDRESS", "")
-                if not ltc_address:
-                    await query.edit_message_text("❌ Deposit address not configured. Please contact admin.", parse_mode="Markdown")
-                    return
+                user_data = self.db.get_user(user_id)
+                user_deposit_address = user_data.get('ltc_deposit_address')
+                
+                if not user_deposit_address:
+                    master_address = os.getenv("LTC_MASTER_ADDRESS", "")
+                    if master_address:
+                        user_deposit_address = master_address
+                    else:
+                        await query.edit_message_text("❌ Deposits not configured. Contact admin.", parse_mode="Markdown")
+                        return
+                
+                deposit_fee = float(os.getenv('DEPOSIT_FEE_PERCENT', '2'))
+                ltc_rate = float(os.getenv('LTC_USD_RATE', '100'))
                 
                 deposit_text = f"""💰 **LTC Deposit**
 
 Send Litecoin to:
-`{ltc_address}`
+`{user_deposit_address}`
 
-**Instructions:**
-1. Send LTC to the address above
-2. Use /deposit <amount> <tx_id> to notify us
-3. Admin will verify and credit your balance
+**Rate:** 1 LTC = ${ltc_rate:.2f}
+**Fee:** {deposit_fee}%
 
-**Example:** `/deposit 50 abc123txid`
+Your balance will be credited automatically after 3 confirmations.
 
-⚠️ Deposits are processed manually. Please allow time for verification."""
+⚠️ Only send LTC to this address!"""
                 
                 await query.edit_message_text(deposit_text, parse_mode="Markdown")
             
@@ -3393,16 +3382,37 @@ To withdraw, use:
         self.app.run_polling(poll_interval=1.0)
 
 
-if __name__ == '__main__':
-    # --- IMPORTANT CONFIGURATION ---
-    # 1. Get your token from BotFather on Telegram.
-    # 2. Replace the placeholder below with your actual token string.
-    
+async def main():
     BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE") 
     
     if BOT_TOKEN == "YOUR_BOT_TOKEN_HERE":
-        logger.error("!!! FATAL ERROR: Please set the BOT_TOKEN environment variable with your actual Telegram Bot Token. The bot will not run otherwise. !!!")
-    else:
-        logger.info("Starting Antaria Casino Bot...")
-        bot = AntariaCasinoBot(token=BOT_TOKEN)
-        bot.run()
+        logger.error("!!! FATAL ERROR: Please set the TELEGRAM_BOT_TOKEN environment variable. !!!")
+        return
+    
+    logger.info("Starting Antaria Casino Bot...")
+    bot = AntariaCasinoBot(token=BOT_TOKEN)
+    
+    from webhook_server import WebhookServer
+    webhook_server = WebhookServer(bot, port=5000)
+    await webhook_server.start()
+    logger.info("Webhook server started on port 5000")
+    
+    job_queue = bot.app.job_queue
+    job_queue.run_repeating(bot.check_expired_challenges, interval=5, first=5)
+    
+    await bot.app.initialize()
+    await bot.app.start()
+    await bot.app.updater.start_polling(poll_interval=1.0)
+    
+    try:
+        while True:
+            await asyncio.sleep(1)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        await bot.app.updater.stop()
+        await bot.app.stop()
+        await bot.app.shutdown()
+
+if __name__ == '__main__':
+    asyncio.run(main())

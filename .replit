@@ -21,15 +21,27 @@ args = "Casino Bot"
 name = "Casino Bot"
 author = "agent"
 
+[workflows.workflow.metadata]
+outputType = "webview"
+
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "python main.py"
-
-[workflows.workflow.metadata]
-outputType = "console"
+waitForPort = 5000
 
 [userenv]
 
 [userenv.shared]
 TELEGRAM_BOT_TOKEN = "8575155625:AAFd40dO3bjJ6b6P74QcjH3mHUzuN7MilEA"
 ADMIN_IDS = "7748988189"
+DEPOSIT_FEE_PERCENT = "2"
+LTC_USD_RATE = "100"
+LTC_REQUIRED_CONFIRMATIONS = "3"
+
+[[ports]]
+localPort = 5000
+externalPort = 80
+
+[[ports]]
+localPort = 41681
+externalPort = 3000
