@@ -1822,10 +1822,6 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             user_data['best_win_streak'] = max(user_data.get('best_win_streak', 0), user_data['win_streak'])
         elif result == "loss":
             user_data['win_streak'] = 0
-            
-        # Reduce playthrough requirement
-        if user_data['playthrough_required'] > 0:
-            user_data['playthrough_required'] = max(0, user_data['playthrough_required'] - wager)
 
         # Set first wager date
         if not user_data.get('first_wager_date'):
@@ -2951,12 +2947,11 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 # Process claim
                 user_data['balance'] += bonus_amount
                 user_data['wagered_since_last_withdrawal'] = 0.0 # Reset wagered amount
-                user_data['playthrough_required'] += bonus_amount # Playthrough requirement for the bonus
                 self.db.update_user(user_id, user_data)
                 
                 self.db.add_transaction(user_id, "bonus_claim", bonus_amount, "Bonus Claim")
                 
-                await query.edit_message_text(f"✅ **Bonus Claimed!**\nYou received **${bonus_amount:.2f}**.\n\nYour new balance is ${user_data['balance']:.2f}.\n*Playthrough of ${bonus_amount:.2f} required for withdrawal.*", parse_mode="Markdown")
+                await query.edit_message_text(f"✅ **Bonus Claimed!**\nYou received **${bonus_amount:.2f}**.\n\nYour new balance is ${user_data['balance']:.2f}.", parse_mode="Markdown")
 
             elif data == "claim_referral":
                 user_data = self.db.get_user(user_id)
@@ -2969,12 +2964,11 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 # Process claim
                 user_data['balance'] += claim_amount
                 user_data['unclaimed_referral_earnings'] = 0.0
-                user_data['playthrough_required'] += claim_amount
                 self.db.update_user(user_id, user_data)
                 
                 self.db.add_transaction(user_id, "referral_claim", claim_amount, "Referral Earnings Claim")
                 
-                await query.edit_message_text(f"✅ **Referral Earnings Claimed!**\nYou received **${claim_amount:.2f}**.\n\nYour new balance is ${user_data['balance']:.2f}.\n*Playthrough of ${claim_amount:.2f} required for withdrawal.*", parse_mode="Markdown")
+                await query.edit_message_text(f"✅ **Referral Earnings Claimed!**\nYou received **${claim_amount:.2f}**.\n\nYour new balance is ${user_data['balance']:.2f}.", parse_mode="Markdown")
 
             # Mock Deposit/Withdrawal buttons
             elif data == "deposit_mock":
@@ -2983,9 +2977,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             
             elif data == "withdraw_mock":
                 user_data = self.db.get_user(user_id)
-                if user_data['playthrough_required'] > 0:
-                     await query.edit_message_text(f"❌ **Withdrawal Failed**: You must complete your playthrough requirement of ${user_data['playthrough_required']:.2f} before withdrawing.", parse_mode="Markdown")
-                elif user_data['balance'] < 1.00:
+                if user_data['balance'] < 1.00:
                     await query.edit_message_text(f"❌ **Withdrawal Failed**: Minimum withdrawal is $1.00. Current balance: ${user_data['balance']:.2f}", parse_mode="Markdown")
                 else:
                     withdraw_amount = user_data['balance'] # Withdraw all
