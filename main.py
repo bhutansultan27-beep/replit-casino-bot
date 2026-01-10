@@ -2763,7 +2763,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         self.db.update_user(winner_id, {'balance': winner_user['balance'] + winnings})
         
         self._update_user_stats(winner_id, wager, winner_profit, "win")
-        self._update_user_stats(loser_id, wager, -wager, "loss")
+        # Fix: Don't subtract the wager again in _update_user_stats since it was already deducted at start
+        self._update_user_stats(loser_id, wager, 0, "loss")
         
         self.db.add_transaction(winner_id, f"{game_type}_pvp_win", winner_profit, f"{game_type.upper()} PvP Win vs {self.db.get_user(loser_id)['username']}")
         self.db.add_transaction(loser_id, f"{game_type}_pvp_loss", -wager, f"{game_type.upper()} PvP Loss vs {self.db.get_user(winner_id)['username']}")
@@ -3338,7 +3339,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         winner_user = self.db.get_user(winner)
         self.db.update_user(winner, {'balance': winner_user['balance'] + (wager * 2)})
         self._update_user_stats(winner, wager, wager, "win")
-        self._update_user_stats(loser, wager, -wager, "loss")
+        # Fix: Don't subtract the wager again in _update_user_stats since it was already deducted at start
+        self._update_user_stats(loser, wager, 0, "loss")
         
         await context.bot.send_message(chat_id=chat_id, text=f"🏆 **@{win_name} won the Soccer Series and ${wager * 2:.2f}!**", parse_mode="Markdown")
         del self.pending_pvp[challenge_id]
