@@ -774,11 +774,11 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             return
 
         keyboard = [
-            [InlineKeyboardButton("🎲 Dice", callback_data=f"setup_rolls_dice_{amount:.2f}"),
-             InlineKeyboardButton("🎯 Darts", callback_data=f"setup_rolls_darts_{amount:.2f}")],
-            [InlineKeyboardButton("🏀 Basketball", callback_data=f"setup_rolls_basketball_{amount:.2f}"),
-             InlineKeyboardButton("⚽ Soccer", callback_data=f"setup_rolls_soccer_{amount:.2f}")],
-            [InlineKeyboardButton("🎳 Bowling", callback_data=f"setup_rolls_bowling_{amount:.2f}"),
+            [InlineKeyboardButton("🎲 Dice", callback_data=f"setup_mode_dice_{amount:.2f}"),
+             InlineKeyboardButton("🎯 Darts", callback_data=f"setup_mode_darts_{amount:.2f}")],
+            [InlineKeyboardButton("🏀 Basketball", callback_data=f"setup_mode_basketball_{amount:.2f}"),
+             InlineKeyboardButton("⚽ Soccer", callback_data=f"setup_mode_soccer_{amount:.2f}")],
+            [InlineKeyboardButton("🎳 Bowling", callback_data=f"setup_mode_bowling_{amount:.2f}"),
              InlineKeyboardButton("🎰 Slots", callback_data=f"slots_bot_{amount:.2f}")],
             [InlineKeyboardButton("🪙 CoinFlip", callback_data=f"flip_bot_{amount:.2f}"),
              InlineKeyboardButton("🃏 Blackjack", callback_data=f"bj_bot_{amount:.2f}")],
@@ -943,11 +943,11 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             return
 
         keyboard = [
-            [InlineKeyboardButton("🎲 Dice", callback_data=f"setup_rolls_dice_{amount:.2f}"),
-             InlineKeyboardButton("🎯 Darts", callback_data=f"setup_rolls_darts_{amount:.2f}")],
-            [InlineKeyboardButton("🏀 Basketball", callback_data=f"setup_rolls_basketball_{amount:.2f}"),
-             InlineKeyboardButton("⚽ Soccer", callback_data=f"setup_rolls_soccer_{amount:.2f}")],
-            [InlineKeyboardButton("🎳 Bowling", callback_data=f"setup_rolls_bowling_{amount:.2f}"),
+            [InlineKeyboardButton("🎲 Dice", callback_data=f"setup_mode_dice_{amount:.2f}"),
+             InlineKeyboardButton("🎯 Darts", callback_data=f"setup_mode_darts_{amount:.2f}")],
+            [InlineKeyboardButton("🏀 Basketball", callback_data=f"setup_mode_basketball_{amount:.2f}"),
+             InlineKeyboardButton("⚽ Soccer", callback_data=f"setup_mode_soccer_{amount:.2f}")],
+            [InlineKeyboardButton("🎳 Bowling", callback_data=f"setup_mode_bowling_{amount:.2f}"),
              InlineKeyboardButton("🎰 Slots", callback_data=f"slots_bot_{amount:.2f}")],
             [InlineKeyboardButton("🪙 CoinFlip", callback_data=f"flip_bot_{amount:.2f}"),
              InlineKeyboardButton("🃏 Blackjack", callback_data=f"bj_bot_{amount:.2f}")],
@@ -1009,8 +1009,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             return
         
         keyboard = [
-            [InlineKeyboardButton("1 Roll", callback_data=f"setup_rolls_{game_name}_{wager:.2f}_1"),
-             InlineKeyboardButton("2 Rolls", callback_data=f"setup_rolls_{game_name}_{wager:.2f}_2")]
+            [InlineKeyboardButton("1 Roll", callback_data=f"setup_mode_{game_name}_{wager:.2f}_1"),
+             InlineKeyboardButton("2 Rolls", callback_data=f"setup_mode_{game_name}_{wager:.2f}_2")]
         ]
         await update.message.reply_text(
             f"{emoji} **{game_name.capitalize()} Game**\n\nWager: ${wager:.2f}\n\nHow many rolls?",
@@ -3382,37 +3382,46 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         
         try:
             # Generic setup handlers
-            if data.startswith("setup_rolls_"):
+            if data.startswith("setup_mode_"):
                 parts = data.split('_')
                 if len(parts) >= 4:
                     game, wager = parts[2], float(parts[3])
                     keyboard = [
-                        [InlineKeyboardButton("1 Roll", callback_data=f"setup_pts_{game}_{wager:.2f}_1"),
-                         InlineKeyboardButton("2 Rolls", callback_data=f"setup_pts_{game}_{wager:.2f}_2")]
+                        [InlineKeyboardButton("Normal", callback_data=f"setup_rolls_{game}_{wager:.2f}_normal"),
+                         InlineKeyboardButton("Crazy", callback_data=f"setup_rolls_{game}_{wager:.2f}_crazy")]
                     ]
-                    await query.edit_message_text(f"**{game.capitalize()}**\nWager: ${wager:.2f}\n\nHow many rolls per round?", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+                    await query.edit_message_text(f"**{game.capitalize()}**\nWager: ${wager:.2f}\n\nChoose Mode:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+
+            elif data.startswith("setup_rolls_"):
+                parts = data.split('_')
+                if len(parts) >= 5:
+                    game, wager, mode = parts[2], float(parts[3]), parts[4]
+                    keyboard = [
+                        [InlineKeyboardButton("1 Roll", callback_data=f"setup_pts_{game}_{wager:.2f}_{mode}_1"),
+                         InlineKeyboardButton("2 Rolls", callback_data=f"setup_pts_{game}_{wager:.2f}_{mode}_2")]
+                    ]
+                    await query.edit_message_text(f"**{game.capitalize()}**\nWager: ${wager:.2f}\nMode: {mode}\n\nHow many rolls per round?", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
             elif data.startswith("setup_pts_"):
                 parts = data.split('_')
-                if len(parts) >= 5:
-                    game, wager, rolls = parts[2], float(parts[3]), int(parts[4])
+                if len(parts) >= 6:
+                    game, wager, mode, rolls = parts[2], float(parts[3]), parts[4], int(parts[5])
                     keyboard = [
-                        [InlineKeyboardButton("1 Point", callback_data=f"setup_opp_{game}_{wager:.2f}_{rolls}_1"),
-                         InlineKeyboardButton("2 Points (Bo3)", callback_data=f"setup_opp_{game}_{wager:.2f}_{rolls}_2"),
-                         InlineKeyboardButton("3 Points (Bo5)", callback_data=f"setup_opp_{game}_{wager:.2f}_{rolls}_3")]
+                        [InlineKeyboardButton("1 Point", callback_data=f"setup_opp_{game}_{wager:.2f}_{mode}_{rolls}_1"),
+                         InlineKeyboardButton("2 Points (Bo3)", callback_data=f"setup_opp_{game}_{wager:.2f}_{mode}_{rolls}_2"),
+                         InlineKeyboardButton("3 Points (Bo5)", callback_data=f"setup_opp_{game}_{wager:.2f}_{mode}_{rolls}_3")]
                     ]
-                    await query.edit_message_text(f"**{game.capitalize()}**\nWager: ${wager:.2f}\nRolls: {rolls}\n\nChoose Target Score:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+                    await query.edit_message_text(f"**{game.capitalize()}**\nWager: ${wager:.2f}\nMode: {mode}\nRolls: {rolls}\n\nChoose Target Score:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
             elif data.startswith("setup_opp_"):
                 parts = data.split('_')
-                if len(parts) >= 6:
-                    game, wager, rolls, pts = parts[2], float(parts[3]), int(parts[4]), int(parts[5])
-                    mode = "normal"  # Defaulting mode to normal
+                if len(parts) >= 7:
+                    game, wager, mode, rolls, pts = parts[2], float(parts[3]), parts[4], int(parts[5]), int(parts[6])
                     keyboard = [
                         [InlineKeyboardButton("🤖 Play vs Bot", callback_data=f"v2_bot_{game}_{wager:.2f}_{rolls}_{mode}_{pts}")],
                         [InlineKeyboardButton("👥 Create PvP", callback_data=f"v2_pvp_{game}_{wager:.2f}_{rolls}_{mode}_{pts}")]
                     ]
-                    await query.edit_message_text(f"**{game.capitalize()}** Ready!\n\nWager: ${wager:.2f}\nRolls: {rolls}\nTarget: {pts}\n\nChoose Opponent:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+                    await query.edit_message_text(f"**{game.capitalize()}** Ready!\n\nWager: ${wager:.2f}\nMode: {mode}\nRolls: {rolls}\nTarget: {pts}\n\nChoose Opponent:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
             elif data.startswith("v2_bot_"):
                 parts = data.split('_')
