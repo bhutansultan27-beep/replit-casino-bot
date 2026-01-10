@@ -2614,7 +2614,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                             # We just add it to the house balance (the user's balance is already correct)
                             self.db.update_house_balance(w)
                             await context.bot.send_message(chat_id=chat_id, text=f"💀 **DEFEAT!** Bot won the series. Lost ${w:.2f}")
-                            self._update_user_stats(user_id, w, -w, "loss")
+                            # Fix: Don't subtract the wager again in _update_user_stats since it was already deducted at start
+                            self._update_user_stats(user_id, w, 0, "loss")
                         del self.pending_pvp[cid]
                     else:
                         await context.bot.send_message(chat_id=chat_id, text="Next round! Send your emoji.")
@@ -3195,7 +3196,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         # Winner gets (wager * 2) total payout
         self.db.update_user(winner_id, {'balance': self.db.get_user(winner_id)['balance'] + wager})
         self._update_user_stats(winner_id, wager, wager, "win")
-        self._update_user_stats(loser_id, wager, -wager, "loss")
+        # Fix: Don't subtract the wager again in _update_user_stats since it was already deducted at start
+        self._update_user_stats(loser_id, wager, 0, "loss")
         await context.bot.send_message(chat_id=chat_id, text=f"🏆 @{self.db.get_user(winner_id)['username']} won the series and ${wager:.2f}!")
         del self.pending_pvp[cid]
         self.db.save_data()
@@ -3255,8 +3257,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 self.db.update_house_balance(wager)
                 final_text = f"💀 **GAME OVER!** Bot won the series.\n💸 You lost ${wager:.2f}"
                 outcome = "loss"
-            
-            self._update_user_stats(user_id, wager, profit, outcome)
+                # Fix: Don't subtract the wager again in _update_user_stats since it was already deducted at start
+                self._update_user_stats(user_id, wager, 0, outcome)
             await context.bot.send_message(chat_id=chat_id, text=final_text, parse_mode="Markdown")
             del self.pending_pvp[challenge_id]
         else:
