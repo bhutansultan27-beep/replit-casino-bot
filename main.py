@@ -1009,8 +1009,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             return
         
         keyboard = [
-            [InlineKeyboardButton("1 Roll", callback_data=f"setup_mode_{game_name}_{wager:.2f}"),
-             InlineKeyboardButton("2 Rolls", callback_data=f"setup_mode_{game_name}_{wager:.2f}")]
+            [InlineKeyboardButton("Normal", callback_data=f"setup_mode_{game_name}_{wager:.2f}_normal"),
+             InlineKeyboardButton("Crazy", callback_data=f"setup_mode_{game_name}_{wager:.2f}_crazy")]
         ]
         await update.message.reply_text(
             f"{emoji} **{game_name.capitalize()} Game**\n\nWager: ${wager:.2f}\n\nChoose Mode:",
