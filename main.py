@@ -1009,8 +1009,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             return
         
         keyboard = [
-            [InlineKeyboardButton("Normal", callback_data=f"setup_mode_{game_name}_{wager:.2f}_normal"),
-             InlineKeyboardButton("Crazy", callback_data=f"setup_mode_{game_name}_{wager:.2f}_crazy")]
+            [InlineKeyboardButton("Normal", callback_data=f"setup_mode_normal_{game_name}_{wager:.2f}"),
+             InlineKeyboardButton("Crazy", callback_data=f"setup_mode_crazy_{game_name}_{wager:.2f}")]
         ]
         await update.message.reply_text(
             f"{emoji} **{game_name.capitalize()} Game**\n\nWager: ${wager:.2f}\n\nChoose Mode:",
@@ -3382,15 +3382,25 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         
         try:
             # Generic setup handlers
-            if data.startswith("setup_mode_"):
+            if data.startswith("setup_mode_normal_"):
                 parts = data.split('_')
                 if len(parts) >= 4:
-                    game, wager = parts[2], float(parts[3])
+                    game, wager = parts[3], float(parts[4])
                     keyboard = [
-                        [InlineKeyboardButton("Normal", callback_data=f"setup_rolls_{game}_{wager:.2f}_normal"),
-                         InlineKeyboardButton("Crazy", callback_data=f"setup_rolls_{game}_{wager:.2f}_crazy")]
+                        [InlineKeyboardButton("1 Roll", callback_data=f"setup_pts_{game}_{wager:.2f}_normal_1"),
+                         InlineKeyboardButton("2 Rolls", callback_data=f"setup_pts_{game}_{wager:.2f}_normal_2")]
                     ]
-                    await query.edit_message_text(f"**{game.capitalize()}**\nWager: ${wager:.2f}\n\nChoose Mode:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+                    await query.edit_message_text(f"**{game.capitalize()}**\nWager: ${wager:.2f}\nMode: Normal\n\nHow many rolls per round?", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+
+            elif data.startswith("setup_mode_crazy_"):
+                parts = data.split('_')
+                if len(parts) >= 4:
+                    game, wager = parts[3], float(parts[4])
+                    keyboard = [
+                        [InlineKeyboardButton("1 Roll", callback_data=f"setup_pts_{game}_{wager:.2f}_crazy_1"),
+                         InlineKeyboardButton("2 Rolls", callback_data=f"setup_pts_{game}_{wager:.2f}_crazy_2")]
+                    ]
+                    await query.edit_message_text(f"**{game.capitalize()}**\nWager: ${wager:.2f}\nMode: Crazy\n\nHow many rolls per round?", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
             elif data.startswith("setup_rolls_"):
                 parts = data.split('_')
