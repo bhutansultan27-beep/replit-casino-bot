@@ -2604,10 +2604,10 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                             u = self.db.get_user(user_id)
                             # w (the wager) was already deducted when starting the game
                             # We only add (w * 2) for the total payout (initial bet + winnings)
-                            u['balance'] += (w * 2)
+                            u['balance'] += w
                             self.db.update_user(user_id, u)
                             self.db.update_house_balance(-w)
-                            await context.bot.send_message(chat_id=chat_id, text=f"🏆 **WINNER!** You won the series and ${w*2:.2f}!")
+                            await context.bot.send_message(chat_id=chat_id, text=f"🏆 **WINNER!** You won the series and ${w:.2f}!")
                             self._update_user_stats(user_id, w, w, "win")
                         else:
                             # w (the wager) was already deducted when starting the game
@@ -3193,10 +3193,10 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         loser_id = p2_id if winner_id == p1_id else p1_id
         # Both players already had wager deducted when accepting/starting
         # Winner gets (wager * 2) total payout
-        self.db.update_user(winner_id, {'balance': self.db.get_user(winner_id)['balance'] + (wager * 2)})
+        self.db.update_user(winner_id, {'balance': self.db.get_user(winner_id)['balance'] + wager})
         self._update_user_stats(winner_id, wager, wager, "win")
         self._update_user_stats(loser_id, wager, -wager, "loss")
-        await context.bot.send_message(chat_id=chat_id, text=f"🏆 @{self.db.get_user(winner_id)['username']} won the series and ${wager * 2:.2f}!")
+        await context.bot.send_message(chat_id=chat_id, text=f"🏆 @{self.db.get_user(winner_id)['username']} won the series and ${wager:.2f}!")
         del self.pending_pvp[cid]
         self.db.save_data()
 
@@ -3243,10 +3243,10 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 user_data = self.db.get_user(user_id)
                 # wager was already deducted when starting the game
                 # we only add (wager * 2) for the total payout
-                user_data['balance'] += (wager * 2)
+                user_data['balance'] += wager
                 self.db.update_user(user_id, user_data)
                 self.db.update_house_balance(-wager)
-                final_text = f"🏆 **CONGRATULATIONS!** You won the series!\n💰 Payout: ${wager * 2:.2f}"
+                final_text = f"🏆 **CONGRATULATIONS!** You won the series!\n💰 Payout: ${wager:.2f}"
                 outcome = "win"
             else:
                 profit = -wager
