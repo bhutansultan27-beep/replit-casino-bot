@@ -3394,7 +3394,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                      InlineKeyboardButton("2 Points (Bo3)", callback_data=f"setup_pts_{game}_{wager:.2f}_{rolls}_{mode}_2"),
                      InlineKeyboardButton("3 Points (Bo5)", callback_data=f"setup_pts_{game}_{wager:.2f}_{rolls}_{mode}_3")]
                 ]
-                await query.edit_message_text(f"**{game.capitalize()}**\nWager: ${wager:.2f}\nMode: {mode.capitalize()}\n\nChoose Target Score:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+                await query.edit_message_text(f"**{game.capitalize()}**\nWager: ${wager:.2f}\nRolls: {rolls}\nMode: {mode.capitalize()}\n\nChoose Target Score:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
             elif data.startswith("setup_pts_"):
                 parts = data.split('_')
