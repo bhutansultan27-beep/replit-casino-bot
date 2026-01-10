@@ -311,13 +311,28 @@ class AntariaCasinoBot:
                             expired_challenges.append(challenge_id)
                             if challenge_id.startswith("v2_bot_"):
                                 pid = challenge['player']
-                                self.db.update_user(pid, {'balance': self.db.get_user(pid)['balance'] + wager})
-                                if chat_id: await context.bot.send_message(chat_id=chat_id, text=f"⏰ Series expired. ${wager:.2f} refunded.")
+                                # Refund if bot didn't roll (player rolled at least once)
+                                if len(challenge.get('p_rolls', [])) > 0:
+                                    self.db.update_user(pid, {'balance': self.db.get_user(pid)['balance'] + wager})
+                                    if chat_id: await context.bot.send_message(chat_id=chat_id, text=f"⏰ Bot timed out. ${wager:.2f} refunded.")
+                                else:
+                                    # User didn't roll at all, don't refund if the game already started (wager taken)
+                                    # But per user request: "if user never sends emoji at all... doesn't need to refund"
+                                    # This is handled because we don't add to balance.
+                                    if chat_id: await context.bot.send_message(chat_id=chat_id, text=f"⏰ Game expired. No emoji sent.")
                             else:
                                 p1, p2 = challenge['challenger'], challenge['opponent']
-                                self.db.update_user(p1, {'balance': self.db.get_user(p1)['balance'] + wager})
-                                if p2: self.db.update_user(p2, {'balance': self.db.get_user(p2)['balance'] + wager})
-                                if chat_id: await context.bot.send_message(chat_id=chat_id, text=f"⏰ Series expired. Wagers refunded.")
+                                # For PvP, if p1 rolled but p2 didn't, p1 gets refund. 
+                                # If p1 never rolled, no refund for p1.
+                                p1_rolled = len(challenge.get('p1_rolls', [])) > 0
+                                p2_rolled = len(challenge.get('p2_rolls', [])) > 0
+                                
+                                if p1_rolled:
+                                    self.db.update_user(p1, {'balance': self.db.get_user(p1)['balance'] + wager})
+                                if p2_rolled:
+                                    self.db.update_user(p2, {'balance': self.db.get_user(p2)['balance'] + wager})
+                                
+                                if chat_id: await context.bot.send_message(chat_id=chat_id, text=f"⏰ Series expired. Active players refunded.")
                     continue
                 if 'created_at' in challenge and challenge.get('opponent') is None:
                     created_at = datetime.fromisoformat(challenge['created_at'])
