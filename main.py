@@ -251,6 +251,8 @@ class AntariaCasinoBot:
         self.app.add_handler(CommandHandler("ref", self.referral_command))
         self.app.add_handler(CommandHandler("housebal", self.housebal_command))
         self.app.add_handler(CommandHandler("history", self.history_command))
+        self.app.add_handler(CommandHandler("bet", self.bet_command))
+        self.app.add_handler(CommandHandler("wager", self.bet_command))
         self.app.add_handler(CommandHandler("dice", self.dice_command))
         self.app.add_handler(CommandHandler("darts", self.darts_command))
         self.app.add_handler(CommandHandler("basketball", self.basketball_command))
@@ -742,6 +744,55 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         
         await update.message.reply_text(history_text, parse_mode="Markdown")
     
+    async def bet_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Unified betting command with game selection menu."""
+        user_id = update.effective_user.id
+        self.db.get_user(user_id) # Ensure registered
+        
+        if not context.args:
+            await update.message.reply_text("Usage: /bet <amount|all>")
+            return
+            
+        amount_str = context.args[0].lower()
+        user_data = self.db.get_user(user_id)
+        
+        if amount_str == 'all':
+            amount = user_data['balance']
+        else:
+            try:
+                amount = float(amount_str.replace('$', '').replace(',', ''))
+            except ValueError:
+                await update.message.reply_text("❌ Invalid amount format.")
+                return
+        
+        if amount <= 0:
+            await update.message.reply_text("❌ Amount must be greater than 0.")
+            return
+            
+        if amount > user_data['balance']:
+            await update.message.reply_text(f"❌ Insufficient balance! (${user_data['balance']:.2f})")
+            return
+
+        keyboard = [
+            [InlineKeyboardButton("🎲 Dice", callback_data=f"setup_rolls_dice_{amount:.2f}_1"),
+             InlineKeyboardButton("🎯 Darts", callback_data=f"setup_rolls_darts_{amount:.2f}_1")],
+            [InlineKeyboardButton("🏀 Basketball", callback_data=f"setup_rolls_basketball_{amount:.2f}_1"),
+             InlineKeyboardButton("⚽ Soccer", callback_data=f"setup_rolls_soccer_{amount:.2f}_1")],
+            [InlineKeyboardButton("🎳 Bowling", callback_data=f"setup_rolls_bowling_{amount:.2f}_1"),
+             InlineKeyboardButton("🎰 Slots", callback_data=f"slots_bot_{amount:.2f}")],
+            [InlineKeyboardButton("🪙 CoinFlip", callback_data=f"flip_bot_{amount:.2f}"),
+             InlineKeyboardButton("🃏 Blackjack", callback_data=f"bj_bot_{amount:.2f}")],
+            [InlineKeyboardButton("🎡 Roulette", callback_data=f"roulette_menu_{amount:.2f}")]
+        ]
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await self.send_with_buttons(
+            update.message.chat_id,
+            f"💰 **Bet: ${amount:.2f}**\nSelect a game to play:",
+            reply_markup,
+            user_id
+        )
+
     async def dice_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play dice game setup"""
         user_data = self.ensure_user_registered(update)
@@ -862,6 +913,55 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         )
         self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
     
+    async def bet_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Unified betting command with game selection menu."""
+        user_id = update.effective_user.id
+        self.db.get_user(user_id) # Ensure registered
+        
+        if not context.args:
+            await update.message.reply_text("Usage: /bet <amount|all>")
+            return
+            
+        amount_str = context.args[0].lower()
+        user_data = self.db.get_user(user_id)
+        
+        if amount_str == 'all':
+            amount = user_data['balance']
+        else:
+            try:
+                amount = float(amount_str.replace('$', '').replace(',', ''))
+            except ValueError:
+                await update.message.reply_text("❌ Invalid amount format.")
+                return
+        
+        if amount <= 0:
+            await update.message.reply_text("❌ Amount must be greater than 0.")
+            return
+            
+        if amount > user_data['balance']:
+            await update.message.reply_text(f"❌ Insufficient balance! (${user_data['balance']:.2f})")
+            return
+
+        keyboard = [
+            [InlineKeyboardButton("🎲 Dice", callback_data=f"setup_rolls_dice_{amount:.2f}_1"),
+             InlineKeyboardButton("🎯 Darts", callback_data=f"setup_rolls_darts_{amount:.2f}_1")],
+            [InlineKeyboardButton("🏀 Basketball", callback_data=f"setup_rolls_basketball_{amount:.2f}_1"),
+             InlineKeyboardButton("⚽ Soccer", callback_data=f"setup_rolls_soccer_{amount:.2f}_1")],
+            [InlineKeyboardButton("🎳 Bowling", callback_data=f"setup_rolls_bowling_{amount:.2f}_1"),
+             InlineKeyboardButton("🎰 Slots", callback_data=f"slots_bot_{amount:.2f}")],
+            [InlineKeyboardButton("🪙 CoinFlip", callback_data=f"flip_bot_{amount:.2f}"),
+             InlineKeyboardButton("🃏 Blackjack", callback_data=f"bj_bot_{amount:.2f}")],
+            [InlineKeyboardButton("🎡 Roulette", callback_data=f"roulette_menu_{amount:.2f}")]
+        ]
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await self.send_with_buttons(
+            update.message.chat_id,
+            f"💰 **Bet: ${amount:.2f}**\nSelect a game to play:",
+            reply_markup,
+            user_id
+        )
+
     async def dice_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play dice game setup"""
         await self._generic_emoji_command(update, context, "dice", "🎲")
