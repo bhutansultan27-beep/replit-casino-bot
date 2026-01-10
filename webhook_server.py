@@ -17,8 +17,12 @@ class WebhookServer:
         self.setup_routes()
         
     def setup_routes(self):
+        self.app.router.add_get('/', self.home_page)
         self.app.router.add_post('/webhook/deposit', self.handle_deposit_webhook)
         self.app.router.add_get('/health', self.health_check)
+
+    async def home_page(self, request):
+        return web.Response(text="🎰 Antaria Casino Bot is running!", content_type='text/plain')
         
     async def health_check(self, request):
         return web.json_response({"status": "ok"})
