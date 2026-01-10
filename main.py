@@ -2553,12 +2553,19 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         winner_id = None
         loser_id = None
         result_text = ""
-        
-        if challenger_roll > acceptor_roll:
+
+        # Normalize rolls for soccer: 4 and 5 are both goals (value 1), 1-3 are misses (value 0)
+        c_val = challenger_roll
+        a_val = acceptor_roll
+        if game_type.startswith("soccer"):
+            c_val = 1 if challenger_roll >= 4 else 0
+            a_val = 1 if acceptor_roll >= 4 else 0
+
+        if c_val > a_val:
             winner_id = challenger_id
             loser_id = user_id
             result_text = f"✅ @{challenger_user['username']} won ${wager:.2f}!"
-        elif acceptor_roll > challenger_roll:
+        elif a_val > c_val:
             winner_id = user_id
             loser_id = challenger_id
             result_text = f"✅ @{acceptor_user['username']} won ${wager:.2f}!"
@@ -2627,13 +2634,20 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         # Determine result
         profit = 0.0
         result = "draw"
-        
-        if player_roll > bot_roll:
+
+        # Normalize rolls for soccer: 4 and 5 are both goals (value 1), 1-3 are misses (value 0)
+        p_val = player_roll
+        b_val = bot_roll
+        if game_type.startswith("soccer"):
+            p_val = 1 if player_roll >= 4 else 0
+            b_val = 1 if bot_roll >= 4 else 0
+
+        if p_val > b_val:
             profit = wager
             result = "win"
             result_text = f"✅ Won ${profit:.2f}!"
             self.db.update_house_balance(-wager)
-        elif player_roll < bot_roll:
+        elif p_val < b_val:
             profit = -wager
             result = "loss"
             result_text = f"❌ Lost ${wager:.2f}"
