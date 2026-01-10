@@ -774,11 +774,11 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             return
 
         keyboard = [
-            [InlineKeyboardButton("🎲 Dice", callback_data=f"setup_rolls_dice_{amount:.2f}_1"),
-             InlineKeyboardButton("🎯 Darts", callback_data=f"setup_rolls_darts_{amount:.2f}_1")],
-            [InlineKeyboardButton("🏀 Basketball", callback_data=f"setup_rolls_basketball_{amount:.2f}_1"),
-             InlineKeyboardButton("⚽ Soccer", callback_data=f"setup_rolls_soccer_{amount:.2f}_1")],
-            [InlineKeyboardButton("🎳 Bowling", callback_data=f"setup_rolls_bowling_{amount:.2f}_1"),
+            [InlineKeyboardButton("🎲 Dice", callback_data=f"setup_rolls_dice_{amount:.2f}"),
+             InlineKeyboardButton("🎯 Darts", callback_data=f"setup_rolls_darts_{amount:.2f}")],
+            [InlineKeyboardButton("🏀 Basketball", callback_data=f"setup_rolls_basketball_{amount:.2f}"),
+             InlineKeyboardButton("⚽ Soccer", callback_data=f"setup_rolls_soccer_{amount:.2f}")],
+            [InlineKeyboardButton("🎳 Bowling", callback_data=f"setup_rolls_bowling_{amount:.2f}"),
              InlineKeyboardButton("🎰 Slots", callback_data=f"slots_bot_{amount:.2f}")],
             [InlineKeyboardButton("🪙 CoinFlip", callback_data=f"flip_bot_{amount:.2f}"),
              InlineKeyboardButton("🃏 Blackjack", callback_data=f"bj_bot_{amount:.2f}")],
@@ -943,11 +943,11 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             return
 
         keyboard = [
-            [InlineKeyboardButton("🎲 Dice", callback_data=f"setup_rolls_dice_{amount:.2f}_1"),
-             InlineKeyboardButton("🎯 Darts", callback_data=f"setup_rolls_darts_{amount:.2f}_1")],
-            [InlineKeyboardButton("🏀 Basketball", callback_data=f"setup_rolls_basketball_{amount:.2f}_1"),
-             InlineKeyboardButton("⚽ Soccer", callback_data=f"setup_rolls_soccer_{amount:.2f}_1")],
-            [InlineKeyboardButton("🎳 Bowling", callback_data=f"setup_rolls_bowling_{amount:.2f}_1"),
+            [InlineKeyboardButton("🎲 Dice", callback_data=f"setup_rolls_dice_{amount:.2f}"),
+             InlineKeyboardButton("🎯 Darts", callback_data=f"setup_rolls_darts_{amount:.2f}")],
+            [InlineKeyboardButton("🏀 Basketball", callback_data=f"setup_rolls_basketball_{amount:.2f}"),
+             InlineKeyboardButton("⚽ Soccer", callback_data=f"setup_rolls_soccer_{amount:.2f}")],
+            [InlineKeyboardButton("🎳 Bowling", callback_data=f"setup_rolls_bowling_{amount:.2f}"),
              InlineKeyboardButton("🎰 Slots", callback_data=f"slots_bot_{amount:.2f}")],
             [InlineKeyboardButton("🪙 CoinFlip", callback_data=f"flip_bot_{amount:.2f}"),
              InlineKeyboardButton("🃏 Blackjack", callback_data=f"bj_bot_{amount:.2f}")],
@@ -3379,12 +3379,13 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             # Generic setup handlers
             if data.startswith("setup_rolls_"):
                 parts = data.split('_')
-                game, wager, rolls = parts[2], float(parts[3]), int(parts[4])
+                game, wager = parts[2], float(parts[3])
                 keyboard = [
-                    [InlineKeyboardButton("Normal", callback_data=f"setup_mode_{game}_{wager:.2f}_{rolls}_normal"),
-                     InlineKeyboardButton("Crazy", callback_data=f"setup_mode_{game}_{wager:.2f}_{rolls}_crazy")]
+                    [InlineKeyboardButton("1 Roll", callback_data=f"setup_mode_{game}_{wager:.2f}_1"),
+                     InlineKeyboardButton("2 Rolls", callback_data=f"setup_mode_{game}_{wager:.2f}_2"),
+                     InlineKeyboardButton("3 Rolls", callback_data=f"setup_mode_{game}_{wager:.2f}_3")]
                 ]
-                await query.edit_message_text(f"**{game.capitalize()}**\nWager: ${wager:.2f}\nRolls: {rolls}\n\nChoose Mode:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+                await query.edit_message_text(f"**{game.capitalize()}**\nWager: ${wager:.2f}\n\nHow many rolls per round?", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
             elif data.startswith("setup_mode_"):
                 parts = data.split('_')
