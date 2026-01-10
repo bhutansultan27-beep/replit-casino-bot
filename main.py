@@ -2570,7 +2570,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             loser_id = challenger_id
             result_text = f"✅ @{acceptor_user['username']} won ${wager:.2f}!"
         else:
-            # Draw: refund both wagers
+            # Draw: refund both wagers (already deducted)
             self.db.update_user(challenger_id, {'balance': challenger_user['balance'] + wager})
             self.db.update_user(user_id, {'balance': acceptor_user['balance'] + wager})
             result_text = "🤝 Draw! Refunded"
@@ -2590,12 +2590,16 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             return
         
         # Handle Win/Loss
+        # Both players have already been deducted the 'wager' amount.
+        # Winner gets both wagers (wager * 2)
         winnings = wager * 2
         winner_profit = wager
         
         winner_user = self.db.get_user(winner_id)
-        winner_user['balance'] += winnings
-        self.db.update_user(winner_id, winner_user)
+        # We need to update the balance properly. 
+        # The user object retrieved might be stale if we used update_user earlier, 
+        # but here we just need to add the winnings to their current state.
+        self.db.update_user(winner_id, {'balance': winner_user['balance'] + winnings})
         
         self._update_user_stats(winner_id, wager, winner_profit, "win")
         self._update_user_stats(loser_id, wager, -wager, "loss")
@@ -2643,11 +2647,15 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             b_val = 1 if bot_roll >= 4 else 0
 
         if p_val > b_val:
+            # WIN: Give back initial bet (already deducted) + profit (wager)
             profit = wager
             result = "win"
+            user_data['balance'] += (wager * 2) # Wager back + profit
+            self.db.update_user(user_id, user_data)
             result_text = f"✅ Won ${profit:.2f}!"
             self.db.update_house_balance(-wager)
         elif p_val < b_val:
+            # LOSS: Already deducted, house keeps it
             profit = -wager
             result = "loss"
             result_text = f"❌ Lost ${wager:.2f}"
