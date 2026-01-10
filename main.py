@@ -2931,6 +2931,203 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
 
     # --- CALLBACK HANDLER ---
 
+    async def soccer_vs_bot_v2(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float, rolls: int, mode: str, pts: int):
+        """Play soccer against the bot with V2 modes"""
+        query = update.callback_query
+        user_id = query.from_user.id
+        chat_id = query.message.chat_id
+        
+        user_data = self.db.get_user(user_id)
+        if wager > user_data['balance']:
+            await query.edit_message_text(f"❌ Balance: ${user_data['balance']:.2f}")
+            return
+            
+        # Deduct wager
+        self.db.update_user(user_id, {'balance': user_data['balance'] - wager})
+        
+        player_score = 0
+        bot_score = 0
+        
+        status_msg = await context.bot.send_message(
+            chat_id=chat_id,
+            text=f"⚽ **Soccer Series Started!**\nFirst to {pts} point(s) wins.\nMode: {mode.capitalize()} | Rolls per turn: {rolls}",
+            parse_mode="Markdown"
+        )
+        
+        while player_score < pts and bot_score < pts:
+            # Player turn
+            p_turn_total = 0
+            for i in range(rolls):
+                dice = await context.bot.send_dice(chat_id=chat_id, emoji="⚽")
+                val = 1 if dice.dice.value >= 4 else 0
+                p_turn_total += val
+                await asyncio.sleep(3.5)
+            
+            # Bot turn
+            b_turn_total = 0
+            for i in range(rolls):
+                dice = await context.bot.send_dice(chat_id=chat_id, emoji="⚽")
+                val = 1 if dice.dice.value >= 4 else 0
+                b_turn_total += val
+                await asyncio.sleep(3.5)
+                
+            # Determine round winner
+            round_win = False
+            if mode == "normal":
+                if p_turn_total > b_turn_total:
+                    player_score += 1
+                    round_win = "Player"
+                elif b_turn_total > p_turn_total:
+                    bot_score += 1
+                    round_win = "Bot"
+            else: # Crazy mode (lowest wins)
+                if p_turn_total < b_turn_total:
+                    player_score += 1
+                    round_win = "Player"
+                elif b_turn_total < p_turn_total:
+                    bot_score += 1
+                    round_win = "Bot"
+            
+            res_text = f"Round result: {p_turn_total} vs {b_turn_total}. "
+            if round_win:
+                res_text += f"Point to {round_win}!"
+            else:
+                res_text += "Draw!"
+            
+            await context.bot.send_message(chat_id=chat_id, text=f"{res_text}\nScore: Player {player_score} - Bot {bot_score}")
+            await asyncio.sleep(1)
+
+        # Final result
+        if player_score >= pts:
+            profit = wager
+            user_data = self.db.get_user(user_id)
+            user_data['balance'] += (wager * 2)
+            self.db.update_user(user_id, user_data)
+            self.db.update_house_balance(-wager)
+            final_text = f"🏆 **You won the series!**\nPayout: ${wager * 2:.2f}"
+            outcome = "win"
+        else:
+            profit = -wager
+            self.db.update_house_balance(wager)
+            final_text = f"💀 **Bot won the series!**\nYou lost ${wager:.2f}"
+            outcome = "loss"
+            
+        self._update_user_stats(user_id, wager, profit, outcome)
+        await context.bot.send_message(chat_id=chat_id, text=final_text, parse_mode="Markdown")
+
+    async def create_soccer_pvp_v2(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float, rolls: int, mode: str, pts: int):
+        """Create a Soccer V2 PvP challenge"""
+        query = update.callback_query
+        user_id = query.from_user.id
+        chat_id = query.message.chat_id
+        
+        user_data = self.db.get_user(user_id)
+        if wager > user_data['balance']:
+            await query.answer("❌ Insufficient balance", show_alert=True)
+            return
+            
+        # Deduct wager
+        self.db.update_user(user_id, {'balance': user_data['balance'] - wager})
+        
+        challenge_id = f"soccer_v2_{user_id}_{int(datetime.now().timestamp())}"
+        challenge = {
+            "id": challenge_id,
+            "challenger": user_id,
+            "opponent": None,
+            "wager": wager,
+            "type": "soccer_v2",
+            "emoji": "⚽",
+            "rolls": rolls,
+            "mode": mode,
+            "pts": pts,
+            "chat_id": chat_id,
+            "created_at": datetime.now().isoformat(),
+            "p1_points": 0,
+            "p2_points": 0,
+            "waiting_for_emoji": True
+        }
+        
+        self.pending_pvp[challenge_id] = challenge
+        self.db.data['pending_pvp'] = self.pending_pvp
+        self.db.save_data()
+        
+        keyboard = [[InlineKeyboardButton("Join Challenge", callback_data=f"accept_soccer_v2_{challenge_id}")]]
+        await query.edit_message_text(
+            f"⚽ **Soccer PvP Challenge (V2)**\n\n"
+            f"Challenger: @{user_data['username']}\n"
+            f"Wager: ${wager:.2f}\n"
+            f"Rolls: {rolls}\n"
+            f"Mode: {mode.capitalize()}\n"
+            f"Target Points: {pts}\n\n"
+            "Click below to join!",
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode="Markdown"
+        )
+
+    async def soccer_player_v2_loop(self, context: ContextTypes.DEFAULT_TYPE, challenge_id: str):
+        """Manage the loop for a Soccer V2 PvP game"""
+        challenge = self.pending_pvp.get(challenge_id)
+        if not challenge: return
+        
+        chat_id = challenge['chat_id']
+        p1_id = challenge['challenger']
+        p2_id = challenge['opponent']
+        p1_data = self.db.get_user(p1_id)
+        p2_data = self.db.get_user(p2_id)
+        
+        while challenge['p1_points'] < challenge['pts'] and challenge['p2_points'] < challenge['pts']:
+            # P1 Turn
+            p1_total = 0
+            for i in range(challenge['rolls']):
+                await context.bot.send_message(chat_id=chat_id, text=f"@{p1_data['username']} rolling...")
+                dice = await context.bot.send_dice(chat_id=chat_id, emoji="⚽")
+                p1_total += (1 if dice.dice.value >= 4 else 0)
+                await asyncio.sleep(3.5)
+            
+            # P2 Turn
+            p2_total = 0
+            for i in range(challenge['rolls']):
+                await context.bot.send_message(chat_id=chat_id, text=f"@{p2_data['username']} rolling...")
+                dice = await context.bot.send_dice(chat_id=chat_id, emoji="⚽")
+                p2_total += (1 if dice.dice.value >= 4 else 0)
+                await asyncio.sleep(3.5)
+                
+            # Round outcome
+            win = None
+            if challenge['mode'] == "normal":
+                if p1_total > p2_total: win = "p1"
+                elif p2_total > p1_total: win = "p2"
+            else:
+                if p1_total < p2_total: win = "p1"
+                elif p2_total < p1_total: win = "p2"
+                
+            if win == "p1": challenge['p1_points'] += 1
+            elif win == "p2": challenge['p2_points'] += 1
+            
+            await context.bot.send_message(
+                chat_id=chat_id, 
+                text=f"Round Result: @{p1_data['username']} {p1_total} vs @{p2_data['username']} {p2_total}\n"
+                     f"Series Score: {challenge['p1_points']} - {challenge['p2_points']}"
+            )
+            await asyncio.sleep(1)
+
+        # Final Payout
+        wager = challenge['wager']
+        if challenge['p1_points'] >= challenge['pts']:
+            winner, loser = p1_id, p2_id
+            win_name = p1_data['username']
+        else:
+            winner, loser = p2_id, p1_id
+            win_name = p2_data['username']
+            
+        self.db.update_user(winner, {'balance': self.db.get_user(winner)['balance'] + (wager * 2)})
+        self._update_user_stats(winner, wager, wager, "win")
+        self._update_user_stats(loser, wager, -wager, "loss")
+        
+        await context.bot.send_message(chat_id=chat_id, text=f"🏆 **@{win_name} won the Soccer Series and ${wager * 2:.2f}!**", parse_mode="Markdown")
+        del self.pending_pvp[challenge_id]
+        self.db.save_data()
+
     async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handles all inline button presses."""
         query = update.callback_query
@@ -3060,6 +3257,27 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 wager = float(data.split('_')[3])
                 await self.create_open_dice_challenge(update, context, wager)
                 
+            elif data.startswith("accept_soccer_v2_"):
+                challenge_id = data.replace("accept_soccer_v2_", "")
+                challenge = self.pending_pvp.get(challenge_id)
+                if not challenge:
+                    await query.answer("❌ Challenge not found", show_alert=True)
+                    return
+                if challenge['challenger'] == user_id:
+                    await query.answer("❌ You cannot join your own challenge", show_alert=True)
+                    return
+                
+                user_data = self.db.get_user(user_id)
+                if user_data['balance'] < challenge['wager']:
+                    await query.answer("❌ Insufficient balance", show_alert=True)
+                    return
+                    
+                self.db.update_user(user_id, {'balance': user_data['balance'] - challenge['wager']})
+                challenge['opponent'] = user_id
+                challenge['waiting_for_emoji'] = False
+                await query.edit_message_text("✅ Challenge Accepted! Starting series...")
+                asyncio.create_task(self.soccer_player_v2_loop(context, challenge_id))
+
             elif data.startswith("accept_dice_"):
                 challenge_id = data.split('_', 2)[2]
                 await self.accept_dice_challenge(update, context, challenge_id)
