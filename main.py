@@ -3247,9 +3247,9 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             await query.answer("❌ This button has already been used!", show_alert=True)
             return
         
-        # Check button ownership (except for public buttons like challenges and leaderboard)
-        public_buttons = ["accept_dice_", "accept_darts_", "accept_basketball_", "accept_soccer_", "accept_bowling_", "accept_coinflip_", "lb_page_", "transactions_history", "deposit_mock", "withdraw_mock"]
-        is_public = any(data.startswith(prefix) or data == prefix for prefix in public_buttons)
+        # Check button ownership
+        public_buttons = ["v2_accept_", "lb_page_", "transactions_history", "deposit_mock", "withdraw_mock"]
+        is_public = any(data.startswith(prefix) for prefix in public_buttons)
         
         ownership_key = (chat_id, message_id)
         if not is_public and ownership_key in self.button_ownership:
@@ -3257,31 +3257,15 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 await query.answer("❌ This button is not for you!", show_alert=True)
                 return
         
-        await query.answer() # Acknowledge the button press
+        await query.answer()
         
-        # Mark button as clicked for game buttons (not utility buttons)
-        if any(data.startswith(prefix) for prefix in ["dice_bot_", "darts_bot_", "basketball_bot_", "soccer_bot_", "bowling_bot_", "flip_bot_", "roulette_", "dice_player_open_", "darts_player_open_", "basketball_player_open_", "soccer_player_open_", "bowling_player_open_", "accept_darts_", "accept_basketball_", "accept_soccer_", "accept_bowling_", "claim_daily_bonus", "claim_referral"]):
+        # Mark button as clicked for game buttons
+        if any(data.startswith(prefix) for prefix in ["v2_bot_", "v2_pvp_", "v2_accept_", "roulette_", "claim_daily_bonus", "claim_referral"]):
             self.clicked_buttons.add(button_key)
         
         try:
-            # Game Callbacks (Dice vs Bot)
-            if data.startswith("dice_bot_"):
-                wager = float(data.split('_')[2])
-                await self.dice_vs_bot(update, context, wager)
-                
-            # Game Callbacks (Darts vs Bot)
-            elif data.startswith("darts_bot_"):
-                wager = float(data.split('_')[2])
-                await self.darts_vs_bot(update, context, wager)
-                
-            # Game Callbacks (Basketball vs Bot)
-            elif data.startswith("basketball_bot_"):
-                wager = float(data.split('_')[2])
-                await self.basketball_vs_bot(update, context, wager)
-                
-            # Game Callbacks (Soccer vs Bot)
             # Generic setup handlers
-            elif data.startswith("setup_rolls_"):
+            if data.startswith("setup_rolls_"):
                 parts = data.split('_')
                 game, wager, rolls = parts[2], float(parts[3]), int(parts[4])
                 keyboard = [
@@ -3320,47 +3304,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 await self.start_generic_v2_pvp(update, context, game, wager, rolls, mode, pts)
 
             elif data.startswith("v2_accept_"):
-                challenge_id = data.replace("v2_accept_", "")
-                await self.accept_generic_v2_pvp(update, context, challenge_id)
-
-            elif data.startswith("soccer_bot_"):
-                wager = float(data.split('_')[2])
-                await self.soccer_vs_bot(update, context, wager)
-                
-            # Game Callbacks (Bowling vs Bot)
-            elif data.startswith("bowling_bot_"):
-                wager = float(data.split('_')[2])
-                await self.bowling_vs_bot(update, context, wager)
-                
-            # Game Callbacks (Dice PvP)
-            elif data.startswith("dice_player_open_"):
-                wager = float(data.split('_')[3])
-                await self.create_open_dice_challenge(update, context, wager)
-                
-            elif data.startswith("accept_soccer_v2_"):
-                challenge_id = data.replace("accept_soccer_v2_", "")
-                challenge = self.pending_pvp.get(challenge_id)
-                if not challenge:
-                    await query.answer("❌ Challenge not found", show_alert=True)
-                    return
-                if challenge['challenger'] == user_id:
-                    await query.answer("❌ You cannot join your own challenge", show_alert=True)
-                    return
-                
-                user_data = self.db.get_user(user_id)
-                if user_data['balance'] < challenge['wager']:
-                    await query.answer("❌ Insufficient balance", show_alert=True)
-                    return
-                    
-                self.db.update_user(user_id, {'balance': user_data['balance'] - challenge['wager']})
-                challenge['opponent'] = user_id
-                challenge['waiting_for_emoji'] = False
-                await query.edit_message_text("✅ Challenge Accepted! Starting series...")
-                asyncio.create_task(self.soccer_player_v2_loop(context, challenge_id))
-
-            elif data.startswith("accept_dice_"):
-                challenge_id = data.split('_', 2)[2]
-                await self.accept_dice_challenge(update, context, challenge_id)
+                cid = data.replace("v2_accept_", "")
+                await self.accept_generic_v2_pvp(update, context, cid)
             
             # Game Callbacks (Darts PvP)
             elif data.startswith("darts_player_open_"):
