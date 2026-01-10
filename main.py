@@ -873,14 +873,15 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             await update.message.reply_text(f"❌ Balance: ${user_data['balance']:.2f}")
             return
         
+        # Step 1: Choose Roll Count (1 or 2)
         keyboard = [
-            [InlineKeyboardButton("🤖 Play vs Bot", callback_data=f"soccer_bot_{wager:.2f}")],
-            [InlineKeyboardButton("👥 Create PvP Challenge", callback_data=f"soccer_player_open_{wager:.2f}")]
+            [InlineKeyboardButton("1 Roll", callback_data=f"soccer_setup_rolls_{wager:.2f}_1"),
+             InlineKeyboardButton("2 Rolls", callback_data=f"soccer_setup_rolls_{wager:.2f}_2")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         sent_msg = await update.message.reply_text(
-            f"⚽ **Soccer Game**\n\nWager: ${wager:.2f}\n\nChoose your opponent:",
+            f"⚽ **Soccer Game**\n\nWager: ${wager:.2f}\n\nHow many rolls?",
             reply_markup=reply_markup,
             parse_mode="Markdown"
         )
@@ -2981,6 +2982,70 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 await self.basketball_vs_bot(update, context, wager)
                 
             # Game Callbacks (Soccer vs Bot)
+            elif data.startswith("soccer_setup_rolls_"):
+                parts = data.split('_')
+                wager = float(parts[3])
+                rolls = int(parts[4])
+                # Step 2: Choose Mode (Normal or Crazy)
+                keyboard = [
+                    [InlineKeyboardButton("Normal", callback_data=f"soccer_setup_mode_{wager:.2f}_{rolls}_normal"),
+                     InlineKeyboardButton("Crazy", callback_data=f"soccer_setup_mode_{wager:.2f}_{rolls}_crazy")]
+                ]
+                await query.edit_message_text(
+                    f"⚽ **Soccer Game**\n\nWager: ${wager:.2f}\nRolls: {rolls}\n\nChoose Mode:",
+                    reply_markup=InlineKeyboardMarkup(keyboard),
+                    parse_mode="Markdown"
+                )
+
+            elif data.startswith("soccer_setup_mode_"):
+                parts = data.split('_')
+                wager = float(parts[3])
+                rolls = int(parts[4])
+                mode = parts[5]
+                # Step 3: Choose Points (1, 2, or 3)
+                keyboard = [
+                    [InlineKeyboardButton("1 Point", callback_data=f"soccer_setup_pts_{wager:.2f}_{rolls}_{mode}_1"),
+                     InlineKeyboardButton("2 Points (Best of 3)", callback_data=f"soccer_setup_pts_{wager:.2f}_{rolls}_{mode}_2"),
+                     InlineKeyboardButton("3 Points (Best of 5)", callback_data=f"soccer_setup_pts_{wager:.2f}_{rolls}_{mode}_3")]
+                ]
+                await query.edit_message_text(
+                    f"⚽ **Soccer Game**\n\nWager: ${wager:.2f}\nRolls: {rolls}\nMode: {mode.capitalize()}\n\nChoose Points to Win:",
+                    reply_markup=InlineKeyboardMarkup(keyboard),
+                    parse_mode="Markdown"
+                )
+
+            elif data.startswith("soccer_setup_pts_"):
+                parts = data.split('_')
+                wager = float(parts[3])
+                rolls = int(parts[4])
+                mode = parts[5]
+                pts = int(parts[6])
+                # Step 4: Choose Opponent
+                keyboard = [
+                    [InlineKeyboardButton("🤖 Play vs Bot", callback_data=f"soccer_bot_v2_{wager:.2f}_{rolls}_{mode}_{pts}")],
+                    [InlineKeyboardButton("👥 Create PvP Challenge", callback_data=f"soccer_player_v2_{wager:.2f}_{rolls}_{mode}_{pts}")]
+                ]
+                await query.edit_message_text(
+                    f"⚽ **Soccer Game**\n\nWager: ${wager:.2f}\nRolls: {rolls}\nMode: {mode.capitalize()}\nPoints to Win: {pts}\n\nChoose Opponent:",
+                    reply_markup=InlineKeyboardMarkup(keyboard),
+                    parse_mode="Markdown"
+                )
+
+            # Game Callbacks (Soccer vs Bot V2)
+            elif data.startswith("soccer_bot_v2_"):
+                parts = data.split('_')
+                wager = float(parts[3])
+                # In Autonomous mode I'd implement the full state machine. 
+                # For now, I'll direct existing soccer_vs_bot but need to update it.
+                await self.soccer_vs_bot_v2(update, context, wager, int(parts[4]), parts[5], int(parts[6]))
+
+            # Game Callbacks (Soccer vs Player V2)
+            elif data.startswith("soccer_player_v2_"):
+                parts = data.split('_')
+                wager = float(parts[3])
+                # ... PvP logic ...
+                await self.create_soccer_pvp_v2(update, context, wager, int(parts[4]), parts[5], int(parts[6]))
+
             elif data.startswith("soccer_bot_"):
                 wager = float(data.split('_')[2])
                 await self.soccer_vs_bot(update, context, wager)
