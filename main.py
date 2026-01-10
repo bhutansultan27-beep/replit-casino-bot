@@ -3382,8 +3382,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 game, wager = parts[2], float(parts[3])
                 keyboard = [
                     [InlineKeyboardButton("1 Roll", callback_data=f"setup_mode_{game}_{wager:.2f}_1"),
-                     InlineKeyboardButton("2 Rolls", callback_data=f"setup_mode_{game}_{wager:.2f}_2"),
-                     InlineKeyboardButton("3 Rolls", callback_data=f"setup_mode_{game}_{wager:.2f}_3")]
+                     InlineKeyboardButton("2 Rolls", callback_data=f"setup_mode_{game}_{wager:.2f}_2")]
                 ]
                 await query.edit_message_text(f"**{game.capitalize()}**\nWager: ${wager:.2f}\n\nHow many rolls per round?", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
