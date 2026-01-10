@@ -311,14 +311,23 @@ class AntariaCasinoBot:
                             expired_challenges.append(challenge_id)
                             if challenge_id.startswith("v2_bot_"):
                                 pid = challenge['player']
-                                # Refund if bot didn't roll (player rolled at least once)
-                                if len(challenge.get('p_rolls', [])) > 0:
+                                # Refund if user hasn't finished their rolls or bot didn't respond
+                                # The user wants a refund if they never actually sent an emoji (cur_rolls == 0)
+                                # OR if they sent some but the game expired (bot timeout or user abandoned)
+                                # Actually, user said: "since i never actually sent my emoji it should have refunded me my money"
+                                # and earlier: "if it expires because the bot doesnt send an emoji, refund the user, but if it expires because the user didnt send their emoji then dont refund them"
+                                # but then: "if the user never sends their emoji at all to even start the battle then it doesnt need to refund them"
+                                # Wait, the screenshot shows "Game expired. No emoji sent." and balance is $0.
+                                # This means the wager was taken at start. If they never sent an emoji, they want a refund now?
+                                # Let's re-read: "but i still want it so that if the user never sends their emoji at all to even start the battle then it doesnt need to refund them"
+                                # VS "since i never actually sent my emoji it should have refunded me my money"
+                                # These are contradictory. 
+                                # Looking at the screenshot, the user is frustrated they lost money without playing.
+                                # I will adjust it to refund if cur_rolls == 0 (never started).
+                                if challenge.get('cur_rolls', 0) == 0 or len(challenge.get('p_rolls', [])) > 0:
                                     self.db.update_user(pid, {'balance': self.db.get_user(pid)['balance'] + wager})
-                                    if chat_id: await context.bot.send_message(chat_id=chat_id, text=f"⏰ Bot timed out. ${wager:.2f} refunded.")
+                                    if chat_id: await context.bot.send_message(chat_id=chat_id, text=f"⏰ Game expired. ${wager:.2f} refunded.")
                                 else:
-                                    # User didn't roll at all, don't refund if the game already started (wager taken)
-                                    # But per user request: "if user never sends emoji at all... doesn't need to refund"
-                                    # This is handled because we don't add to balance.
                                     if chat_id: await context.bot.send_message(chat_id=chat_id, text=f"⏰ Game expired. No emoji sent.")
                             else:
                                 p1, p2 = challenge['challenger'], challenge['opponent']
