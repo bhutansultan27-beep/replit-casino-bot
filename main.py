@@ -3379,41 +3379,46 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             # Generic setup handlers
             if data.startswith("setup_rolls_"):
                 parts = data.split('_')
-                game, wager = parts[2], float(parts[3])
-                keyboard = [
-                    [InlineKeyboardButton("1 Roll", callback_data=f"setup_mode_{game}_{wager:.2f}_1"),
-                     InlineKeyboardButton("2 Rolls", callback_data=f"setup_mode_{game}_{wager:.2f}_2")]
-                ]
-                await query.edit_message_text(f"**{game.capitalize()}**\nWager: ${wager:.2f}\n\nHow many rolls per round?", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+                if len(parts) >= 4:
+                    game, wager = parts[2], float(parts[3])
+                    keyboard = [
+                        [InlineKeyboardButton("1 Roll", callback_data=f"setup_mode_{game}_{wager:.2f}_1"),
+                         InlineKeyboardButton("2 Rolls", callback_data=f"setup_mode_{game}_{wager:.2f}_2")]
+                    ]
+                    await query.edit_message_text(f"**{game.capitalize()}**\nWager: ${wager:.2f}\n\nHow many rolls per round?", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
             elif data.startswith("setup_mode_"):
                 parts = data.split('_')
-                game, wager, rolls, mode = parts[2], float(parts[3]), int(parts[4]), parts[5]
-                keyboard = [
-                    [InlineKeyboardButton("1 Point", callback_data=f"setup_pts_{game}_{wager:.2f}_{rolls}_{mode}_1"),
-                     InlineKeyboardButton("2 Points (Bo3)", callback_data=f"setup_pts_{game}_{wager:.2f}_{rolls}_{mode}_2"),
-                     InlineKeyboardButton("3 Points (Bo5)", callback_data=f"setup_pts_{game}_{wager:.2f}_{rolls}_{mode}_3")]
-                ]
-                await query.edit_message_text(f"**{game.capitalize()}**\nWager: ${wager:.2f}\nRolls: {rolls}\nMode: {mode.capitalize()}\n\nChoose Target Score:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+                if len(parts) >= 6:
+                    game, wager, rolls, mode = parts[2], float(parts[3]), int(parts[4]), parts[5]
+                    keyboard = [
+                        [InlineKeyboardButton("1 Point", callback_data=f"setup_pts_{game}_{wager:.2f}_{rolls}_{mode}_1"),
+                         InlineKeyboardButton("2 Points (Bo3)", callback_data=f"setup_pts_{game}_{wager:.2f}_{rolls}_{mode}_2"),
+                         InlineKeyboardButton("3 Points (Bo5)", callback_data=f"setup_pts_{game}_{wager:.2f}_{rolls}_{mode}_3")]
+                    ]
+                    await query.edit_message_text(f"**{game.capitalize()}**\nWager: ${wager:.2f}\nRolls: {rolls}\nMode: {mode.capitalize()}\n\nChoose Target Score:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
             elif data.startswith("setup_pts_"):
                 parts = data.split('_')
-                game, wager, rolls, mode, pts = parts[2], float(parts[3]), int(parts[4]), parts[5], int(parts[6])
-                keyboard = [
-                    [InlineKeyboardButton("🤖 Play vs Bot", callback_data=f"v2_bot_{game}_{wager:.2f}_{rolls}_{mode}_{pts}")],
-                    [InlineKeyboardButton("👥 Create PvP", callback_data=f"v2_pvp_{game}_{wager:.2f}_{rolls}_{mode}_{pts}")]
-                ]
-                await query.edit_message_text(f"**{game.capitalize()}** Ready!\n\nWager: ${wager:.2f}\nRolls: {rolls}\nMode: {mode.capitalize()}\nTarget: {pts}\n\nChoose Opponent:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+                if len(parts) >= 7:
+                    game, wager, rolls, mode, pts = parts[2], float(parts[3]), int(parts[4]), parts[5], int(parts[6])
+                    keyboard = [
+                        [InlineKeyboardButton("🤖 Play vs Bot", callback_data=f"v2_bot_{game}_{wager:.2f}_{rolls}_{mode}_{pts}")],
+                        [InlineKeyboardButton("👥 Create PvP", callback_data=f"v2_pvp_{game}_{wager:.2f}_{rolls}_{mode}_{pts}")]
+                    ]
+                    await query.edit_message_text(f"**{game.capitalize()}** Ready!\n\nWager: ${wager:.2f}\nRolls: {rolls}\nMode: {mode.capitalize()}\nTarget: {pts}\n\nChoose Opponent:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
             elif data.startswith("v2_bot_"):
                 parts = data.split('_')
-                game, wager, rolls, mode, pts = parts[2], float(parts[3]), int(parts[4]), parts[5], int(parts[6])
-                await self.start_generic_v2_bot(update, context, game, wager, rolls, mode, pts)
+                if len(parts) >= 7:
+                    game, wager, rolls, mode, pts = parts[2], float(parts[3]), int(parts[4]), parts[5], int(parts[6])
+                    await self.start_generic_v2_bot(update, context, game, wager, rolls, mode, pts)
 
             elif data.startswith("v2_pvp_"):
                 parts = data.split('_')
-                game, wager, rolls, mode, pts = parts[2], float(parts[3]), int(parts[4]), parts[5], int(parts[6])
-                await self.start_generic_v2_pvp(update, context, game, wager, rolls, mode, pts)
+                if len(parts) >= 7:
+                    game, wager, rolls, mode, pts = parts[2], float(parts[3]), int(parts[4]), parts[5], int(parts[6])
+                    await self.start_generic_v2_pvp(update, context, game, wager, rolls, mode, pts)
 
             elif data.startswith("v2_accept_"):
                 cid = data.replace("v2_accept_", "")
