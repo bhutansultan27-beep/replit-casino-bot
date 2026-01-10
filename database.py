@@ -90,9 +90,14 @@ class DatabaseManager:
         return self.data["users"][user_id_str]
     
     def update_user(self, user_id: int, updates: Dict[str, Any]):
-        """Update user data"""
+        """Update user data with safety checks"""
         user_id_str = str(user_id)
         user = self.get_user(user_id)
+        
+        # Ensure balance doesn't go below 0
+        if 'balance' in updates:
+            updates['balance'] = max(0, float(updates['balance']))
+            
         user.update(updates)
         self.save_data()
     

@@ -3331,9 +3331,10 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             winner, loser = p2_id, p1_id
             win_name = p2_data['username']
             
-        # Both players already had wager deducted when accepting/starting
-        # Winner gets (wager * 2) total payout
-        self.db.update_user(winner, {'balance': self.db.get_user(winner)['balance'] + (wager * 2)})
+        # Payout calculation: 
+        # Winner already had wager deducted, so they get back their wager + the loser's wager.
+        winner_user = self.db.get_user(winner)
+        self.db.update_user(winner, {'balance': winner_user['balance'] + (wager * 2)})
         self._update_user_stats(winner, wager, wager, "win")
         self._update_user_stats(loser, wager, -wager, "loss")
         
