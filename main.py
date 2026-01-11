@@ -343,14 +343,15 @@ class AntariaCasinoBot:
                                 # Actually, in bot game, if user sent some but bot didn't finish, refund.
                                 # But if user stopped sending halfway, they shouldn't get refund.
                                 if challenge.get('wager_deducted'):
-                                    # We'll check if player finished their required rolls
-                                    if len(challenge.get('p_rolls', [])) >= challenge.get('rolls', 0):
-                                        # Player finished but game expired (bot timeout), refund
+                                    # Current round rolls: challenge['cur_rolls']
+                                    # If player hasn't finished the rolls for the CURRENT round
+                                    if challenge.get('cur_rolls', 0) >= challenge.get('rolls', 0):
+                                        # Player finished current round, but bot didn't respond (timeout)
                                         self.db.update_user(pid, {'balance': self.db.get_user(pid)['balance'] + wager})
                                         if chat_id: await context.bot.send_message(chat_id=chat_id, text=f"⏰ Bot timed out. ${wager:.2f} refunded.")
                                     else:
-                                        # Player abandoned series/round before finishing their rolls
-                                        if chat_id: await context.bot.send_message(chat_id=chat_id, text=f"⏰ Game expired. (Abandonment)")
+                                        # Player didn't finish their rolls for this round
+                                        if chat_id: await context.bot.send_message(chat_id=chat_id, text=f"⏰ Game expired.")
                                 else:
                                     if chat_id: await context.bot.send_message(chat_id=chat_id, text=f"⏰ Game expired.")
                             else:
