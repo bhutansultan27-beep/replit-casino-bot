@@ -2745,7 +2745,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                         multiplier = round(cashout_val / challenge['wager'], 2) if challenge['wager'] > 0 else 0
                         keyboard = [[InlineKeyboardButton(f"Cashout ${cashout_val:.2f} ({multiplier}x)", callback_data=f"v2_cashout_{cid}")]]
                         reply_markup = InlineKeyboardMarkup(keyboard)
-                        await context.bot.send_message(chat_id=chat_id, text="Next round! Send your emoji.", reply_markup=reply_markup)
+                        score_text = f"User: {challenge['p_pts']}\nBot: {challenge['b_pts']}"
+                        await context.bot.send_message(chat_id=chat_id, text=f"{score_text}\n\nNext round! Send your emoji.", reply_markup=reply_markup)
                 self.db.save_data()
                 return
 
@@ -3333,7 +3334,9 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             
             if win == "p1": challenge['p1_pts'] += 1
             elif win == "p2": challenge['p2_pts'] += 1
-            await context.bot.send_message(chat_id=chat_id, text=f"Round Result: {p1_tot} vs {p2_tot}. Point to {'you' if win else 'Draw'}!")
+            
+            score_text = f"@{p1_data['username']}: {challenge['p1_pts']}\n@{p2_data['username']}: {challenge['p2_pts']}"
+            await context.bot.send_message(chat_id=chat_id, text=f"Round Result: {p1_tot} vs {p2_tot}. Point to {'you' if win else 'Draw'}!\n\n{score_text}")
             await asyncio.sleep(1)
 
         wager = challenge['wager']
