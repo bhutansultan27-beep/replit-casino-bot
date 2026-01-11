@@ -338,6 +338,22 @@ class AntariaCasinoBot:
                             if challenge_id.startswith("v2_bot_"):
                                 pid = challenge['player']
                                 # Bot game expiry: 
+                                # If they are at the cashout stage, auto-cashout
+                                if challenge.get('waiting_for_cashout'):
+                                    cashout_val = self.calculate_cashout(challenge['p_pts'], challenge['b_pts'], challenge['pts'], challenge['wager'])
+                                    user_data = self.db.get_user(pid)
+                                    user_data['balance'] += cashout_val
+                                    self.db.update_user(pid, user_data)
+                                    self.db.update_house_balance(-(cashout_val - challenge['wager'])) # Adjust house balance correctly
+                                    
+                                    if chat_id:
+                                        await context.bot.send_message(
+                                            chat_id=chat_id, 
+                                            text=f"⏰ @{user_data['username']} didn't pick an option. Auto-cashed out for ${cashout_val:.2f}."
+                                        )
+                                    expired_challenges.append(challenge_id)
+                                    continue
+
                                 # If no wager deducted (user never sent first emoji) -> just expire
                                 # If wager was deducted -> check if bot responded
                                 # Actually, in bot game, if user sent some but bot didn't finish, refund.
@@ -2695,6 +2711,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 
                 challenge['p_rolls'].append(score)
                 challenge['cur_rolls'] += 1
+                challenge['waiting_for_cashout'] = False
                 if challenge['cur_rolls'] < challenge['rolls']:
                     # Get user mention
                     user_mention = f"@{update.effective_user.username}" if update.effective_user.username else update.effective_user.first_name
@@ -2757,6 +2774,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                         keyboard = [[InlineKeyboardButton(f"Cashout ${cashout_val:.2f} ({multiplier}x)", callback_data=f"v2_cashout_{cid}")]]
                         reply_markup = InlineKeyboardMarkup(keyboard)
                         score_text = f"User: {challenge['p_pts']}\nBot: {challenge['b_pts']}"
+                        challenge['waiting_for_cashout'] = True
+                        challenge['emoji_wait'] = datetime.now().isoformat()
                         await context.bot.send_message(chat_id=chat_id, text=f"{score_text}\n\nNext round! Send your emoji.", reply_markup=reply_markup)
                 self.db.save_data()
                 return
