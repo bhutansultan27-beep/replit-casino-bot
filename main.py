@@ -3411,8 +3411,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 if len(parts) >= 4:
                     game, wager = parts[3], float(parts[4])
                     keyboard = [
-                        [InlineKeyboardButton("1 Roll", callback_data=f"setup_pts_{game}_{wager:.2f}_normal_1"),
-                         InlineKeyboardButton("2 Rolls", callback_data=f"setup_pts_{game}_{wager:.2f}_normal_2")]
+                        [InlineKeyboardButton("1", callback_data=f"setup_pts_{game}_{wager:.2f}_normal_1")],
+                        [InlineKeyboardButton("2", callback_data=f"setup_pts_{game}_{wager:.2f}_normal_2")]
                     ]
                     await query.edit_message_text(f"**{game.capitalize()}**\nWager: ${wager:.2f}\nMode: Normal\n\nHow many rolls per round?", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
@@ -3421,8 +3421,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 if len(parts) >= 4:
                     game, wager = parts[3], float(parts[4])
                     keyboard = [
-                        [InlineKeyboardButton("1 Roll", callback_data=f"setup_pts_{game}_{wager:.2f}_crazy_1"),
-                         InlineKeyboardButton("2 Rolls", callback_data=f"setup_pts_{game}_{wager:.2f}_crazy_2")]
+                        [InlineKeyboardButton("1", callback_data=f"setup_pts_{game}_{wager:.2f}_crazy_1")],
+                        [InlineKeyboardButton("2", callback_data=f"setup_pts_{game}_{wager:.2f}_crazy_2")]
                     ]
                     await query.edit_message_text(f"**{game.capitalize()}**\nWager: ${wager:.2f}\nMode: Crazy\n\nHow many rolls per round?", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
@@ -3431,8 +3431,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 if len(parts) >= 5:
                     game, wager, mode = parts[2], float(parts[3]), parts[4]
                     keyboard = [
-                        [InlineKeyboardButton("1 Roll", callback_data=f"setup_pts_{game}_{wager:.2f}_{mode}_1"),
-                         InlineKeyboardButton("2 Rolls", callback_data=f"setup_pts_{game}_{wager:.2f}_{mode}_2")]
+                        [InlineKeyboardButton("1", callback_data=f"setup_pts_{game}_{wager:.2f}_{mode}_1")],
+                        [InlineKeyboardButton("2", callback_data=f"setup_pts_{game}_{wager:.2f}_{mode}_2")]
                     ]
                     await query.edit_message_text(f"**{game.capitalize()}**\nWager: ${wager:.2f}\nMode: {mode}\n\nHow many rolls per round?", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
@@ -3441,9 +3441,9 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 if len(parts) >= 6:
                     game, wager, mode, rolls = parts[2], float(parts[3]), parts[4], int(parts[5])
                     keyboard = [
-                        [InlineKeyboardButton("1 Point", callback_data=f"setup_opp_{game}_{wager:.2f}_{mode}_{rolls}_1"),
-                         InlineKeyboardButton("2 Points (Bo3)", callback_data=f"setup_opp_{game}_{wager:.2f}_{mode}_{rolls}_2"),
-                         InlineKeyboardButton("3 Points (Bo5)", callback_data=f"setup_opp_{game}_{wager:.2f}_{mode}_{rolls}_3")]
+                        [InlineKeyboardButton("1", callback_data=f"setup_opp_{game}_{wager:.2f}_{mode}_{rolls}_1")],
+                        [InlineKeyboardButton("2", callback_data=f"setup_opp_{game}_{wager:.2f}_{mode}_{rolls}_2")],
+                        [InlineKeyboardButton("3", callback_data=f"setup_opp_{game}_{wager:.2f}_{mode}_{rolls}_3")]
                     ]
                     await query.edit_message_text(f"**{game.capitalize()}**\nWager: ${wager:.2f}\nMode: {mode}\nRolls: {rolls}\n\nChoose Target Score:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
