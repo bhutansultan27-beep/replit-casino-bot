@@ -293,7 +293,7 @@ class AntariaCasinoBot:
         self.app.add_handler(CallbackQueryHandler(self.button_callback))
     
     async def check_expired_challenges(self, context: ContextTypes.DEFAULT_TYPE):
-        """Check for challenges older than 30 seconds and handle refunds/forfeits"""
+        """Check for challenges older than 5 minutes and handle refunds/forfeits"""
         try:
             current_time = datetime.now()
             expired_challenges = []
@@ -307,7 +307,7 @@ class AntariaCasinoBot:
                     emoji_wait = challenge.get('emoji_wait')
                     if emoji_wait:
                         wait_started = datetime.fromisoformat(emoji_wait)
-                        if (current_time - wait_started).total_seconds() > 30:
+                        if (current_time - wait_started).total_seconds() > 300:
                             expired_challenges.append(challenge_id)
                             if challenge_id.startswith("v2_bot_"):
                                 pid = challenge['player']
@@ -334,7 +334,7 @@ class AntariaCasinoBot:
                                 # For PvP, if p1 rolled but p2 didn't, p1 gets refund. 
                                 # If p1 never rolled, no refund for p1.
                                 p1_rolled = len(challenge.get('p1_rolls', [])) > 0
-                                p2_rolled = len(challenge.get('p2_rolls', [])) > 0
+                                p2_rolled = len(challenge.get('p2_rolled', [])) > 0
                                 
                                 if p1_rolled:
                                     self.db.update_user(p1, {'balance': self.db.get_user(p1)['balance'] + wager})
@@ -347,7 +347,7 @@ class AntariaCasinoBot:
                     created_at = datetime.fromisoformat(challenge['created_at'])
                     time_diff = (current_time - created_at).total_seconds()
                     
-                    if time_diff > 30:
+                    if time_diff > 300:
                         expired_challenges.append(challenge_id)
                         
                         # Refund the challenger
@@ -362,7 +362,7 @@ class AntariaCasinoBot:
                             try:
                                 await self.app.bot.send_message(
                                     chat_id=chat_id,
-                                    text=f"⏰ Challenge expired after 30 seconds. ${wager:.2f} has been refunded to @{challenger_data['username']}.",
+                                    text=f"⏰ Challenge expired after 5 minutes. ${wager:.2f} has been refunded to @{challenger_data['username']}.",
                                     parse_mode="Markdown"
                                 )
                             except Exception as e:
@@ -373,7 +373,7 @@ class AntariaCasinoBot:
                     wait_started = datetime.fromisoformat(challenge['emoji_wait_started'])
                     time_diff = (current_time - wait_started).total_seconds()
                     
-                    if time_diff > 30:
+                    if time_diff > 300:
                         expired_challenges.append(challenge_id)
                         
                         challenger_id = challenge['challenger']
@@ -393,7 +393,7 @@ class AntariaCasinoBot:
                             try:
                                 await self.app.bot.send_message(
                                     chat_id=chat_id,
-                                    text=f"⏰ @{challenger_data['username']} didn't send their emoji within 30 seconds and forfeited ${wager:.2f} to the house. @{acceptor_data['username']} has been refunded ${wager:.2f}.",
+                                    text=f"⏰ @{challenger_data['username']} didn't send their emoji within 5 minutes and forfeited ${wager:.2f} to the house. @{acceptor_data['username']} has been refunded ${wager:.2f}.",
                                     parse_mode="Markdown"
                                 )
                             except Exception as e:
@@ -404,7 +404,7 @@ class AntariaCasinoBot:
                     wait_started = datetime.fromisoformat(challenge['emoji_wait_started'])
                     time_diff = (current_time - wait_started).total_seconds()
                     
-                    if time_diff > 30:
+                    if time_diff > 300:
                         expired_challenges.append(challenge_id)
                         
                         # Check if PvP or bot vs player
@@ -427,7 +427,7 @@ class AntariaCasinoBot:
                                 try:
                                     await self.app.bot.send_message(
                                         chat_id=chat_id,
-                                        text=f"⏰ @{opponent_data['username']} didn't send their emoji within 30 seconds and forfeited ${wager:.2f} to the house. @{challenger_data['username']} has been refunded ${wager:.2f}.",
+                                        text=f"⏰ @{opponent_data['username']} didn't send their emoji within 5 minutes and forfeited ${wager:.2f} to the house. @{challenger_data['username']} has been refunded ${wager:.2f}.",
                                         parse_mode="Markdown"
                                     )
                                 except Exception as e:
@@ -445,7 +445,7 @@ class AntariaCasinoBot:
                                 try:
                                     await self.app.bot.send_message(
                                         chat_id=chat_id,
-                                        text=f"⏰ @{player_data['username']} didn't send their emoji within 30 seconds and forfeited ${wager:.2f} to the house.",
+                                        text=f"⏰ @{player_data['username']} didn't send their emoji within 5 minutes and forfeited ${wager:.2f} to the house.",
                                         parse_mode="Markdown"
                                     )
                                 except Exception as e:
@@ -2443,12 +2443,12 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             await query.edit_message_text("❌ This challenge has expired or was canceled.")
             return
         
-        # Check if challenge has expired (>30 seconds old)
+        # Check if challenge has expired (>5 minutes old)
         if 'created_at' in challenge:
             created_at = datetime.fromisoformat(challenge['created_at'])
             time_diff = (datetime.now() - created_at).total_seconds()
-            if time_diff > 30:
-                await query.edit_message_text("❌ This challenge has expired after 30 seconds.")
+            if time_diff > 300:
+                await query.edit_message_text("❌ This challenge has expired after 5 minutes.")
                 return
 
         acceptor_id = query.from_user.id
@@ -2535,12 +2535,12 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             await query.answer("❌ This challenge has expired or was canceled.", show_alert=True)
             return
         
-        # Check if challenge has expired (>30 seconds old)
+        # Check if challenge has expired (>5 minutes old)
         if 'created_at' in challenge:
             created_at = datetime.fromisoformat(challenge['created_at'])
             time_diff = (datetime.now() - created_at).total_seconds()
-            if time_diff > 30:
-                await query.answer("❌ This challenge has expired after 30 seconds.", show_alert=True)
+            if time_diff > 300:
+                await query.answer("❌ This challenge has expired after 5 minutes.", show_alert=True)
                 return
         
         acceptor_id = query.from_user.id
