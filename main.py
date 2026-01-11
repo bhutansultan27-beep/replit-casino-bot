@@ -2603,6 +2603,40 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         self.db.data['pending_pvp'] = self.pending_pvp
         self.db.save_data()
 
+    def calculate_cashout(self, p_pts, b_pts, target_pts, wager):
+        """
+        Calculate cashout value based on win probability.
+        Uses a simplified binomial distribution approximation.
+        """
+        if p_pts >= target_pts: return wager * 2
+        if b_pts >= target_pts: return 0
+        
+        # Simplified probability: each round is 50/50 (ignoring draws for simplicity)
+        # We need to win (target - p_pts) rounds before bot wins (target - b_pts)
+        needed_p = target_pts - p_pts
+        needed_b = target_pts - b_pts
+        
+        # Total maximum rounds left is (needed_p + needed_b - 1)
+        # Using a pre-calculated small table or simplified ratio for 1-3 pts
+        # Since points are 1, 2, or 3, we can handle cases
+        
+        # Probability of player winning series
+        prob = 0.5 # Default
+        if needed_p == 1 and needed_b == 1: prob = 0.5
+        elif needed_p == 1 and needed_b == 2: prob = 0.75
+        elif needed_p == 1 and needed_b == 3: prob = 0.875
+        elif needed_p == 2 and needed_b == 1: prob = 0.25
+        elif needed_p == 2 and needed_b == 2: prob = 0.5
+        elif needed_p == 2 and needed_b == 3: prob = 0.6875
+        elif needed_p == 3 and needed_b == 1: prob = 0.125
+        elif needed_p == 3 and needed_b == 2: prob = 0.3125
+        elif needed_p == 3 and needed_b == 3: prob = 0.5
+
+        # Cashout = (Probability * Total Payout) * (1 - House Edge)
+        # Total Payout is wager * 2. House edge is ~5%.
+        cashout_val = (prob * (wager * 2)) * 0.95
+        return max(0, round(cashout_val, 2))
+
     async def handle_emoji_response(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not update.message.dice: return
         user_id = update.effective_user.id
@@ -2666,7 +2700,10 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                             self._update_user_stats(user_id, w, 0, "loss")
                         del self.pending_pvp[cid]
                     else:
-                        await context.bot.send_message(chat_id=chat_id, text="Next round! Send your emoji.")
+                        cashout_val = self.calculate_cashout(challenge['p_pts'], challenge['b_pts'], challenge['pts'], challenge['wager'])
+                        keyboard = [[InlineKeyboardButton(f"💰 Cashout ${cashout_val:.2f}", callback_data=f"v2_cashout_{cid}")]]
+                        reply_markup = InlineKeyboardMarkup(keyboard)
+                        await context.bot.send_message(chat_id=chat_id, text="Next round! Send your emoji.", reply_markup=reply_markup)
                 self.db.save_data()
                 return
 
@@ -3496,6 +3533,28 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             elif data.startswith("v2_accept_"):
                 cid = data.replace("v2_accept_", "")
                 await self.accept_generic_v2_pvp(update, context, cid)
+            
+            elif data.startswith("v2_cashout_"):
+                cid = data.replace("v2_cashout_", "")
+                challenge = self.pending_pvp.get(cid)
+                if not challenge or challenge.get('player') != user_id:
+                    await query.answer("❌ Game not found or not yours!", show_alert=True)
+                    return
+                
+                cashout_val = self.calculate_cashout(challenge['p_pts'], challenge['b_pts'], challenge['pts'], challenge['wager'])
+                user_data = self.db.get_user(user_id)
+                # wager was already deducted, so we add the cashout value minus the wager to the current balance
+                # effectively: balance = (current_balance_after_deduction) + cashout_val
+                user_data['balance'] += cashout_val
+                self.db.update_user(user_id, user_data)
+                
+                profit = cashout_val - challenge['wager']
+                self.db.update_house_balance(-profit)
+                
+                await query.edit_message_text(f"💰 **CASHOUT SUCCESSFUL!**\nYou cashed out for **${cashout_val:.2f}**\nNet: {'+' if profit >=0 else ''}${profit:.2f}")
+                del self.pending_pvp[cid]
+                self.db.save_data()
+                return
             
             # Game Callbacks (Darts PvP)
             elif data.startswith("darts_player_open_"):
