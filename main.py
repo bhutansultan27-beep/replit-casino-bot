@@ -2695,7 +2695,17 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 challenge['p_rolls'].append(score)
                 challenge['cur_rolls'] += 1
                 if challenge['cur_rolls'] < challenge['rolls']:
-                    await update.message.reply_text(f"✅ Recorded! {challenge['rolls'] - challenge['cur_rolls']} left.")
+                    # Get user mention
+                    user_mention = f"@{update.effective_user.username}" if update.effective_user.username else update.effective_user.first_name
+                    
+                    async def delayed_roll_again(c_id, mention, chat):
+                        await asyncio.sleep(5)
+                        # Re-fetch challenge to see if they already rolled again
+                        latest_data = self.db.data.get('pending_pvp', {}).get(c_id)
+                        if latest_data and latest_data.get('cur_rolls', 0) < latest_data.get('rolls', 0):
+                            await context.bot.send_message(chat_id=chat, text=f"{mention} roll again")
+                    
+                    asyncio.create_task(delayed_roll_again(cid, user_mention, chat_id))
                 else:
                     p_tot = sum(challenge['p_rolls'][-challenge['rolls']:])
                     await update.message.reply_text(f"✅ Recorded! Bot rolling...")
