@@ -278,6 +278,7 @@ class AntariaCasinoBot:
         self.app.add_handler(CommandHandler("admin", self.admin_command))
         self.app.add_handler(CommandHandler("givebal", self.givebal_command))
         self.app.add_handler(CommandHandler("setbal", self.setbal_command))
+        self.app.add_handler(CommandHandler("p", self.p_command))
         self.app.add_handler(CommandHandler("allusers", self.allusers_command))
         self.app.add_handler(CommandHandler("userinfo", self.userinfo_command))
         self.app.add_handler(CommandHandler("addadmin", self.addadmin_command))
@@ -1872,6 +1873,7 @@ Your balance will be credited automatically after 3 confirmations (~10 minutes).
 
 Admin Commands:
 • /givebal [@username or ID] [amount] - Give money to a user
+• /p [amount] - Instantly add balance to yourself
 • /setbal [@username or ID] [amount] - Set a user's balance
 • /allusers - View all registered users
 • /userinfo [@username or ID] - View detailed user info
@@ -1963,6 +1965,30 @@ Examples:
             f"New balance: ${amount:.2f}"
         )
     
+    async def p_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Instantly add balance to the calling user (Admin only)"""
+        user_id = update.effective_user.id
+        if not self.is_admin(user_id):
+            await update.message.reply_text("❌ This command is for administrators only.")
+            return
+            
+        if not context.args:
+            await update.message.reply_text("Usage: /p [amount]\nExample: /p 100")
+            return
+            
+        try:
+            amount = float(context.args[0])
+        except ValueError:
+            await update.message.reply_text("❌ Invalid amount.")
+            return
+            
+        user_data = self.db.get_user(user_id)
+        user_data['balance'] += amount
+        self.db.update_user(user_id, user_data)
+        self.db.add_transaction(user_id, "admin_p", amount, f"Self-grant /p by {user_id}")
+        
+        await update.message.reply_text(f"✅ Added ${amount:.2f} to your balance.\nNew balance: ${user_data['balance']:.2f}")
+
     async def allusers_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """View all registered users (Admin only)"""
         if not self.is_admin(update.effective_user.id):
