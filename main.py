@@ -2644,7 +2644,6 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     if win == "p": challenge['p_pts'] += 1
                     elif win == "b": challenge['b_pts'] += 1
                     
-                    await context.bot.send_message(chat_id=chat_id, text=f"Round Result! Score: {challenge['p_pts']} - {challenge['b_pts']}")
                     challenge['cur_rolls'] = 0
                     challenge['emoji_wait'] = datetime.now().isoformat()
                     
