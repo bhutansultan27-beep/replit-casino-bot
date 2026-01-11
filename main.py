@@ -2741,7 +2741,9 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                         del self.pending_pvp[cid]
                     else:
                         cashout_val = self.calculate_cashout(challenge['p_pts'], challenge['b_pts'], challenge['pts'], challenge['wager'])
-                        keyboard = [[InlineKeyboardButton(f"💰 Cashout ${cashout_val:.2f}", callback_data=f"v2_cashout_{cid}")]]
+                        # Calculate multiplier for parenthesis
+                        multiplier = round(cashout_val / challenge['wager'], 2) if challenge['wager'] > 0 else 0
+                        keyboard = [[InlineKeyboardButton(f"Cashout ${cashout_val:.2f} ({multiplier}x)", callback_data=f"v2_cashout_{cid}")]]
                         reply_markup = InlineKeyboardMarkup(keyboard)
                         await context.bot.send_message(chat_id=chat_id, text="Next round! Send your emoji.", reply_markup=reply_markup)
                 self.db.save_data()
