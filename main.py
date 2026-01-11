@@ -2599,7 +2599,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     await update.message.reply_text(f"✅ Recorded! {challenge['rolls'] - challenge['cur_rolls']} left.")
                 else:
                     p_tot = sum(challenge['p_rolls'][-challenge['rolls']:])
-                    await update.message.reply_text(f"✅ Your turn: {p_tot}. Bot rolling...")
+                    await update.message.reply_text(f"✅ Recorded! Bot rolling...")
                     b_tot = 0
                     for _ in range(challenge['rolls']):
                         d = await context.bot.send_dice(chat_id=chat_id, emoji=emoji)
@@ -2618,7 +2618,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     if win == "p": challenge['p_pts'] += 1
                     elif win == "b": challenge['b_pts'] += 1
                     
-                    await context.bot.send_message(chat_id=chat_id, text=f"Round Result: You {p_tot} vs Bot {b_tot}. Score: {challenge['p_pts']} - {challenge['b_pts']}")
+                    await context.bot.send_message(chat_id=chat_id, text=f"Round Result! Score: {challenge['p_pts']} - {challenge['b_pts']}")
                     challenge['cur_rolls'] = 0
                     challenge['emoji_wait'] = datetime.now().isoformat()
                     
