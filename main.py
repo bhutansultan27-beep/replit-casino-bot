@@ -7,9 +7,6 @@ import logging
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List
 
-# Import Blackjack game logic
-from blackjack import BlackjackGame
-
 # External dependencies (assuming they are installed via pip install python-telegram-bot)
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
@@ -1163,8 +1160,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             new_balance = user_data['balance'] + payout
             
             self.db.update_user(user_id, {
-                'balance': new_balance,
-                'total_wagered': user_data['total_wagered'] + wager,
+                        'balance': new_balance,
+                        'total_wagered': user_data['total_wagered'] + wager,
                 'wagered_since_last_withdrawal': user_data.get('wagered_since_last_withdrawal', 0) + wager,
                 'games_played': user_data['games_played'] + 1,
                 'games_won': user_data['games_won'] + 1
@@ -1186,7 +1183,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         else:
             # Loss
             self.db.update_user(user_id, {
-                'total_wagered': user_data['total_wagered'] + wager,
+                        'total_wagered': user_data['total_wagered'] + wager,
                 'wagered_since_last_withdrawal': user_data.get('wagered_since_last_withdrawal', 0) + wager,
                 'games_played': user_data['games_played'] + 1
             })
@@ -3514,28 +3511,6 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 text=f"Round Result: @{p1_data['username']} {p1_total} vs @{p2_data['username']} {p2_total}\n"
                      f"Point to {'you' if win else 'Draw'}!"
             )
-            await asyncio.sleep(1)
-
-        # Final Payout
-        wager = challenge['wager']
-        if challenge['p1_points'] >= challenge['pts']:
-            winner, loser = p1_id, p2_id
-            win_name = p1_data['username']
-        else:
-            winner, loser = p2_id, p1_id
-            win_name = p2_data['username']
-            
-        # Payout calculation: 
-        # Winner already had wager deducted, so they get back their wager + the loser's wager.
-        winner_user = self.db.get_user(winner)
-        self.db.update_user(winner, {'balance': winner_user['balance'] + (wager * 2)})
-        self._update_user_stats(winner, wager, wager, "win")
-        # Fix: Don't subtract the wager again in _update_user_stats since it was already deducted at start
-        self._update_user_stats(loser, wager, 0, "loss")
-        
-        await context.bot.send_message(chat_id=chat_id, text=f"🏆 **@{win_name} won the Soccer Series and ${wager * 2:.2f}!**", parse_mode="Markdown")
-        del self.pending_pvp[challenge_id]
-        self.db.save_data()
 
     async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handles all inline button presses."""
