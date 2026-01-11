@@ -1,0 +1,44 @@
+modules = ["python-3.11"]
+[agent]
+expertMode = true
+
+[nix]
+channel = "stable-25_05"
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Casino Bot"
+
+[[workflows.workflow]]
+name = "Casino Bot"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python main.py"
+waitForPort = 5000
+
+[userenv]
+
+[userenv.shared]
+TELEGRAM_BOT_TOKEN = "8575155625:AAFd40dO3bjJ6b6P74QcjH3mHUzuN7MilEA"
+ADMIN_IDS = "7748988189"
+DEPOSIT_FEE_PERCENT = "2"
+LTC_USD_RATE = "100"
+LTC_REQUIRED_CONFIRMATIONS = "3"
+LTC_MASTER_ADDRESS = "ltc1qjzwa9ywdl5e7kv5m23vn87m3uerpuf85r3r2cx"
+
+[[ports]]
+localPort = 5000
+externalPort = 80
