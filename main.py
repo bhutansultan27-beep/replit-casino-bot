@@ -833,13 +833,18 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             amount = user_data['balance']
         else:
             try:
-                amount = float(amount_str.replace('$', '').replace(',', ''))
+                # Remove common currency symbols and commas
+                clean_str = amount_str.replace('$', '').replace(',', '')
+                # If there are any letters (excluding 'all' which is handled above), ignore the message
+                if any(c.isalpha() for c in clean_str):
+                    return
+                amount = float(clean_str)
             except ValueError:
-                await update.message.reply_text("❌ Invalid amount format.")
+                # Silently ignore invalid numeric formats with letters
                 return
         
-        if amount <= 0:
-            await update.message.reply_text("❌ Amount must be greater than 0.")
+        if amount < 1.0:
+            await update.message.reply_text("❌ Minimum bet is $1.00")
             return
             
         if amount > user_data['balance']:
@@ -1002,13 +1007,18 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             amount = user_data['balance']
         else:
             try:
-                amount = float(amount_str.replace('$', '').replace(',', ''))
+                # Remove common currency symbols and commas
+                clean_str = amount_str.replace('$', '').replace(',', '')
+                # If there are any letters (excluding 'all' which is handled above), ignore the message
+                if any(c.isalpha() for c in clean_str):
+                    return
+                amount = float(clean_str)
             except ValueError:
-                await update.message.reply_text("❌ Invalid amount format.")
+                # Silently ignore invalid numeric formats with letters
                 return
         
-        if amount <= 0:
-            await update.message.reply_text("❌ Amount must be greater than 0.")
+        if amount < 1.0:
+            await update.message.reply_text("❌ Minimum bet is $1.00")
             return
             
         if amount > user_data['balance']:
@@ -1069,13 +1079,15 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             wager = user_data['balance']
         else:
             try:
-                wager = round(float(context.args[0]), 2)
+                arg = context.args[0].lower().replace('$', '').replace(',', '')
+                if any(c.isalpha() for c in arg):
+                    return
+                wager = round(float(arg), 2)
             except ValueError:
-                await update.message.reply_text("❌ Invalid amount")
                 return
         
-        if wager <= 0.01:
-            await update.message.reply_text("❌ Min: $0.01")
+        if wager < 1.0:
+            await update.message.reply_text("❌ Minimum bet is $1.00")
             return
         if wager > user_data['balance']:
             await update.message.reply_text(f"❌ Balance: ${user_data['balance']:.2f}")
