@@ -337,36 +337,19 @@ class AntariaCasinoBot:
                             expired_challenges.append(challenge_id)
                             if challenge_id.startswith("v2_bot_"):
                                 pid = challenge['player']
-                                # User reported a bug: wager was refunded but never taken.
-                                # The wager is now taken at game start, but to be safe and clean:
-                                # We only refund if the game actually started (cur_rolls > 0) or if we want to be generous.
-                                # However, the user said "the 1$ bet was never taken away from me at the start".
-                                # If it was never taken, refunding gives free money.
-                                # I've ensured it's taken at start now, but for this specific logic:
-                                if challenge.get('cur_rolls', 0) > 0:
+                                if challenge.get('wager_deducted'):
                                     self.db.update_user(pid, {'balance': self.db.get_user(pid)['balance'] + wager})
                                     if chat_id: await context.bot.send_message(chat_id=chat_id, text=f"⏰ Game expired. ${wager:.2f} refunded.")
                                 else:
-                                    # If they never sent an emoji, we don't refund because we don't want to risk "free money" 
-                                    # if the deduction failed or if they're trying to exploit.
-                                    # Actually, if we deduct at start, we SHOULD refund if they never played.
-                                    # The user said: "if the user never sends their emoji at all to even start the battle then it doesnt need to refund them"
-                                    self.db.update_user(pid, {'balance': self.db.get_user(pid)['balance'] + wager})
-                                    if chat_id: await context.bot.send_message(chat_id=chat_id, text=f"⏰ Game expired. ${wager:.2f} refunded.")
-
+                                    if chat_id: await context.bot.send_message(chat_id=chat_id, text=f"⏰ Game expired.")
                             else:
                                 p1, p2 = challenge['challenger'], challenge['opponent']
-                                # For PvP, if p1 rolled but p2 didn't, p1 gets refund. 
-                                # If p1 never rolled, no refund for p1.
-                                p1_rolled = len(challenge.get('p1_rolls', [])) > 0
-                                p2_rolled = len(challenge.get('p2_rolled', [])) > 0
-                                
-                                if p1_rolled:
+                                if challenge.get('p1_deducted'):
                                     self.db.update_user(p1, {'balance': self.db.get_user(p1)['balance'] + wager})
-                                if p2_rolled:
+                                if challenge.get('p2_deducted'):
                                     self.db.update_user(p2, {'balance': self.db.get_user(p2)['balance'] + wager})
                                 
-                                if chat_id: await context.bot.send_message(chat_id=chat_id, text=f"⏰ Series expired. Active players refunded.")
+                                if chat_id: await context.bot.send_message(chat_id=chat_id, text=f"⏰ Series expired.")
                     continue
                 if 'created_at' in challenge and challenge.get('opponent') is None:
                     created_at = datetime.fromisoformat(challenge['created_at'])
@@ -2677,6 +2660,14 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         for cid, challenge in list(self.pending_pvp.items()):
             # Generic V2 Bot
             if cid.startswith("v2_bot_") and challenge.get('player') == user_id and challenge.get('emoji') == emoji:
+                if not challenge.get('wager_deducted'):
+                    user_data = self.db.get_user(user_id)
+                    if user_data['balance'] < challenge['wager']:
+                        await update.message.reply_text("❌ Insufficient balance to start the game!")
+                        return
+                    self.db.update_user(user_id, {'balance': user_data['balance'] - challenge['wager']})
+                    challenge['wager_deducted'] = True
+                
                 challenge['p_rolls'].append(score)
                 challenge['cur_rolls'] += 1
                 if challenge['cur_rolls'] < challenge['rolls']:
@@ -2735,6 +2726,14 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             # Generic V2 PvP
             if cid.startswith("v2_pvp_") and challenge.get('emoji') == emoji:
                 if challenge.get('waiting_p1') and challenge['challenger'] == user_id:
+                    if not challenge.get('p1_deducted'):
+                        user_data = self.db.get_user(user_id)
+                        if user_data['balance'] < challenge['wager']:
+                            await update.message.reply_text("❌ Insufficient balance to roll!")
+                            return
+                        self.db.update_user(user_id, {'balance': user_data['balance'] - challenge['wager']})
+                        challenge['p1_deducted'] = True
+                    
                     challenge['p1_rolls'].append(score)
                     if len(challenge['p1_rolls']) >= challenge['rolls']:
                         challenge['waiting_p1'], challenge['waiting_p2'] = False, True
@@ -2744,6 +2743,14 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     self.db.save_data()
                     return
                 if challenge.get('waiting_p2') and challenge['opponent'] == user_id:
+                    if not challenge.get('p2_deducted'):
+                        user_data = self.db.get_user(user_id)
+                        if user_data['balance'] < challenge['wager']:
+                            await update.message.reply_text("❌ Insufficient balance to roll!")
+                            return
+                        self.db.update_user(user_id, {'balance': user_data['balance'] - challenge['wager']})
+                        challenge['p2_deducted'] = True
+                    
                     challenge['p2_rolls'].append(score)
                     if len(challenge['p2_rolls']) >= challenge['rolls']:
                         challenge['waiting_p2'] = False
@@ -3211,7 +3218,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             await query.answer("❌ Insufficient balance", show_alert=True)
             return
             
-        self.db.update_user(user_id, {'balance': user_data['balance'] - wager})
+        # self.db.update_user(user_id, {'balance': user_data['balance'] - wager})
         
         cid = f"v2_bot_{game}_{user_id}_{int(datetime.now().timestamp())}"
         emoji_map = {"dice": "🎲", "darts": "🎯", "basketball": "🏀", "soccer": "⚽", "bowling": "🎳"}
@@ -3220,7 +3227,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         self.pending_pvp[cid] = {
             "type": f"{game}_bot_v2", "player": user_id, "wager": wager, "game": game, "emoji": emoji,
             "rolls": rolls, "mode": mode, "pts": pts, "chat_id": query.message.chat_id,
-            "p_pts": 0, "b_pts": 0, "p_rolls": [], "cur_rolls": 0, "emoji_wait": datetime.now().isoformat()
+            "p_pts": 0, "b_pts": 0, "p_rolls": [], "cur_rolls": 0, "emoji_wait": datetime.now().isoformat(),
+            "wager_deducted": False
         }
         self.db.save_data()
         await query.edit_message_text(f"**{game.capitalize()} vs Bot**\nTarget: {pts}\nMode: {mode.capitalize()}\n\n👉 Send your {rolls} {emoji} now!", parse_mode="Markdown")
@@ -3234,7 +3242,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             await query.answer("❌ Insufficient balance", show_alert=True)
             return
             
-        self.db.update_user(user_id, {'balance': user_data['balance'] - wager})
+        # self.db.update_user(user_id, {'balance': user_data['balance'] - wager})
         
         cid = f"v2_pvp_{game}_{user_id}_{int(datetime.now().timestamp())}"
         emoji_map = {"dice": "🎲", "darts": "🎯", "basketball": "🏀", "soccer": "⚽", "bowling": "🎳"}
@@ -3244,7 +3252,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             "type": f"{game}_pvp_v2", "challenger": user_id, "opponent": None, "wager": wager, "game": game,
             "emoji": emoji, "rolls": rolls, "mode": mode, "pts": pts, "chat_id": query.message.chat_id,
             "p1_pts": 0, "p2_pts": 0, "p1_rolls": [], "p2_rolls": [], "waiting_p1": False, "waiting_p2": False,
-            "emoji_wait": datetime.now().isoformat()
+            "emoji_wait": datetime.now().isoformat(),
+            "p1_deducted": False, "p2_deducted": False
         }
         self.db.save_data()
         keyboard = [[InlineKeyboardButton("Join Challenge", callback_data=f"v2_accept_{cid}")]]
@@ -3263,8 +3272,9 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             await query.answer("❌ Insufficient balance", show_alert=True)
             return
             
-        self.db.update_user(user_id, {'balance': user_data['balance'] - challenge['wager']})
+        # self.db.update_user(user_id, {'balance': user_data['balance'] - challenge['wager']})
         challenge['opponent'] = user_id
+        challenge['p2_deducted'] = False
         await query.edit_message_text("✅ Challenge Accepted! Starting...")
         asyncio.create_task(self.generic_v2_pvp_loop(context, cid))
 
