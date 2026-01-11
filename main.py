@@ -288,16 +288,41 @@ class AntariaCasinoBot:
         self.app.add_handler(CommandHandler("approvedeposit", self.approve_deposit_command))
         self.app.add_handler(CommandHandler("pendingwithdraws", self.pending_withdraws_command))
         self.app.add_handler(CommandHandler("processwithdraw", self.process_withdraw_command))
+        self.app.add_handler(CommandHandler("s", self.s_command))
         
         self.app.add_handler(MessageHandler(filters.Sticker.ALL, self.sticker_handler))
         self.app.add_handler(MessageHandler(filters.Dice.ALL, self.handle_emoji_response))
         self.app.add_handler(CallbackQueryHandler(self.button_callback))
     
+    async def s_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Set the expiration time for bets (Admin only)"""
+        if not self.is_admin(update.effective_user.id):
+            await update.message.reply_text("❌ This command is for administrators only.")
+            return
+        
+        if not context.args:
+            await update.message.reply_text("Usage: /s [seconds]\nExample: /s 60")
+            return
+            
+        try:
+            seconds = int(context.args[0])
+            if seconds < 10:
+                await update.message.reply_text("❌ Minimum expiration time is 10 seconds.")
+                return
+            
+            self.db.data['expiration_seconds'] = seconds
+            self.db.save_data()
+            await update.message.reply_text(f"✅ Expiration time set to {seconds} seconds.")
+        except ValueError:
+            await update.message.reply_text("❌ Invalid number of seconds.")
+
     async def check_expired_challenges(self, context: ContextTypes.DEFAULT_TYPE):
         """Check for challenges older than 5 minutes and handle refunds/forfeits"""
         try:
             current_time = datetime.now()
             expired_challenges = []
+            
+            expiration_limit = self.db.data.get('expiration_seconds', 300)
             
             for challenge_id, challenge in list(self.pending_pvp.items()):
                 chat_id = challenge.get('chat_id')
@@ -308,7 +333,7 @@ class AntariaCasinoBot:
                     emoji_wait = challenge.get('emoji_wait')
                     if emoji_wait:
                         wait_started = datetime.fromisoformat(emoji_wait)
-                        if (current_time - wait_started).total_seconds() > 300:
+                        if (current_time - wait_started).total_seconds() > expiration_limit:
                             expired_challenges.append(challenge_id)
                             if challenge_id.startswith("v2_bot_"):
                                 pid = challenge['player']
@@ -347,7 +372,7 @@ class AntariaCasinoBot:
                     created_at = datetime.fromisoformat(challenge['created_at'])
                     time_diff = (current_time - created_at).total_seconds()
                     
-                    if time_diff > 300:
+                    if time_diff > expiration_limit:
                         expired_challenges.append(challenge_id)
                         
                         # Refund the challenger
@@ -373,7 +398,7 @@ class AntariaCasinoBot:
                     wait_started = datetime.fromisoformat(challenge['emoji_wait_started'])
                     time_diff = (current_time - wait_started).total_seconds()
                     
-                    if time_diff > 300:
+                    if time_diff > expiration_limit:
                         expired_challenges.append(challenge_id)
                         
                         challenger_id = challenge['challenger']
@@ -404,7 +429,7 @@ class AntariaCasinoBot:
                     wait_started = datetime.fromisoformat(challenge['emoji_wait_started'])
                     time_diff = (current_time - wait_started).total_seconds()
                     
-                    if time_diff > 300:
+                    if time_diff > expiration_limit:
                         expired_challenges.append(challenge_id)
                         
                         # Check if PvP or bot vs player
