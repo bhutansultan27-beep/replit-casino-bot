@@ -337,19 +337,43 @@ class AntariaCasinoBot:
                             expired_challenges.append(challenge_id)
                             if challenge_id.startswith("v2_bot_"):
                                 pid = challenge['player']
+                                # Bot game expiry: 
+                                # If no wager deducted (user never sent first emoji) -> just expire
+                                # If wager was deducted -> check if bot responded
+                                # Actually, in bot game, if user sent some but bot didn't finish, refund.
+                                # But if user stopped sending halfway, they shouldn't get refund.
                                 if challenge.get('wager_deducted'):
-                                    self.db.update_user(pid, {'balance': self.db.get_user(pid)['balance'] + wager})
-                                    if chat_id: await context.bot.send_message(chat_id=chat_id, text=f"⏰ Game expired. ${wager:.2f} refunded.")
+                                    # We'll check if player finished their required rolls
+                                    if len(challenge.get('p_rolls', [])) >= challenge.get('rolls', 0):
+                                        # Player finished but game expired (bot timeout), refund
+                                        self.db.update_user(pid, {'balance': self.db.get_user(pid)['balance'] + wager})
+                                        if chat_id: await context.bot.send_message(chat_id=chat_id, text=f"⏰ Bot timed out. ${wager:.2f} refunded.")
+                                    else:
+                                        # Player abandoned series/round before finishing their rolls
+                                        if chat_id: await context.bot.send_message(chat_id=chat_id, text=f"⏰ Game expired. (Abandonment)")
                                 else:
                                     if chat_id: await context.bot.send_message(chat_id=chat_id, text=f"⏰ Game expired.")
                             else:
                                 p1, p2 = challenge['challenger'], challenge['opponent']
-                                if challenge.get('p1_deducted'):
-                                    self.db.update_user(p1, {'balance': self.db.get_user(p1)['balance'] + wager})
-                                if challenge.get('p2_deducted'):
-                                    self.db.update_user(p2, {'balance': self.db.get_user(p2)['balance'] + wager})
+                                # PvP Expiry:
+                                # Only refund if the OTHER player is the one who didn't roll.
+                                # If P1 rolled and P2 didn't, refund P1.
+                                # If P1 didn't roll (even if P2 was ready), no refund for P1.
                                 
-                                if chat_id: await context.bot.send_message(chat_id=chat_id, text=f"⏰ Series expired.")
+                                # Current turn status
+                                if challenge.get('waiting_p1'):
+                                    # P1 didn't roll -> P1 forfeits, P2 (if joined/deducted) gets refund
+                                    if challenge.get('p2_deducted'):
+                                        self.db.update_user(p2, {'balance': self.db.get_user(p2)['balance'] + wager})
+                                    if chat_id: await context.bot.send_message(chat_id=chat_id, text=f"⏰ Series expired. @{self.db.get_user(p1)['username']} abandoned.")
+                                elif challenge.get('waiting_p2'):
+                                    # P2 didn't roll -> P2 forfeits, P1 gets refund
+                                    if challenge.get('p1_deducted'):
+                                        self.db.update_user(p1, {'balance': self.db.get_user(p1)['balance'] + wager})
+                                    if chat_id: await context.bot.send_message(chat_id=chat_id, text=f"⏰ Series expired. @{self.db.get_user(p2)['username']} abandoned.")
+                                else:
+                                    # Generic cleanup
+                                    if chat_id: await context.bot.send_message(chat_id=chat_id, text=f"⏰ Series expired.")
                     continue
                 if 'created_at' in challenge and challenge.get('opponent') is None:
                     created_at = datetime.fromisoformat(challenge['created_at'])
