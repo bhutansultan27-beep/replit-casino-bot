@@ -3547,8 +3547,19 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             self.clicked_buttons.add(button_key)
         
         try:
+            # Generic game setup (Initial step from /bet menu)
+            if data.startswith("setup_mode_") and not (data.startswith("setup_mode_normal_") or data.startswith("setup_mode_crazy_")):
+                parts = data.split("_")
+                if len(parts) >= 3:
+                    game, wager = parts[2], float(parts[3])
+                    keyboard = [
+                        [InlineKeyboardButton("Normal", callback_data=f"setup_mode_normal_{game}_{wager:.2f}"),
+                         InlineKeyboardButton("Crazy", callback_data=f"setup_mode_crazy_{game}_{wager:.2f}")]
+                    ]
+                    await query.edit_message_text(f"**{game.capitalize()}**\nWager: ${wager:.2f}\n\nChoose Game Mode:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+
             # Generic setup handlers
-            if data.startswith("setup_mode_normal_"):
+            elif data.startswith("setup_mode_normal_"):
                 parts = data.split('_')
                 if len(parts) >= 4:
                     game, wager = parts[3], float(parts[4])
@@ -3637,6 +3648,18 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 self.db.save_data()
                 return
             
+            elif data.startswith("bj_bot_"):
+                wager = float(data.split("_")[2])
+                await self.blackjack_play(update, context, wager)
+
+            elif data.startswith("slots_bot_"):
+                wager = float(data.split("_")[2])
+                await self.slots_play(update, context, wager)
+
+            elif data.startswith("roulette_menu_"):
+                wager = float(data.split("_")[2])
+                await self.roulette_menu(update, context, wager)
+
             # Game Callbacks (Darts PvP)
             elif data.startswith("darts_player_open_"):
                 wager = float(data.split('_')[3])
