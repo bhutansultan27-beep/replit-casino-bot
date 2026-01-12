@@ -266,6 +266,7 @@ class AntariaCasinoBot:
         self.app.add_handler(CommandHandler("tip", self.tip_command))
         self.app.add_handler(CommandHandler("deposit", self.deposit_command))
         self.app.add_handler(CommandHandler("withdraw", self.withdraw_command))
+        self.app.add_handler(CommandHandler("matches", self.matches_command))
         self.app.add_handler(CommandHandler("backup", self.backup_command))
         self.app.add_handler(CommandHandler("savesticker", self.save_sticker_command))
         self.app.add_handler(CommandHandler("stickers", self.list_stickers_command))
@@ -3506,6 +3507,62 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                      f"Point to {'you' if win else 'Draw'}!"
             )
 
+    async def matches_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Show previous 10 matches with pagination"""
+        self.ensure_user_registered(update)
+        user_id = update.effective_user.id
+        await self.show_matches_page(update, 0, user_id)
+
+    async def show_matches_page(self, update: Update, page: int, user_id: int):
+        all_games = self.db.data.get('games', [])
+        # Filter games where the user participated
+        user_games = [g for g in all_games if g.get('player_id') == user_id or g.get('challenger') == user_id or g.get('opponent') == user_id]
+        user_games.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+        
+        total_pages = (len(user_games) + 9) // 10
+        if total_pages == 0:
+            if hasattr(update, 'callback_query'):
+                await update.callback_query.edit_message_text("📜 No matches found.")
+            else:
+                await update.message.reply_text("📜 No matches found.")
+            return
+
+        start_idx = page * 10
+        end_idx = start_idx + 10
+        page_games = user_games[start_idx:end_idx]
+        
+        text = f"📜 **Your Matches (Page {page + 1}/{total_pages})**\n\n"
+        for g in page_games:
+            ts = g.get('timestamp', '')
+            time_str = datetime.fromisoformat(ts).strftime("%m/%d %H:%M") if ts else "N/A"
+            wager = g.get('wager', 0.0)
+            g_type = g.get('type', 'Game').replace('_', ' ').capitalize()
+            
+            # Extract result/score
+            result = g.get('result', g.get('outcome', 'N/A')).capitalize()
+            score = ""
+            if 'p_pts' in g and 'b_pts' in g:
+                score = f" ({g['p_pts']}-{g['b_pts']})"
+            elif 'p1_pts' in g and 'p2_pts' in g:
+                score = f" ({g['p1_pts']}-{g['p2_pts']})"
+            
+            text += f"*{time_str}* | **{g_type}** | `${wager:.2f}`\n"
+            text += f"Result: `{result}`{score}\n\n"
+            
+        buttons = []
+        if page > 0:
+            buttons.append(InlineKeyboardButton("⬅️ Previous", callback_data=f"match_page_{page-1}_{user_id}"))
+        if page < total_pages - 1:
+            buttons.append(InlineKeyboardButton("Next ➡️", callback_data=f"match_page_{page+1}_{user_id}"))
+            
+        reply_markup = InlineKeyboardMarkup([buttons]) if buttons else None
+        
+        if hasattr(update, 'callback_query'):
+            await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode="Markdown")
+        else:
+            sent_msg = await update.message.reply_text(text, reply_markup=reply_markup, parse_mode="Markdown")
+            self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
+
     async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handles all inline button presses."""
         query = update.callback_query
@@ -3525,7 +3582,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             return
         
         # Check button ownership
-        public_buttons = ["v2_accept_", "lb_page_", "transactions_history", "deposit_mock", "withdraw_mock"]
+        public_buttons = ["v2_accept_", "lb_page_", "match_page_", "transactions_history", "deposit_mock", "withdraw_mock"]
         is_public = any(data.startswith(prefix) for prefix in public_buttons)
         
         ownership_key = (chat_id, message_id)
@@ -3541,6 +3598,14 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             self.clicked_buttons.add(button_key)
         
         try:
+            # Matches Pagination
+            if data.startswith("match_page_"):
+                parts = data.split('_')
+                page = int(parts[2])
+                target_user_id = int(parts[3])
+                await self.show_matches_page(update, page, target_user_id)
+                return
+
             # Generic game setup (Initial step from /bet menu)
             if data.startswith("setup_mode_") and not (data.startswith("setup_mode_normal_") or data.startswith("setup_mode_crazy_")):
                 parts = data.split("_")
