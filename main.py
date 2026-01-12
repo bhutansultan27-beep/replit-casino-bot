@@ -2735,7 +2735,6 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     asyncio.create_task(delayed_roll_again(cid, user_mention, chat_id))
                 else:
                     p_tot = sum(challenge['p_rolls'][-challenge['rolls']:])
-                    await update.message.reply_text(f"✅ Recorded! Bot rolling...")
                     b_tot = 0
                     for _ in range(challenge['rolls']):
                         d = await context.bot.send_dice(chat_id=chat_id, emoji=emoji)
@@ -3395,7 +3394,6 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
 
         # Player finished their turn rolls, now bot rolls
         p_turn_total = sum(challenge['player_rolls'][-rolls_per_turn:])
-        await update.message.reply_text(f"✅ Round turn complete! Score: {p_turn_total}. Now it's my turn...")
         
         b_turn_total = 0
         for i in range(rolls_per_turn):
