@@ -3283,8 +3283,6 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             await query.answer("❌ Insufficient balance", show_alert=True)
             return
             
-        self.db.update_user(user_id, {'balance': user_data['balance'] - wager})
-        
         cid = f"v2_bot_{game}_{user_id}_{int(datetime.now().timestamp())}"
         emoji_map = {"dice": "🎲", "darts": "🎯", "basketball": "🏀", "soccer": "⚽", "bowling": "🎳"}
         emoji = emoji_map.get(game, "🎲")
@@ -3307,8 +3305,6 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             await query.answer("❌ Insufficient balance", show_alert=True)
             return
             
-        self.db.update_user(user_id, {'balance': user_data['balance'] - wager})
-        
         cid = f"v2_pvp_{game}_{user_id}_{int(datetime.now().timestamp())}"
         emoji_map = {"dice": "🎲", "darts": "🎯", "basketball": "🏀", "soccer": "⚽", "bowling": "🎳"}
         emoji = emoji_map.get(game, "🎲")
@@ -3337,7 +3333,6 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             await query.answer("❌ Insufficient balance", show_alert=True)
             return
             
-        self.db.update_user(user_id, {'balance': user_data['balance'] - challenge['wager']})
         challenge['opponent'] = user_id
         challenge['p2_deducted'] = False
         await query.edit_message_text("✅ Challenge Accepted! Starting...")
