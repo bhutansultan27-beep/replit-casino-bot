@@ -2712,10 +2712,11 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             if cid.startswith("v2_bot_") and challenge.get('player') == user_id and challenge.get('emoji') == emoji:
                 if not challenge.get('wager_deducted'):
                     user_data = self.db.get_user(user_id)
-                    if user_data['balance'] < challenge['wager']:
-                        await update.message.reply_text("❌ Insufficient balance to start the game!")
+                    # Use a small epsilon to avoid floating point issues with "all" bets
+                    if user_data['balance'] < (challenge['wager'] - 0.001):
+                        await update.message.reply_text(f"❌ Insufficient balance to start the game! (Balance: ${user_data['balance']:.2f}, Wager: ${challenge['wager']:.2f})")
                         return
-                    self.db.update_user(user_id, {'balance': user_data['balance'] - challenge['wager']})
+                    self.db.update_user(user_id, {'balance': max(0, user_data['balance'] - challenge['wager'])})
                     challenge['wager_deducted'] = True
                 
                 challenge['p_rolls'].append(score)
@@ -2793,10 +2794,10 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 if challenge.get('waiting_p1') and challenge['challenger'] == user_id:
                     if not challenge.get('p1_deducted'):
                         user_data = self.db.get_user(user_id)
-                        if user_data['balance'] < challenge['wager']:
-                            await update.message.reply_text("❌ Insufficient balance to roll!")
+                        if user_data['balance'] < (challenge['wager'] - 0.001):
+                            await update.message.reply_text(f"❌ Insufficient balance to roll! (Balance: ${user_data['balance']:.2f})")
                             return
-                        self.db.update_user(user_id, {'balance': user_data['balance'] - challenge['wager']})
+                        self.db.update_user(user_id, {'balance': max(0, user_data['balance'] - challenge['wager'])})
                         challenge['p1_deducted'] = True
                     
                     challenge['p1_rolls'].append(score)
@@ -2810,10 +2811,10 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 if challenge.get('waiting_p2') and challenge['opponent'] == user_id:
                     if not challenge.get('p2_deducted'):
                         user_data = self.db.get_user(user_id)
-                        if user_data['balance'] < challenge['wager']:
-                            await update.message.reply_text("❌ Insufficient balance to roll!")
+                        if user_data['balance'] < (challenge['wager'] - 0.001):
+                            await update.message.reply_text(f"❌ Insufficient balance to roll! (Balance: ${user_data['balance']:.2f})")
                             return
-                        self.db.update_user(user_id, {'balance': user_data['balance'] - challenge['wager']})
+                        self.db.update_user(user_id, {'balance': max(0, user_data['balance'] - challenge['wager'])})
                         challenge['p2_deducted'] = True
                     
                     challenge['p2_rolls'].append(score)
