@@ -3284,7 +3284,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             await query.answer("❌ Insufficient balance", show_alert=True)
             return
             
-        # self.db.update_user(user_id, {'balance': user_data['balance'] - wager})
+        self.db.update_user(user_id, {'balance': user_data['balance'] - wager})
         
         cid = f"v2_bot_{game}_{user_id}_{int(datetime.now().timestamp())}"
         emoji_map = {"dice": "🎲", "darts": "🎯", "basketball": "🏀", "soccer": "⚽", "bowling": "🎳"}
@@ -3308,7 +3308,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             await query.answer("❌ Insufficient balance", show_alert=True)
             return
             
-        # self.db.update_user(user_id, {'balance': user_data['balance'] - wager})
+        self.db.update_user(user_id, {'balance': user_data['balance'] - wager})
         
         cid = f"v2_pvp_{game}_{user_id}_{int(datetime.now().timestamp())}"
         emoji_map = {"dice": "🎲", "darts": "🎯", "basketball": "🏀", "soccer": "⚽", "bowling": "🎳"}
@@ -3338,7 +3338,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             await query.answer("❌ Insufficient balance", show_alert=True)
             return
             
-        # self.db.update_user(user_id, {'balance': user_data['balance'] - challenge['wager']})
+        self.db.update_user(user_id, {'balance': user_data['balance'] - challenge['wager']})
         challenge['opponent'] = user_id
         challenge['p2_deducted'] = False
         await query.edit_message_text("✅ Challenge Accepted! Starting...")
@@ -3650,15 +3650,74 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             
             elif data.startswith("bj_bot_"):
                 wager = float(data.split("_")[2])
-                await self.blackjack_play(update, context, wager)
+                # Simulate the blackjack command logic
+                user_id = query.from_user.id
+                user_data = self.db.get_user(user_id)
+                if wager > user_data['balance']:
+                    await query.answer(f"❌ Insufficient balance! (${user_data['balance']:.2f})", show_alert=True)
+                    return
+                
+                # Check if already in a game
+                if user_id in self.blackjack_sessions:
+                    await query.answer("❌ You already have an active Blackjack game!", show_alert=True)
+                    return
+
+                # Deduct wager
+                self.db.update_user(user_id, {'balance': user_data['balance'] - wager})
+
+                from blackjack import BlackjackGame
+                game = BlackjackGame(wager)
+                self.blackjack_sessions[user_id] = game
+                await self._display_blackjack_state(update, context, user_id)
 
             elif data.startswith("slots_bot_"):
                 wager = float(data.split("_")[2])
-                await self.slots_play(update, context, wager)
+                user_data = self.db.get_user(user_id)
+                if wager > user_data['balance']:
+                    await query.answer(f"❌ Insufficient balance! (${user_data['balance']:.2f})", show_alert=True)
+                    return
+                # Deduct wager and start slots
+                self.db.update_user(user_id, {'balance': user_data['balance'] - wager})
+                dice_message = await context.bot.send_dice(chat_id=chat_id, emoji="🎰")
+                slot_value = dice_message.dice.value
+                double_match_values = [2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 16, 17, 18, 19, 20, 23, 24, 25, 26, 27, 30, 31, 32, 33, 34, 37, 38, 39, 40, 41, 44, 45, 46, 47, 48, 51, 52, 53, 54, 55, 58, 59, 60, 61, 62]
+                await asyncio.sleep(3)
+                payout_multiplier = 0
+                if slot_value == 64: payout_multiplier = 10
+                elif slot_value in [1, 22, 43]: payout_multiplier = 5
+                elif slot_value in double_match_values: payout_multiplier = 2
+                payout = wager * payout_multiplier
+                profit = payout - wager
+                keyboard = [[InlineKeyboardButton("Play Again", callback_data=f"slots_{wager:.2f}")]]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                if payout > 0:
+                    user_data['balance'] += payout
+                    user_data['total_wagered'] += wager
+                    user_data['games_played'] += 1
+                    user_data['games_won'] += 1
+                    self.db.update_user(user_id, user_data)
+                    self.db.update_house_balance(-profit)
+                    sent_msg = await context.bot.send_message(chat_id=chat_id, text=f"@{user_data['username']} won ${profit:.2f}", reply_markup=reply_markup)
+                else:
+                    user_data['total_wagered'] += wager
+                    user_data['games_played'] += 1
+                    self.db.update_user(user_id, user_data)
+                    self.db.update_house_balance(wager)
+                    sent_msg = await context.bot.send_message(chat_id=chat_id, text=f"@{user_data['username']} lost ${wager:.2f}", reply_markup=reply_markup)
+                self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
+                self.db.record_game({'type': 'slots_bot', 'player_id': user_id, 'wager': wager, 'slot_value': slot_value, 'result': 'win' if profit > 0 else 'loss', 'payout': profit})
+                return
 
             elif data.startswith("roulette_menu_"):
                 wager = float(data.split("_")[2])
-                await self.roulette_menu(update, context, wager)
+                keyboard = [
+                    [InlineKeyboardButton("🔴 Red (2x)", callback_data=f"roulette_{wager:.2f}_red"),
+                     InlineKeyboardButton("⚫ Black (2x)", callback_data=f"roulette_{wager:.2f}_black")],
+                    [InlineKeyboardButton("🟢 Green (36x)", callback_data=f"roulette_{wager:.2f}_green")],
+                    [InlineKeyboardButton("Odd (2x)", callback_data=f"roulette_{wager:.2f}_odd"),
+                     InlineKeyboardButton("Even (2x)", callback_data=f"roulette_{wager:.2f}_even")]
+                ]
+                await query.edit_message_text(f"🎡 **Roulette**\nWager: ${wager:.2f}\n\nChoose your bet:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
             # Game Callbacks (Darts PvP)
             elif data.startswith("darts_player_open_"):
