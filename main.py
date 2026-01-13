@@ -904,11 +904,13 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         if game_mode == "basketball":
             if selection == "score": multiplier_text = "Multiplier: **3.00x**"
             elif selection == "miss": multiplier_text = "Multiplier: **2.00x**"
-            else: multiplier_text = "Multiplier: **3.00x/2.00x**"
+            elif selection == "stuck": multiplier_text = "Multiplier: **6.00x**"
+            else: multiplier_text = "Multiplier: **3.00x/2.00x/6.00x**"
         elif game_mode == "soccer":
             if selection == "goal": multiplier_text = "Multiplier: **3.00x**"
             elif selection == "miss": multiplier_text = "Multiplier: **1.50x**"
-            else: multiplier_text = "Multiplier: **3.00x/1.50x**"
+            elif selection == "bar": multiplier_text = "Multiplier: **6.00x**"
+            else: multiplier_text = "Multiplier: **3.00x/1.50x/6.00x**"
 
         text = (
             f"{current_emoji} **{game_mode.replace('_', ' ').capitalize()} Prediction**\n\n"
@@ -3796,13 +3798,35 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     is_win = str(actual_val) == str(prediction)
                     multiplier = 6.0
                 elif game_mode == "basketball":
-                    actual_outcome = "score" if actual_val in [3, 5] else "miss"
+                    # 1,2,4 = miss, 3,5 = score
+                    if actual_val in [3, 5]:
+                        actual_outcome = "score"
+                    else:
+                        actual_outcome = "miss"
+                    
                     is_win = prediction == actual_outcome
-                    multiplier = 3.0 if prediction == "score" else 2.0
+                    if prediction == "score":
+                        multiplier = 3.0
+                    elif prediction == "miss":
+                        multiplier = 2.0
+                    else: # Stuck or other
+                        multiplier = 6.0
                 elif game_mode == "soccer":
-                    actual_outcome = "goal" if actual_val in [4, 5] else "miss"
+                    # 1,2,3 = miss, 4,5 = goal, 6 = bar
+                    if actual_val in [4, 5]:
+                        actual_outcome = "goal"
+                    elif actual_val == 6:
+                        actual_outcome = "bar"
+                    else:
+                        actual_outcome = "miss"
+                    
                     is_win = prediction == actual_outcome
-                    multiplier = 3.0 if prediction == "goal" else 1.5
+                    if prediction == "goal":
+                        multiplier = 3.0
+                    elif prediction == "miss":
+                        multiplier = 1.5
+                    else: # Bar or other
+                        multiplier = 6.0
 
                 if is_win:
                     payout = wager * multiplier
