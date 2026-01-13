@@ -3580,20 +3580,18 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         await self.show_matches_page(update, 0, user_id)
 
     async def show_matches_page(self, update: Update, page: int, user_id: int):
-        with self.app.app_context():
-            from sqlalchemy import select, or_
-            stmt = select(Game).where(
-                or_(
-                    Game.data['player_id'].as_integer() == user_id,
-                    Game.data['challenger'].as_integer() == user_id,
-                    Game.data['opponent'].as_integer() == user_id
-                )
-            ).order_by(Game.timestamp.desc())
-            all_user_games = db.session.execute(stmt).scalars().all()
-            user_games = [g.data for g in all_user_games]
-            # Add timestamp to each game data for formatting
-            for i, g in enumerate(user_games):
-                g['timestamp'] = all_user_games[i].timestamp.isoformat()
+        # Fetch games from JSON database since models.py/PostgreSQL might not be fully synced or used for history yet
+        user_games = []
+        all_games = self.db.data.get("games", [])
+        
+        for g in reversed(all_games):
+            is_participant = (
+                str(g.get('player_id')) == str(user_id) or 
+                str(g.get('challenger')) == str(user_id) or 
+                str(g.get('opponent')) == str(user_id)
+            )
+            if is_participant:
+                user_games.append(g)
         
         total_pages = (len(user_games) + 4) // 5
         if total_pages == 0:
