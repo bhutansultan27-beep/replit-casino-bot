@@ -3521,7 +3521,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         
         total_pages = (len(user_games) + 9) // 10
         if total_pages == 0:
-            if hasattr(update, 'callback_query'):
+            if hasattr(update, 'callback_query') and update.callback_query:
                 await update.callback_query.edit_message_text("📜 No matches found.")
             else:
                 await update.message.reply_text("📜 No matches found.")
@@ -3565,7 +3565,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             
         reply_markup = InlineKeyboardMarkup([buttons]) if buttons else None
         
-        if hasattr(update, 'callback_query'):
+        if hasattr(update, 'callback_query') and update.callback_query:
             await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode="Markdown")
         else:
             sent_msg = await update.message.reply_text(text, reply_markup=reply_markup, parse_mode="Markdown")
