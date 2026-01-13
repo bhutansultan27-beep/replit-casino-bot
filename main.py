@@ -3809,14 +3809,21 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 await self._setup_predict_interface(update, context, wager, game_mode)
                 await context.bot.send_message(chat_id=chat_id, text=result_text)
                 
-                self.db.record_game({
+                # Update history for matches command
+                game_record = {
                     'type': f'predict_{game_mode}',
                     'player_id': user_id,
                     'wager': wager,
                     'predicted': prediction,
                     'actual': actual_val,
-                    'result': 'win' if is_win else 'loss'
-                })
+                    'result': 'win' if is_win else 'loss',
+                    'timestamp': datetime.now().isoformat()
+                }
+                if 'games' not in self.db.data:
+                    self.db.data['games'] = []
+                self.db.data['games'].append(game_record)
+                self.db.record_game(game_record)
+                self.db.save_data()
                 return
 
             # Generic game setup (Initial step from /bet menu)
