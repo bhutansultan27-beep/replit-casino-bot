@@ -3538,16 +3538,24 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             wager = g.get('wager', 0.0)
             g_type = g.get('type', 'Game').replace('_', ' ').capitalize()
             
-            # Extract result/score
+            # Extract result/score/winner
             result = g.get('result', g.get('outcome', 'N/A')).capitalize()
+            winner = "N/A"
+            if result.lower() == "win":
+                winner = "You"
+            elif result.lower() == "loss" or result.lower() == "defeat":
+                winner = "Bot"
+            elif result.lower() == "draw":
+                winner = "Draw"
+            
             score = ""
             if 'p_pts' in g and 'b_pts' in g:
-                score = f" ({g['p_pts']}-{g['b_pts']})"
+                score = f" (Score: {g['p_pts']}-{g['b_pts']})"
             elif 'p1_pts' in g and 'p2_pts' in g:
-                score = f" ({g['p1_pts']}-{g['p2_pts']})"
+                score = f" (Score: {g['p1_pts']}-{g['p2_pts']})"
             
-            text += f"*{time_str}* | **{g_type}** | `${wager:.2f}`\n"
-            text += f"Result: `{result}`{score}\n\n"
+            text += f"*{time_str}* | **{g_type}** | Bet: `${wager:.2f}`\n"
+            text += f"Winner: **{winner}**{score}\n\n"
             
         buttons = []
         if page > 0:
