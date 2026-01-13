@@ -1090,6 +1090,15 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         if wager > user_data['balance']:
             await update.message.reply_text(f"❌ Balance: ${user_data['balance']:.2f}")
             return
+
+        # Record game attempt
+        self.db.record_game({
+            'type': f'{game_name}_bot',
+            'player_id': user_id,
+            'wager': wager,
+            'result': 'initiated',
+            'timestamp': datetime.now().isoformat()
+        })
         
         keyboard = [
             [InlineKeyboardButton("Normal", callback_data=f"setup_mode_normal_{game_name}_{wager:.2f}"),
@@ -2769,6 +2778,16 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                             self.db.update_house_balance(-w)
                             await context.bot.send_message(chat_id=chat_id, text=f"🏆 **WINNER!** You won the series and ${w:.2f}!")
                             self._update_user_stats(user_id, w, w, "win")
+                            self.db.record_game({
+                                'type': f'{challenge["game"]}_bot',
+                                'player_id': user_id,
+                                'wager': w,
+                                'p_pts': challenge['p_pts'],
+                                'b_pts': challenge['b_pts'],
+                                'result': 'win',
+                                'payout': w,
+                                'timestamp': datetime.now().isoformat()
+                            })
                         else:
                             # w (the wager) was already deducted when starting the game
                             # We just add it to the house balance (the user's balance is already correct)
@@ -2776,6 +2795,16 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                             await context.bot.send_message(chat_id=chat_id, text=f"💀 **DEFEAT!** Bot won the series. Lost ${w:.2f}")
                             # Fix: Don't subtract the wager again in _update_user_stats since it was already deducted at start
                             self._update_user_stats(user_id, w, 0, "loss")
+                            self.db.record_game({
+                                'type': f'{challenge["game"]}_bot',
+                                'player_id': user_id,
+                                'wager': w,
+                                'p_pts': challenge['p_pts'],
+                                'b_pts': challenge['b_pts'],
+                                'result': 'loss',
+                                'payout': 0,
+                                'timestamp': datetime.now().isoformat()
+                            })
                         del self.pending_pvp[cid]
                     else:
                         cashout_val = self.calculate_cashout(challenge['p_pts'], challenge['b_pts'], challenge['pts'], challenge['wager'])
