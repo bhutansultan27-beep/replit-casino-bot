@@ -3760,16 +3760,17 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     await query.answer("❌ Please select a prediction first!", show_alert=True)
                     return
                 
-                # Clear selection for next game
-                del self._predict_selections[user_id]
-                
+                # Fetch user data once
                 user_data = self.db.get_user(user_id)
                 if wager > user_data['balance']:
                     await query.answer(f"❌ Balance: ${user_data['balance']:.2f}", show_alert=True)
                     return
                 
-                # Deduct wager
-                self.db.update_user(user_id, {'balance': user_data['balance'] - wager})
+                # Clear selection for next game
+                del self._predict_selections[user_id]
+                
+                # Deduct wager from local user_data balance
+                user_data['balance'] -= wager
                 
                 # Send emoji based on mode
                 emoji_map = {"dice": "🎲", "basketball": "🏀", "soccer": "⚽", "darts": "🎯", "bowling": "🎳"}
@@ -3804,6 +3805,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 
                 user_data['total_wagered'] += wager
                 user_data['games_played'] += 1
+                
+                # Save the final user state once
                 self.db.update_user(user_id, user_data)
                 
                 # Show results with play again buttons
