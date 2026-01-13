@@ -865,7 +865,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         
         keyboard = [
             [InlineKeyboardButton("🤖 Play vs Bot", callback_data=f"dice_bot_{wager:.2f}"),
-             InlineKeyboardButton("🎲 Predict Mode", callback_data=f"setup_mode_predict_{wager:.2f}")],
+             InlineKeyboardButton("🎱 Predict Mode", callback_data=f"setup_mode_predict_{wager:.2f}")],
             [InlineKeyboardButton("👥 Create PvP Challenge", callback_data=f"dice_player_open_{wager:.2f}")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -938,7 +938,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
              InlineKeyboardButton(f"Mode: {current_emoji}", callback_data="none"),
              InlineKeyboardButton("➡️", callback_data=f"setup_mode_predict_{wager:.2f}_{next_mode}")],
             [InlineKeyboardButton("⬅️ Back", callback_data=f"setup_bet_back_{wager:.2f}"),
-             InlineKeyboardButton("Start", callback_data=f"predict_start_{wager:.2f}_{game_mode}")]
+             InlineKeyboardButton("✅ Start", callback_data=f"predict_start_{wager:.2f}_{game_mode}")]
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
