@@ -3564,12 +3564,32 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             # Extract result/score/winner
             result = g.get('result', g.get('outcome', 'N/A')).capitalize()
             winner = "N/A"
-            if result.lower() == "win":
-                winner = "You"
-            elif result.lower() == "loss" or result.lower() == "defeat":
-                winner = "Bot"
-            elif result.lower() == "draw":
-                winner = "Draw"
+            
+            # Determine winner display for PvP games
+            is_pvp = "_pvp" in g.get('type', '')
+            if is_pvp:
+                challenger_id = g.get('challenger')
+                opponent_id = g.get('opponent')
+                
+                # result "win" in pvp means challenger won
+                if result.lower() == "win":
+                    winner_id = challenger_id
+                else:
+                    winner_id = opponent_id
+                
+                if winner_id == user_id:
+                    winner = "You"
+                else:
+                    user_obj = self.db.data['users'].get(str(winner_id))
+                    winner = f"@{user_obj['username']}" if user_obj else f"User {winner_id}"
+            else:
+                # Bot games
+                if result.lower() == "win":
+                    winner = "You"
+                elif result.lower() == "loss" or result.lower() == "defeat":
+                    winner = "Bot"
+                elif result.lower() == "draw":
+                    winner = "Draw"
             
             score = ""
             if 'p_pts' in g and 'b_pts' in g:
