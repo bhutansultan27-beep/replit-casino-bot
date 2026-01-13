@@ -900,17 +900,18 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         selection = getattr(self, "_predict_selections", {}).get(user_id, "None")
         selection_text = f"Selected: **{selection.capitalize()}**" if selection != "None" else "Selected: **None**"
         
-        multiplier_text = "Multiplier: **6.00x**"
         if game_mode == "basketball":
             if selection == "score": multiplier_text = "Multiplier: **3.00x**"
             elif selection == "miss": multiplier_text = "Multiplier: **2.00x**"
             elif selection == "stuck": multiplier_text = "Multiplier: **6.00x**"
-            else: multiplier_text = "Multiplier: **3.00x/2.00x/6.00x**"
+            else: multiplier_text = "Choose your prediction"
         elif game_mode == "soccer":
             if selection == "goal": multiplier_text = "Multiplier: **3.00x**"
             elif selection == "miss": multiplier_text = "Multiplier: **1.50x**"
             elif selection == "bar": multiplier_text = "Multiplier: **6.00x**"
-            else: multiplier_text = "Multiplier: **3.00x/1.50x/6.00x**"
+            else: multiplier_text = "Choose your prediction"
+        else:
+            multiplier_text = "Multiplier: **6.00x**"
 
         text = (
             f"{current_emoji} **{game_mode.replace('_', ' ').capitalize()} Prediction**\n\n"
