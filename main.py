@@ -897,11 +897,16 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         
         current_emoji = emoji_map.get(game_mode, "🎲")
         
+        # Get current selection if any
+        selection = getattr(self, "_predict_selections", {}).get(user_id, "None")
+        selection_text = f"\nSelected: **{selection.capitalize()}**" if selection != "None" else ""
+        
         text = (
             f"{current_emoji} **{game_mode.replace('_', ' ').capitalize()} Prediction**\n\n"
             f"Your balance: **${user_data['balance']:.2f}**\n"
             "Multiplier: **6.00x**\n\n"
             "Make your prediction:"
+            f"{selection_text}"
         )
         
         # Define prediction buttons based on mode
@@ -924,9 +929,6 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         else: # Bowling
             prediction_row = [InlineKeyboardButton(str(i), callback_data=f"setup_predict_select_{wager:.2f}_{i}_{game_mode}") for i in range(1, 7)]
 
-        # Get current selection if any
-        selection = getattr(self, "_predict_selections", {}).get(user_id, "None")
-        
         keyboard = [
             prediction_row,
             [InlineKeyboardButton("Half Bet", callback_data=f"setup_mode_predict_{max(0.01, wager/2):.2f}_{game_mode}"),
@@ -936,7 +938,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
              InlineKeyboardButton(f"Mode: {current_emoji}", callback_data="none"),
              InlineKeyboardButton("➡️", callback_data=f"setup_mode_predict_{wager:.2f}_{next_mode}")],
             [InlineKeyboardButton("⬅️ Back", callback_data=f"setup_bet_back_{wager:.2f}"),
-             InlineKeyboardButton(f"✅ Start (Selection: {selection.capitalize()})", callback_data=f"predict_start_{wager:.2f}_{game_mode}")]
+             InlineKeyboardButton("Start", callback_data=f"predict_start_{wager:.2f}_{game_mode}")]
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
