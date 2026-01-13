@@ -818,7 +818,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
 
         keyboard = [
             [InlineKeyboardButton("🎲 Dice", callback_data=f"setup_mode_dice_{amount:.2f}"),
-             InlineKeyboardButton("🎲 Predict", callback_data=f"setup_mode_predict_{amount:.2f}")],
+             InlineKeyboardButton("🎱 Predict", callback_data=f"setup_mode_predict_{amount:.2f}")],
             [InlineKeyboardButton("🎯 Darts", callback_data=f"setup_mode_darts_{amount:.2f}"),
              InlineKeyboardButton("🏀 Basketball", callback_data=f"setup_mode_basketball_{amount:.2f}")],
             [InlineKeyboardButton("⚽ Soccer", callback_data=f"setup_mode_soccer_{amount:.2f}"),
@@ -1067,7 +1067,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
 
         keyboard = [
             [InlineKeyboardButton("🎲 Dice", callback_data=f"setup_mode_dice_{amount:.2f}"),
-             InlineKeyboardButton("🎲 Predict", callback_data=f"setup_mode_predict_{amount:.2f}")],
+             InlineKeyboardButton("🎱 Predict", callback_data=f"setup_mode_predict_{amount:.2f}")],
             [InlineKeyboardButton("🎯 Darts", callback_data=f"setup_mode_darts_{amount:.2f}"),
              InlineKeyboardButton("🏀 Basketball", callback_data=f"setup_mode_basketball_{amount:.2f}")],
             [InlineKeyboardButton("⚽ Soccer", callback_data=f"setup_mode_soccer_{amount:.2f}"),
