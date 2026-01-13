@@ -39,11 +39,11 @@ class DatabaseManager:
         with self.app.app_context():
             db.create_all()
             # Initialize house balance if not exists
-            if not GlobalState.query.get("house_balance"):
+            if not db.session.get(GlobalState, "house_balance"):
                 db.session.add(GlobalState(key="house_balance", value={"amount": 10000.00}))
-            if not GlobalState.query.get("dynamic_admins"):
+            if not db.session.get(GlobalState, "dynamic_admins"):
                 db.session.add(GlobalState(key="dynamic_admins", value={"ids": []}))
-            if not GlobalState.query.get("stickers"):
+            if not db.session.get(GlobalState, "stickers"):
                 db.session.add(GlobalState(key="stickers", value={"roulette": {}}))
             db.session.commit()
 
@@ -51,9 +51,9 @@ class DatabaseManager:
     def data(self):
         # Compatibility layer for existing code that accesses self.db.data
         with self.app.app_context():
-            house_balance = GlobalState.query.get("house_balance").value["amount"]
-            dynamic_admins = GlobalState.query.get("dynamic_admins").value["ids"]
-            stickers = GlobalState.query.get("stickers").value
+            house_balance = db.session.get(GlobalState, "house_balance").value["amount"]
+            dynamic_admins = db.session.get(GlobalState, "dynamic_admins").value["ids"]
+            stickers = db.session.get(GlobalState, "stickers").value
             return {
                 "house_balance": house_balance,
                 "dynamic_admins": dynamic_admins,
@@ -63,7 +63,8 @@ class DatabaseManager:
 
     def get_user(self, user_id: int) -> Dict[str, Any]:
         with self.app.app_context():
-            user = User.query.filter_by(user_id=user_id).first()
+            from sqlalchemy import select
+            user = db.session.execute(select(User).filter_by(user_id=user_id)).scalar_one_or_none()
             if not user:
                 user = User(user_id=user_id, username=f"User{user_id}")
                 db.session.add(user)
@@ -75,16 +76,17 @@ class DatabaseManager:
 
     def update_user(self, user_id: int, updates: Dict[str, Any]):
         with self.app.app_context():
-            User.query.filter_by(user_id=user_id).update(updates)
+            from sqlalchemy import update
+            db.session.execute(update(User).filter_by(user_id=user_id).values(updates))
             db.session.commit()
 
     def get_house_balance(self) -> float:
         with self.app.app_context():
-            return GlobalState.query.get("house_balance").value["amount"]
+            return db.session.get(GlobalState, "house_balance").value["amount"]
 
     def update_house_balance(self, change: float):
         with self.app.app_context():
-            state = GlobalState.query.get("house_balance")
+            state = db.session.get(GlobalState, "house_balance")
             val = state.value.copy()
             val["amount"] += change
             state.value = val
@@ -104,7 +106,8 @@ class DatabaseManager:
 
     def get_leaderboard(self) -> List[Dict[str, Any]]:
         with self.app.app_context():
-            users = User.query.order_by(User.total_wagered.desc()).limit(50).all()
+            from sqlalchemy import select
+            users = db.session.execute(select(User).order_by(User.total_wagered.desc()).limit(50)).scalars().all()
             return [{"username": u.username or f"User{u.user_id}", "total_wagered": u.total_wagered} for u in users]
 
     def save_data(self):
@@ -112,10 +115,21 @@ class DatabaseManager:
 
 # --- 2. Antaria Casino Bot Class ---
 class AntariaCasinoBot:
-    def __init__(self, token: str):
-        self.token = token
-        # Initialize the internal database manager
-        self.db = DatabaseManager()
+class BlackjackGame:
+    def __init__(self, user_id: int, bet_amount: float):
+        self.user_id = user_id
+        self.bet_amount = bet_amount
+        self.player_hand = []
+        self.dealer_hand = []
+        self.deck = self._create_deck()
+        self.status = "ongoing"
+
+    def _create_deck(self):
+        suits = ['♠', '♥', '♦', '♣']
+        ranks = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A']
+        deck = [f"{rank}{suit}" for suit in suits for rank in ranks]
+        random.shuffle(deck)
+        return deck
         
         # Admin user IDs from environment variable (permanent admins)
         admin_ids_str = os.getenv("ADMIN_IDS", "")
