@@ -3976,83 +3976,70 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             elif data.startswith("predict_"):
                 parts = data.split('_')
                 wager = float(parts[1])
-                predicted_number = int(parts[2])
+                prediction = parts[2]
+                game_mode = parts[3] if len(parts) > 3 else "dice"
                 
                 user_data = self.db.get_user(user_id)
                 
                 if wager > user_data['balance']:
-                    await context.bot.send_message(chat_id=chat_id, text=f"❌ Balance: ${user_data['balance']:.2f}")
+                    await query.answer(f"❌ Balance: ${user_data['balance']:.2f}", show_alert=True)
                     return
                 
-                # Deduct wager from user balance
+                # Deduct wager
                 self.db.update_user(user_id, {'balance': user_data['balance'] - wager})
                 
-                # Send the dice emoji and wait for result
-                dice_message = await context.bot.send_dice(chat_id=chat_id, emoji="🎲")
-                actual_roll = dice_message.dice.value
+                # Send emoji based on mode
+                emoji_map = {"dice": "🎲", "basketball": "🏀", "soccer": "⚽", "darts": "🎯", "bowling": "🎳"}
+                dice_emoji = emoji_map.get(game_mode, "🎲")
+                dice_message = await context.bot.send_dice(chat_id=chat_id, emoji=dice_emoji)
+                actual_val = dice_message.dice.value
                 
-                await asyncio.sleep(3)
+                await asyncio.sleep(4)
                 
-                # Check if prediction matches
-                if actual_roll == predicted_number:
-                    # Win! 6x payout (since odds are 1/6)
-                    payout = wager * 6
+                # Determine win/loss based on mode and prediction
+                is_win = False
+                if game_mode == "dice" or game_mode == "darts" or game_mode == "bowling":
+                    is_win = str(actual_val) == str(prediction)
+                elif game_mode == "basketball":
+                    # 1,2,4 = miss, 3 = score, 5 = score
+                    actual_outcome = "score" if actual_val in [3, 5] else "miss"
+                    # Note: "stuck" isn't a native value for basketball emoji in Telegram dice, 
+                    # but we keep it for the UI. Usually it's just score or miss.
+                    is_win = prediction == actual_outcome
+                elif game_mode == "soccer":
+                    # 1,2,3 = miss, 4,5 = goal
+                    actual_outcome = "goal" if actual_val in [4, 5] else "miss"
+                    is_win = prediction == actual_outcome
+
+                if is_win:
+                    payout = wager * 6 # Simplified multiplier for all
                     profit = payout - wager
-                    new_balance = user_data['balance'] + payout
-                    
-                    self.db.update_user(user_id, {
-                        'balance': new_balance,
-                        'total_wagered': user_data['total_wagered'] + wager,
-                        'wagered_since_last_withdrawal': user_data.get('wagered_since_last_withdrawal', 0) + wager,
-                        'games_played': user_data['games_played'] + 1,
-                        'games_won': user_data['games_won'] + 1
-                    })
+                    user_data['balance'] += payout
+                    user_data['games_won'] += 1
+                    result_text = f"✅ @{user_data['username']} won ${profit:.2f}!"
                     self.db.update_house_balance(-profit)
-                    
-                    # Add 6 play-again buttons for each number
-                    keyboard = [
-                        [InlineKeyboardButton("#1", callback_data=f"predict_{wager:.2f}_1"),
-                         InlineKeyboardButton("#2", callback_data=f"predict_{wager:.2f}_2"),
-                         InlineKeyboardButton("#3", callback_data=f"predict_{wager:.2f}_3")],
-                        [InlineKeyboardButton("#4", callback_data=f"predict_{wager:.2f}_4"),
-                         InlineKeyboardButton("#5", callback_data=f"predict_{wager:.2f}_5"),
-                         InlineKeyboardButton("#6", callback_data=f"predict_{wager:.2f}_6")]
-                    ]
-                    reply_markup = InlineKeyboardMarkup(keyboard)
-                    sent_msg = await context.bot.send_message(chat_id=chat_id, text=f"@{user_data['username']} won ${profit:.2f}", reply_markup=reply_markup)
-                    self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
                 else:
-                    # Loss
-                    self.db.update_user(user_id, {
-                        'total_wagered': user_data['total_wagered'] + wager,
-                        'wagered_since_last_withdrawal': user_data.get('wagered_since_last_withdrawal', 0) + wager,
-                        'games_played': user_data['games_played'] + 1
-                    })
+                    profit = -wager
+                    result_text = f"❌ @{user_data['username']} lost ${wager:.2f}"
                     self.db.update_house_balance(wager)
-                    
-                    # Add 6 play-again buttons for each number
-                    keyboard = [
-                        [InlineKeyboardButton("#1", callback_data=f"predict_{wager:.2f}_1"),
-                         InlineKeyboardButton("#2", callback_data=f"predict_{wager:.2f}_2"),
-                         InlineKeyboardButton("#3", callback_data=f"predict_{wager:.2f}_3")],
-                        [InlineKeyboardButton("#4", callback_data=f"predict_{wager:.2f}_4"),
-                         InlineKeyboardButton("#5", callback_data=f"predict_{wager:.2f}_5"),
-                         InlineKeyboardButton("#6", callback_data=f"predict_{wager:.2f}_6")]
-                    ]
-                    reply_markup = InlineKeyboardMarkup(keyboard)
-                    sent_msg = await context.bot.send_message(chat_id=chat_id, text=f"@{user_data['username']} lost ${wager:.2f}", reply_markup=reply_markup)
-                    self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
                 
-                # Record game
+                user_data['total_wagered'] += wager
+                user_data['games_played'] += 1
+                self.db.update_user(user_id, user_data)
+                
+                # Show results with play again buttons
+                await self._setup_predict_interface(update, context, wager, game_mode)
+                await context.bot.send_message(chat_id=chat_id, text=result_text)
+                
                 self.db.record_game({
-                    'type': 'dice_predict',
+                    'type': f'predict_{game_mode}',
                     'player_id': user_id,
                     'wager': wager,
-                    'predicted': predicted_number,
-                    'actual_roll': actual_roll,
-                    'result': 'win' if actual_roll == predicted_number else 'loss',
-                    'payout': (wager * 6) if actual_roll == predicted_number else 0
+                    'predicted': prediction,
+                    'actual': actual_val,
+                    'result': 'win' if is_win else 'loss'
                 })
+                return
             
             # Game Callbacks (Slots play again)
             elif data.startswith("slots_"):
