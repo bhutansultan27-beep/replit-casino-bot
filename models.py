@@ -1,6 +1,6 @@
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-from sqlalchemy import JSON, Float, String, Integer, DateTime
+from sqlalchemy import JSON, Float, String, BigInteger, Integer, DateTime
 from datetime import datetime
 
 class Base(DeclarativeBase):
@@ -11,7 +11,7 @@ db = SQLAlchemy(model_class=Base)
 class User(Base):
     __tablename__ = "users"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    user_id: Mapped[int] = mapped_column(Integer, unique=True, index=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, unique=True, index=True)
     username: Mapped[str] = mapped_column(String, nullable=True)
     balance: Mapped[float] = mapped_column(Float, default=0.0)
     playthrough_required: Mapped[float] = mapped_column(Float, default=0.0)
@@ -25,7 +25,7 @@ class User(Base):
     wagered_since_last_withdrawal: Mapped[float] = mapped_column(Float, default=0.0)
     first_wager_date: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     referral_code: Mapped[str] = mapped_column(String, nullable=True)
-    referred_by: Mapped[int] = mapped_column(Integer, nullable=True)
+    referred_by: Mapped[int] = mapped_column(BigInteger, nullable=True)
     referral_count: Mapped[int] = mapped_column(Integer, default=0)
     referral_earnings: Mapped[float] = mapped_column(Float, default=0.0)
     unclaimed_referral_earnings: Mapped[float] = mapped_column(Float, default=0.0)
@@ -40,7 +40,7 @@ class Game(Base):
 class Transaction(Base):
     __tablename__ = "transactions"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    user_id: Mapped[int] = mapped_column(Integer, index=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, index=True)
     type: Mapped[str] = mapped_column(String)
     amount: Mapped[float] = mapped_column(Float)
     description: Mapped[str] = mapped_column(String)
