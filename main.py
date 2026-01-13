@@ -115,21 +115,10 @@ class DatabaseManager:
 
 # --- 2. Antaria Casino Bot Class ---
 class AntariaCasinoBot:
-class BlackjackGame:
-    def __init__(self, user_id: int, bet_amount: float):
-        self.user_id = user_id
-        self.bet_amount = bet_amount
-        self.player_hand = []
-        self.dealer_hand = []
-        self.deck = self._create_deck()
-        self.status = "ongoing"
-
-    def _create_deck(self):
-        suits = ['♠', '♥', '♦', '♣']
-        ranks = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A']
-        deck = [f"{rank}{suit}" for suit in suits for rank in ranks]
-        random.shuffle(deck)
-        return deck
+    def __init__(self, token: str):
+        self.token = token
+        # Initialize the internal database manager
+        self.db = DatabaseManager()
         
         # Admin user IDs from environment variable (permanent admins)
         admin_ids_str = os.getenv("ADMIN_IDS", "")
@@ -3583,12 +3572,22 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         await self.show_matches_page(update, 0, user_id)
 
     async def show_matches_page(self, update: Update, page: int, user_id: int):
-        all_games = self.db.data.get('games', [])
-        # Filter games where the user participated
-        user_games = [g for g in all_games if g.get('player_id') == user_id or g.get('challenger') == user_id or g.get('opponent') == user_id]
-        user_games.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+        with self.app.app_context():
+            from sqlalchemy import select, or_
+            stmt = select(Game).where(
+                or_(
+                    Game.data['player_id'].as_integer() == user_id,
+                    Game.data['challenger'].as_integer() == user_id,
+                    Game.data['opponent'].as_integer() == user_id
+                )
+            ).order_by(Game.timestamp.desc())
+            all_user_games = db.session.execute(stmt).scalars().all()
+            user_games = [g.data for g in all_user_games]
+            # Add timestamp to each game data for formatting
+            for i, g in enumerate(user_games):
+                g['timestamp'] = all_user_games[i].timestamp.isoformat()
         
-        total_pages = (len(user_games) + 9) // 10
+        total_pages = (len(user_games) + 4) // 5
         if total_pages == 0:
             if hasattr(update, 'callback_query') and update.callback_query:
                 await update.callback_query.edit_message_text("📜 No matches found.")
@@ -3596,8 +3595,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 await update.message.reply_text("📜 No matches found.")
             return
 
-        start_idx = page * 10
-        end_idx = start_idx + 10
+        start_idx = page * 5
+        end_idx = start_idx + 5
         page_games = user_games[start_idx:end_idx]
         
         text = f"📜 **Your Matches (Page {page + 1}/{total_pages})**\n\n"
@@ -3618,33 +3617,38 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             
             # Extract result/score/winner
             result = g.get('result', g.get('outcome', 'N/A')).capitalize()
-            winner = "N/A"
+            winner_name = "N/A"
             
-            # Determine winner display for PvP games
             is_pvp = "_pvp" in g.get('type', '')
             if is_pvp:
-                challenger_id = g.get('challenger')
-                opponent_id = g.get('opponent')
+                p1_id = g.get('challenger')
+                p2_id = g.get('opponent')
                 
-                # result "win" in pvp means challenger won
+                # Get usernames
+                p1_data = self.db.get_user(p1_id)
+                p2_data = self.db.get_user(p2_id)
+                p1_user = f"@{p1_data['username']}" if p1_data.get('username') else f"User {p1_id}"
+                p2_user = f"@{p2_data['username']}" if p2_data.get('username') else f"User {p2_id}"
+                
+                match_up = f"{p1_user} vs {p2_user}"
+                
                 if result.lower() == "win":
-                    winner_id = challenger_id
+                    winner_name = p1_user
                 else:
-                    winner_id = opponent_id
-                
-                if winner_id == user_id:
-                    winner = "You"
-                else:
-                    user_obj = self.db.data['users'].get(str(winner_id))
-                    winner = f"@{user_obj['username']}" if user_obj else f"User {winner_id}"
+                    winner_name = p2_user
             else:
-                # Bot games
+                p_id = g.get('player_id')
+                p_data = self.db.get_user(p_id)
+                p_user = f"@{p_data['username']}" if p_data.get('username') else f"User {p_id}"
+                
+                match_up = f"{p_user} vs Bot"
+                
                 if result.lower() == "win":
-                    winner = "You"
-                elif result.lower() == "loss" or result.lower() == "defeat":
-                    winner = "Bot"
+                    winner_name = p_user
+                elif result.lower() in ["loss", "defeat"]:
+                    winner_name = "@botusername"
                 elif result.lower() == "draw":
-                    winner = "Draw"
+                    winner_name = "Draw"
             
             score = ""
             if 'p_pts' in g and 'b_pts' in g:
@@ -3653,7 +3657,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 score = f" (Score: {g['p1_pts']}-{g['p2_pts']})"
             
             text += f"*{time_str}* | **{g_display}** | Bet: `${wager:.2f}`\n"
-            text += f"Winner: **{winner}**{score}\n\n"
+            text += f"{match_up}\n"
+            text += f"Winner: {winner_name}{score}\n\n"
             
         buttons = []
         if page > 0:
