@@ -911,26 +911,32 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         
         # Define prediction buttons based on mode
         if game_mode == "dice":
-            prediction_row = [InlineKeyboardButton(str(i), callback_data=f"setup_predict_select_{wager:.2f}_{i}_{game_mode}") for i in range(1, 7)]
+            prediction_buttons = [InlineKeyboardButton(str(i), callback_data=f"setup_predict_select_{wager:.2f}_{i}_{game_mode}") for i in range(1, 7)]
+            prediction_rows = [prediction_buttons[i:i + 3] for i in range(0, len(prediction_buttons), 3)]
         elif game_mode == "basketball":
-            prediction_row = [
+            prediction_buttons = [
                 InlineKeyboardButton("Score", callback_data=f"setup_predict_select_{wager:.2f}_score_{game_mode}"),
                 InlineKeyboardButton("Miss", callback_data=f"setup_predict_select_{wager:.2f}_miss_{game_mode}"),
                 InlineKeyboardButton("Stuck", callback_data=f"setup_predict_select_{wager:.2f}_stuck_{game_mode}")
             ]
+            prediction_rows = [prediction_buttons]
         elif game_mode == "soccer":
-            prediction_row = [
+            prediction_buttons = [
                 InlineKeyboardButton("Goal", callback_data=f"setup_predict_select_{wager:.2f}_goal_{game_mode}"),
                 InlineKeyboardButton("Miss", callback_data=f"setup_predict_select_{wager:.2f}_miss_{game_mode}"),
                 InlineKeyboardButton("Bar", callback_data=f"setup_predict_select_{wager:.2f}_bar_{game_mode}")
             ]
+            prediction_rows = [prediction_buttons]
         elif game_mode == "darts":
-            prediction_row = [InlineKeyboardButton(str(i), callback_data=f"setup_predict_select_{wager:.2f}_{i}_{game_mode}") for i in range(1, 7)]
+            prediction_buttons = [InlineKeyboardButton(str(i), callback_data=f"setup_predict_select_{wager:.2f}_{i}_{game_mode}") for i in range(1, 7)]
+            prediction_rows = [prediction_buttons[i:i + 3] for i in range(0, len(prediction_buttons), 3)]
         else: # Bowling
-            prediction_row = [InlineKeyboardButton(str(i), callback_data=f"setup_predict_select_{wager:.2f}_{i}_{game_mode}") for i in range(1, 7)]
+            prediction_buttons = [InlineKeyboardButton(str(i), callback_data=f"setup_predict_select_{wager:.2f}_{i}_{game_mode}") for i in range(1, 7)]
+            prediction_rows = [prediction_buttons[i:i + 3] for i in range(0, len(prediction_buttons), 3)]
 
-        keyboard = [
-            prediction_row,
+        keyboard = []
+        keyboard.extend(prediction_rows)
+        keyboard.extend([
             [InlineKeyboardButton("Half Bet", callback_data=f"setup_mode_predict_{max(0.01, wager/2):.2f}_{game_mode}"),
              InlineKeyboardButton(f"Bet: ${wager:.2f}", callback_data="none"),
              InlineKeyboardButton("Double Bet", callback_data=f"setup_mode_predict_{wager*2:.2f}_{game_mode}")],
@@ -939,7 +945,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
              InlineKeyboardButton("➡️", callback_data=f"setup_mode_predict_{wager:.2f}_{next_mode}")],
             [InlineKeyboardButton("⬅️ Back", callback_data=f"setup_bet_back_{wager:.2f}"),
              InlineKeyboardButton("✅ Start", callback_data=f"predict_start_{wager:.2f}_{game_mode}")]
-        ]
+        ])
         
         reply_markup = InlineKeyboardMarkup(keyboard)
         if hasattr(update, 'callback_query') and update.callback_query:
