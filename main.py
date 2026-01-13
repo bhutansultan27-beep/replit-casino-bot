@@ -3559,7 +3559,16 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             ts = g.get('timestamp', '')
             time_str = datetime.fromisoformat(ts).strftime("%m/%d %H:%M") if ts else "N/A"
             wager = g.get('wager', 0.0)
-            g_type = g.get('type', 'Game').replace('_', ' ').capitalize()
+            
+            game_emojis = {
+                "dice": "🎲", "darts": "🎯", "basketball": "🏀",
+                "soccer": "⚽", "bowling": "🎳", "slots": "🎰",
+                "coinflip": "🪙", "blackjack": "🃏", "roulette": "🎡"
+            }
+            
+            raw_type = g.get('type', 'Game').split('_')[0].lower()
+            emoji_icon = game_emojis.get(raw_type, "")
+            g_display = emoji_icon if emoji_icon else raw_type.capitalize()
             
             # Extract result/score/winner
             result = g.get('result', g.get('outcome', 'N/A')).capitalize()
@@ -3597,7 +3606,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             elif 'p1_pts' in g and 'p2_pts' in g:
                 score = f" (Score: {g['p1_pts']}-{g['p2_pts']})"
             
-            text += f"*{time_str}* | **{g_type}** | Bet: `${wager:.2f}`\n"
+            text += f"*{time_str}* | **{g_display}** | Bet: `${wager:.2f}`\n"
             text += f"Winner: **{winner}**{score}\n\n"
             
         buttons = []
