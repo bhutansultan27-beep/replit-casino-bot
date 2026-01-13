@@ -911,33 +911,64 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         )
         self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
 
-    async def _setup_predict_interface(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float):
+    async def _setup_predict_interface(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float, game_mode: str = "dice"):
         """Display the prediction interface as shown in the screenshot"""
         user_id = update.effective_user.id
         user_data = self.db.get_user(user_id)
         
+        emoji_map = {
+            "dice": "🎲",
+            "basketball": "🏀",
+            "soccer": "⚽",
+            "darts": "🎯",
+            "bowling": "🎳"
+        }
+        
+        modes = ["dice", "basketball", "soccer", "darts", "bowling"]
+        current_idx = modes.index(game_mode)
+        next_mode = modes[(current_idx + 1) % len(modes)]
+        prev_mode = modes[(current_idx - 1) % len(modes)]
+        
+        current_emoji = emoji_map.get(game_mode, "🎲")
+        
         text = (
-            "🎲 **Dice Prediction**\n\n"
+            f"{current_emoji} **{game_mode.capitalize()} Prediction**\n\n"
             f"Your balance: **${user_data['balance']:.2f}**\n"
             "Multiplier: **6.00x**\n\n"
             "Make your prediction:"
         )
         
+        # Define prediction buttons based on mode
+        if game_mode == "dice":
+            prediction_row = [InlineKeyboardButton(str(i), callback_data=f"predict_{wager:.2f}_{i}_{game_mode}") for i in range(1, 7)]
+        elif game_mode == "basketball":
+            # Basketball values: 1 (miss), 2 (miss), 3 (score), 4 (miss), 5 (score)
+            prediction_row = [
+                InlineKeyboardButton("Score", callback_data=f"predict_{wager:.2f}_score_{game_mode}"),
+                InlineKeyboardButton("Miss", callback_data=f"predict_{wager:.2f}_miss_{game_mode}"),
+                InlineKeyboardButton("Stuck", callback_data=f"predict_{wager:.2f}_stuck_{game_mode}")
+            ]
+        elif game_mode == "soccer":
+            # Soccer: 1 (miss), 2 (miss), 3 (miss), 4 (score), 5 (score)
+            prediction_row = [
+                InlineKeyboardButton("Score", callback_data=f"predict_{wager:.2f}_score_{game_mode}"),
+                InlineKeyboardButton("Miss", callback_data=f"predict_{wager:.2f}_miss_{game_mode}")
+            ]
+        elif game_mode == "darts":
+            prediction_row = [InlineKeyboardButton(str(i), callback_data=f"predict_{wager:.2f}_{i}_{game_mode}") for i in range(1, 7)]
+        else: # Bowling
+            prediction_row = [InlineKeyboardButton(str(i), callback_data=f"predict_{wager:.2f}_{i}_{game_mode}") for i in range(1, 7)]
+
         keyboard = [
-            [InlineKeyboardButton("1", callback_data=f"predict_{wager:.2f}_1"),
-             InlineKeyboardButton("2", callback_data=f"predict_{wager:.2f}_2"),
-             InlineKeyboardButton("3", callback_data=f"predict_{wager:.2f}_3"),
-             InlineKeyboardButton("4", callback_data=f"predict_{wager:.2f}_4"),
-             InlineKeyboardButton("5", callback_data=f"predict_{wager:.2f}_5"),
-             InlineKeyboardButton("6", callback_data=f"predict_{wager:.2f}_6")],
-            [InlineKeyboardButton("Half Bet", callback_data=f"setup_mode_predict_{max(0.01, wager/2):.2f}"),
+            prediction_row,
+            [InlineKeyboardButton("Half Bet", callback_data=f"setup_mode_predict_{max(0.01, wager/2):.2f}_{game_mode}"),
              InlineKeyboardButton(f"Bet: ${wager:.2f}", callback_data="none"),
-             InlineKeyboardButton("Double Bet", callback_data=f"setup_mode_predict_{wager*2:.2f}")],
-            [InlineKeyboardButton("⬅️", callback_data="none"),
-             InlineKeyboardButton("Mode: 🎲", callback_data="none"),
-             InlineKeyboardButton("➡️", callback_data="none")],
+             InlineKeyboardButton("Double Bet", callback_data=f"setup_mode_predict_{wager*2:.2f}_{game_mode}")],
+            [InlineKeyboardButton("⬅️", callback_data=f"setup_mode_predict_{wager:.2f}_{prev_mode}"),
+             InlineKeyboardButton(f"Mode: {current_emoji}", callback_data="none"),
+             InlineKeyboardButton("➡️", callback_data=f"setup_mode_predict_{wager:.2f}_{next_mode}")],
             [InlineKeyboardButton("⬅️ Back", callback_data=f"setup_bet_back_{wager:.2f}"),
-             InlineKeyboardButton("✅ Start", callback_data=f"predict_start_{wager:.2f}")]
+             InlineKeyboardButton("✅ Start", callback_data=f"predict_start_{wager:.2f}_{game_mode}")]
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -3707,7 +3738,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             if data.startswith("setup_mode_predict_"):
                 parts = data.split("_")
                 wager = float(parts[3])
-                await self._setup_predict_interface(update, context, wager)
+                game_mode = parts[4] if len(parts) > 4 else "dice"
+                await self._setup_predict_interface(update, context, wager, game_mode)
                 return
             
             if data.startswith("setup_bet_back_"):
