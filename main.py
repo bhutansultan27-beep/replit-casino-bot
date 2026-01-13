@@ -2382,7 +2382,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         self.db.data['pending_pvp'] = self.pending_pvp
         self.db.save_data()
         
-        await context.bot.send_message(chat_id=chat_id, text=f"@{username} your turn", parse_mode="Markdown")
+        bot_mention = "[emojigamblebot](tg://user?id=8575155625)"
+        await context.bot.send_message(chat_id=chat_id, text=f"{bot_mention} vs @{username}\n\n@{username} your turn", parse_mode="Markdown")
 
     async def darts_vs_bot(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float):
         """Play darts against the bot (called from button)"""
@@ -2419,7 +2420,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         self.db.data['pending_pvp'] = self.pending_pvp
         self.db.save_data()
         
-        await context.bot.send_message(chat_id=chat_id, text=f"@{username} your turn", parse_mode="Markdown")
+        bot_mention = "[emojigamblebot](tg://user?id=8575155625)"
+        await context.bot.send_message(chat_id=chat_id, text=f"{bot_mention} vs @{username}\n\n@{username} your turn", parse_mode="Markdown")
 
     async def basketball_vs_bot(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float):
         """Play basketball against the bot (called from button)"""
@@ -2456,7 +2458,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         self.db.data['pending_pvp'] = self.pending_pvp
         self.db.save_data()
         
-        await context.bot.send_message(chat_id=chat_id, text=f"@{username} your turn", parse_mode="Markdown")
+        bot_mention = "[emojigamblebot](tg://user?id=8575155625)"
+        await context.bot.send_message(chat_id=chat_id, text=f"{bot_mention} vs @{username}\n\n@{username} your turn", parse_mode="Markdown")
 
     async def soccer_vs_bot(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float):
         """Play soccer against the bot (called from button)"""
@@ -3223,7 +3226,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 profit = -wager
                 outcome = "loss"
                 user_display = f"@{username}" if user_data.get('username') else username
-                result_text = f"❌ Lost ${wager:.2f}"
+                result_text = f"❌ [emojigamblebot](tg://user?id=8575155625) won ${wager:.2f}"
                 self.db.update_house_balance(wager)
             
             self._update_user_stats(user_id, wager, profit, outcome)
@@ -4139,7 +4142,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     self.db.update_house_balance(-profit)
                 else:
                     profit = -wager
-                    result_text = f"❌ @{user_data['username']} lost ${wager:.2f}"
+                    result_text = f"❌ [emojigamblebot](tg://user?id=8575155625) won ${wager:.2f}"
                     self.db.update_house_balance(wager)
                 
                 user_data['total_wagered'] += wager
