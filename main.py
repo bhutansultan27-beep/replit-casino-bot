@@ -899,20 +899,20 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         
         # Get current selection if any
         selection = getattr(self, "_predict_selections", {}).get(user_id, "None")
-        selection_text = f"\nSelected: **{selection.capitalize()}**" if selection != "None" else ""
+        selection_text = f"Selected: **{selection.capitalize()}**" if selection != "None" else "Selected: **None**"
         
         text = (
             f"{current_emoji} **{game_mode.replace('_', ' ').capitalize()} Prediction**\n\n"
             f"Your balance: **${user_data['balance']:.2f}**\n"
             "Multiplier: **6.00x**\n\n"
-            "Make your prediction:"
+            "Make your prediction:\n"
             f"{selection_text}"
         )
         
         # Define prediction buttons based on mode
         if game_mode == "dice":
             prediction_buttons = [InlineKeyboardButton(str(i), callback_data=f"setup_predict_select_{wager:.2f}_{i}_{game_mode}") for i in range(1, 7)]
-            prediction_rows = [prediction_buttons[i:i + 3] for i in range(0, len(prediction_buttons), 3)]
+            prediction_rows = [prediction_buttons]
         elif game_mode == "basketball":
             prediction_buttons = [
                 InlineKeyboardButton("Score", callback_data=f"setup_predict_select_{wager:.2f}_score_{game_mode}"),
@@ -929,10 +929,10 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             prediction_rows = [prediction_buttons]
         elif game_mode == "darts":
             prediction_buttons = [InlineKeyboardButton(str(i), callback_data=f"setup_predict_select_{wager:.2f}_{i}_{game_mode}") for i in range(1, 7)]
-            prediction_rows = [prediction_buttons[i:i + 3] for i in range(0, len(prediction_buttons), 3)]
+            prediction_rows = [prediction_buttons]
         else: # Bowling
             prediction_buttons = [InlineKeyboardButton(str(i), callback_data=f"setup_predict_select_{wager:.2f}_{i}_{game_mode}") for i in range(1, 7)]
-            prediction_rows = [prediction_buttons[i:i + 3] for i in range(0, len(prediction_buttons), 3)]
+            prediction_rows = [prediction_buttons]
 
         keyboard = []
         keyboard.extend(prediction_rows)
