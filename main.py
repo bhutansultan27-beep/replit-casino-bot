@@ -3594,18 +3594,20 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         # Fetch games from database
         user_games = []
         with self.db.app.app_context():
-            from sqlalchemy import select, or_
+            from sqlalchemy import select, or_, cast, String
             from models import Game
-            query = select(Game).filter(
-                or_(
-                    Game.data['player_id'].astext == str(user_id),
-                    Game.data['challenger'].astext == str(user_id),
-                    Game.data['opponent'].astext == str(user_id)
-                )
-            ).order_by(Game.id.desc())
+            # Use cast(Game.data['field'], String) instead of .astext for compatibility
+            # Also handle potential lack of index or different JSONB operator support in the environment
+            query = select(Game).order_by(Game.id.desc())
             db_games = db.session.execute(query).scalars().all()
+            
+            search_id = str(user_id)
             for g in db_games:
-                user_games.append(g.data)
+                data = g.data
+                if (str(data.get('player_id')) == search_id or 
+                    str(data.get('challenger')) == search_id or 
+                    str(data.get('opponent')) == search_id):
+                    user_games.append(data)
         
         total_pages = (len(user_games) + 4) // 5
         if total_pages == 0:
