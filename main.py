@@ -562,7 +562,7 @@ class AntariaCasinoBot:
 /soccer 10 - Soccer ⚽
 /bowling 10 - Bowling 🎳
 /flip 10 heads - Coin Flip 🪙
-/predict 10 #6 - Predict 🔮
+/predict 10 #6 - Predict 🎱
 
 **Menu:**
 /bal - Balance
