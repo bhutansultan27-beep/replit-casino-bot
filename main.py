@@ -938,26 +938,27 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         
         # Define prediction buttons based on mode
         if game_mode == "dice":
-            prediction_row = [InlineKeyboardButton(str(i), callback_data=f"predict_{wager:.2f}_{i}_{game_mode}") for i in range(1, 7)]
+            prediction_row = [InlineKeyboardButton(str(i), callback_data=f"setup_predict_select_{wager:.2f}_{i}_{game_mode}") for i in range(1, 7)]
         elif game_mode == "basketball":
-            # Basketball values: 1 (miss), 2 (miss), 3 (score), 4 (miss), 5 (score)
             prediction_row = [
-                InlineKeyboardButton("Score", callback_data=f"predict_{wager:.2f}_score_{game_mode}"),
-                InlineKeyboardButton("Miss", callback_data=f"predict_{wager:.2f}_miss_{game_mode}"),
-                InlineKeyboardButton("Stuck", callback_data=f"predict_{wager:.2f}_stuck_{game_mode}")
+                InlineKeyboardButton("Score", callback_data=f"setup_predict_select_{wager:.2f}_score_{game_mode}"),
+                InlineKeyboardButton("Miss", callback_data=f"setup_predict_select_{wager:.2f}_miss_{game_mode}"),
+                InlineKeyboardButton("Stuck", callback_data=f"setup_predict_select_{wager:.2f}_stuck_{game_mode}")
             ]
         elif game_mode == "soccer":
-            # Soccer: 1 (miss), 2 (miss), 3 (miss), 4 (score), 5 (score)
             prediction_row = [
-                InlineKeyboardButton("Goal", callback_data=f"predict_{wager:.2f}_goal_{game_mode}"),
-                InlineKeyboardButton("Miss", callback_data=f"predict_{wager:.2f}_miss_{game_mode}"),
-                InlineKeyboardButton("Bar", callback_data=f"predict_{wager:.2f}_bar_{game_mode}")
+                InlineKeyboardButton("Goal", callback_data=f"setup_predict_select_{wager:.2f}_goal_{game_mode}"),
+                InlineKeyboardButton("Miss", callback_data=f"setup_predict_select_{wager:.2f}_miss_{game_mode}"),
+                InlineKeyboardButton("Bar", callback_data=f"setup_predict_select_{wager:.2f}_bar_{game_mode}")
             ]
         elif game_mode == "darts":
-            prediction_row = [InlineKeyboardButton(str(i), callback_data=f"predict_{wager:.2f}_{i}_{game_mode}") for i in range(1, 7)]
+            prediction_row = [InlineKeyboardButton(str(i), callback_data=f"setup_predict_select_{wager:.2f}_{i}_{game_mode}") for i in range(1, 7)]
         else: # Bowling
-            prediction_row = [InlineKeyboardButton(str(i), callback_data=f"predict_{wager:.2f}_{i}_{game_mode}") for i in range(1, 7)]
+            prediction_row = [InlineKeyboardButton(str(i), callback_data=f"setup_predict_select_{wager:.2f}_{i}_{game_mode}") for i in range(1, 7)]
 
+        # Get current selection if any
+        selection = getattr(self, "_predict_selections", {}).get(user_id, "None")
+        
         keyboard = [
             prediction_row,
             [InlineKeyboardButton("Half Bet", callback_data=f"setup_mode_predict_{max(0.01, wager/2):.2f}_{game_mode}"),
@@ -967,7 +968,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
              InlineKeyboardButton(f"Mode: {current_emoji}", callback_data="none"),
              InlineKeyboardButton("➡️", callback_data=f"setup_mode_predict_{wager:.2f}_{next_mode}")],
             [InlineKeyboardButton("⬅️ Back", callback_data=f"setup_bet_back_{wager:.2f}"),
-             InlineKeyboardButton("✅ Start", callback_data=f"predict_start_{wager:.2f}_{game_mode}")]
+             InlineKeyboardButton(f"✅ Start (Selection: {selection.capitalize()})", callback_data=f"predict_start_{wager:.2f}_{game_mode}")]
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -3746,8 +3747,85 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 await self.bet_command(update, context) # This might need context.args adjusted or a helper
                 return
 
+            if data.startswith("setup_predict_select_"):
+                parts = data.split("_")
+                wager = float(parts[3])
+                prediction = parts[4]
+                game_mode = parts[5]
+                if not hasattr(self, "_predict_selections"):
+                    self._predict_selections = {}
+                self._predict_selections[user_id] = prediction
+                await self._setup_predict_interface(update, context, wager, game_mode)
+                return
+
             if data.startswith("predict_start_"):
-                await query.answer("Select a number above to predict!", show_alert=True)
+                parts = data.split("_")
+                wager = float(parts[2])
+                game_mode = parts[3]
+                
+                prediction = getattr(self, "_predict_selections", {}).get(user_id)
+                if not prediction:
+                    await query.answer("❌ Please select a prediction first!", show_alert=True)
+                    return
+                
+                # Clear selection for next game
+                del self._predict_selections[user_id]
+                
+                user_data = self.db.get_user(user_id)
+                if wager > user_data['balance']:
+                    await query.answer(f"❌ Balance: ${user_data['balance']:.2f}", show_alert=True)
+                    return
+                
+                # Deduct wager
+                self.db.update_user(user_id, {'balance': user_data['balance'] - wager})
+                
+                # Send emoji based on mode
+                emoji_map = {"dice": "🎲", "basketball": "🏀", "soccer": "⚽", "darts": "🎯", "bowling": "🎳"}
+                dice_emoji = emoji_map.get(game_mode, "🎲")
+                dice_message = await context.bot.send_dice(chat_id=chat_id, emoji=dice_emoji)
+                actual_val = dice_message.dice.value
+                
+                await asyncio.sleep(4)
+                
+                # Determine win/loss based on mode and prediction
+                is_win = False
+                if game_mode == "dice" or game_mode == "darts" or game_mode == "bowling":
+                    is_win = str(actual_val) == str(prediction)
+                elif game_mode == "basketball":
+                    actual_outcome = "score" if actual_val in [3, 5] else "miss"
+                    is_win = prediction == actual_outcome
+                elif game_mode == "soccer":
+                    actual_outcome = "goal" if actual_val in [4, 5] else "miss"
+                    is_win = prediction == actual_outcome
+
+                if is_win:
+                    payout = wager * 6 # Simplified multiplier for all
+                    profit = payout - wager
+                    user_data['balance'] += payout
+                    user_data['games_won'] += 1
+                    result_text = f"✅ @{user_data['username']} won ${profit:.2f}!"
+                    self.db.update_house_balance(-profit)
+                else:
+                    profit = -wager
+                    result_text = f"❌ @{user_data['username']} lost ${wager:.2f}"
+                    self.db.update_house_balance(wager)
+                
+                user_data['total_wagered'] += wager
+                user_data['games_played'] += 1
+                self.db.update_user(user_id, user_data)
+                
+                # Show results with play again buttons
+                await self._setup_predict_interface(update, context, wager, game_mode)
+                await context.bot.send_message(chat_id=chat_id, text=result_text)
+                
+                self.db.record_game({
+                    'type': f'predict_{game_mode}',
+                    'player_id': user_id,
+                    'wager': wager,
+                    'predicted': prediction,
+                    'actual': actual_val,
+                    'result': 'win' if is_win else 'loss'
+                })
                 return
 
             # Generic game setup (Initial step from /bet menu)
