@@ -863,7 +863,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             return
         
         keyboard = [
-            [InlineKeyboardButton("🤖 Play vs @emojigamblebot", callback_data=f"dice_bot_{wager:.2f}"),
+            [InlineKeyboardButton("🤖 Play vs Bot", callback_data=f"dice_bot_{wager:.2f}"),
              InlineKeyboardButton("🎱 Predict Mode", callback_data=f"setup_mode_predict_{wager:.2f}")],
             [InlineKeyboardButton("👥 Create PvP Challenge", callback_data=f"dice_player_open_{wager:.2f}")]
         ]
@@ -992,7 +992,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             return
         
         keyboard = [
-            [InlineKeyboardButton("🤖 Play vs @emojigamblebot", callback_data=f"darts_bot_{wager:.2f}")],
+            [InlineKeyboardButton("🤖 Play vs Bot", callback_data=f"darts_bot_{wager:.2f}")],
             [InlineKeyboardButton("👥 Create PvP Challenge", callback_data=f"darts_player_open_{wager:.2f}")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -1032,7 +1032,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             return
         
         keyboard = [
-            [InlineKeyboardButton("🤖 Play vs @emojigamblebot", callback_data=f"basketball_bot_{wager:.2f}")],
+            [InlineKeyboardButton("🤖 Play vs Bot", callback_data=f"basketball_bot_{wager:.2f}")],
             [InlineKeyboardButton("👥 Create PvP Challenge", callback_data=f"basketball_player_open_{wager:.2f}")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -3003,7 +3003,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             self.db.record_game({"type": f"{game_type}_pvp", "challenger": challenger_id, "opponent": user_id, "wager": wager, "result": "draw"})
             
             keyboard = [
-                [InlineKeyboardButton("🤖 Play vs @emojigamblebot", callback_data=f"{game_type}_bot_{wager:.2f}")],
+                [InlineKeyboardButton("🤖 Play vs Bot", callback_data=f"{game_type}_bot_{wager:.2f}")],
                 [InlineKeyboardButton("👥 Create PvP Challenge", callback_data=f"{game_type}_player_open_{wager:.2f}")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
@@ -3034,7 +3034,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         final_text = f"✅ @{winner_user['username']} won ${wager:.2f}!"
         
         keyboard = [
-            [InlineKeyboardButton("🤖 Play vs @emojigamblebot", callback_data=f"{game_type}_bot_{wager:.2f}")],
+            [InlineKeyboardButton("🤖 Play vs Bot", callback_data=f"{game_type}_bot_{wager:.2f}")],
             [InlineKeyboardButton("👥 Create PvP Challenge", callback_data=f"{game_type}_player_open_{wager:.2f}")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -3924,7 +3924,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 if len(parts) >= 7:
                     game, wager, mode, rolls, pts = parts[2], float(parts[3]), parts[4], int(parts[5]), int(parts[6])
                     keyboard = [
-                        [InlineKeyboardButton("🤖 Play vs @emojigamblebot", callback_data=f"v2_bot_{game}_{wager:.2f}_{rolls}_{mode}_{pts}")],
+                        [InlineKeyboardButton("🤖 Play vs Bot", callback_data=f"v2_bot_{game}_{wager:.2f}_{rolls}_{mode}_{pts}")],
                         [InlineKeyboardButton("👥 Create PvP", callback_data=f"v2_pvp_{game}_{wager:.2f}_{rolls}_{mode}_{pts}")]
                     ]
                     await query.edit_message_text(f"**{game.capitalize()}** Ready!\n\nWager: ${wager:.2f}\nMode: {mode}\nRolls: {rolls}\nTarget: {pts}\n\nChoose Opponent:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
