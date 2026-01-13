@@ -1092,13 +1092,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             return
 
         # Record game attempt
-        self.db.record_game({
-            'type': f'{game_name}_bot',
-            'player_id': user_id,
-            'wager': wager,
-            'result': 'initiated',
-            'timestamp': datetime.now().isoformat()
-        })
+        # Removed redundant record_game on initiation to avoid double counting in matches list
         
         keyboard = [
             [InlineKeyboardButton("Normal", callback_data=f"setup_mode_normal_{game_name}_{wager:.2f}"),
