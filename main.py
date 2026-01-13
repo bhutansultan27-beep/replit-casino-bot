@@ -930,7 +930,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         current_emoji = emoji_map.get(game_mode, "🎲")
         
         text = (
-            f"{current_emoji} **{game_mode.capitalize()} Prediction**\n\n"
+            f"{current_emoji} **{game_mode.replace('_', ' ').capitalize()} Prediction**\n\n"
             f"Your balance: **${user_data['balance']:.2f}**\n"
             "Multiplier: **6.00x**\n\n"
             "Make your prediction:"
