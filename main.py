@@ -25,125 +25,90 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# --- 1. Database Manager (Simulated File Storage) ---
-# This class handles loading and saving the bot's state to a local JSON file.
-class DatabaseManager:
-    def __init__(self, file_path: str = 'casino_data.json'):
-        self.file_path = file_path
-        self.data: Dict[str, Any] = self.load_data()
-        
-    def load_data(self) -> Dict[str, Any]:
-        """Loads data from the JSON file or returns a default structure."""
-        if os.path.exists(self.file_path):
-            try:
-                with open(self.file_path, 'r') as f:
-                    return json.load(f)
-            except (json.JSONDecodeError, IOError) as e:
-                logger.error(f"Error loading database file: {e}. Starting with default data.")
-        
-        # Default starting data structure
-        return {
-            "users": {},
-            "games": [],
-            "transactions": {},
-            "pending_pvp": {},
-            "house_balance": 10000.00, # Initial house seed money
-            "dynamic_admins": [],  # Additional admins added via commands
-            "stickers": {
-                "roulette": {}  # Will store stickers for roulette numbers: "00", "0", "1", "2", ... "36"
-            }
-        }
+# --- 1. Database Manager (PostgreSQL) ---
+import models
+from flask import Flask
+from models import db, User, Game, Transaction, GlobalState
 
-    def save_data(self):
-        """Saves the current state back to the JSON file."""
-        try:
-            with open(self.file_path, 'w') as f:
-                json.dump(self.data, f, indent=4)
-        except IOError as e:
-            logger.error(f"Error saving database file: {e}")
+class DatabaseManager:
+    def __init__(self):
+        self.app = Flask(__name__)
+        self.app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL")
+        self.app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {"pool_recycle": 300, "pool_pre_ping": True}
+        db.init_app(self.app)
+        with self.app.app_context():
+            db.create_all()
+            # Initialize house balance if not exists
+            if not GlobalState.query.get("house_balance"):
+                db.session.add(GlobalState(key="house_balance", value={"amount": 10000.00}))
+            if not GlobalState.query.get("dynamic_admins"):
+                db.session.add(GlobalState(key="dynamic_admins", value={"ids": []}))
+            if not GlobalState.query.get("stickers"):
+                db.session.add(GlobalState(key="stickers", value={"roulette": {}}))
+            db.session.commit()
+
+    @property
+    def data(self):
+        # Compatibility layer for existing code that accesses self.db.data
+        with self.app.app_context():
+            house_balance = GlobalState.query.get("house_balance").value["amount"]
+            dynamic_admins = GlobalState.query.get("dynamic_admins").value["ids"]
+            stickers = GlobalState.query.get("stickers").value
+            return {
+                "house_balance": house_balance,
+                "dynamic_admins": dynamic_admins,
+                "stickers": stickers,
+                "pending_pvp": {} # We'll keep this in memory for now as it's transient
+            }
 
     def get_user(self, user_id: int) -> Dict[str, Any]:
-        """Retrieves user data, initializing a new user if necessary."""
-        user_id_str = str(user_id)
-        if user_id_str not in self.data['users']:
-            # New player default: $0 starting balance
-            new_user = {
-                "user_id": user_id,
-                "username": f"User{user_id}",
-                "balance": 0.0,
-                "playthrough_required": 0.0,
-                "last_bonus_claim": None,
-                "total_wagered": 0.0,
-                "total_pnl": 0.0,
-                "games_played": 0,
-                "games_won": 0,
-                "win_streak": 0,
-                "best_win_streak": 0,
-                "wagered_since_last_withdrawal": 0.0,
-                "first_wager_date": None,
-                "referral_code": None,
-                "referred_by": None,
-                "referral_count": 0,
-                "referral_earnings": 0.0,
-                "unclaimed_referral_earnings": 0.0,
-                "achievements": []
-            }
-            self.data['users'][user_id_str] = new_user
-            self.save_data()
-        return self.data['users'][user_id_str]
+        with self.app.app_context():
+            user = User.query.filter_by(user_id=user_id).first()
+            if not user:
+                user = User(user_id=user_id, username=f"User{user_id}")
+                db.session.add(user)
+                db.session.commit()
+            return self._user_to_dict(user)
+
+    def _user_to_dict(self, user):
+        return {c.name: getattr(user, c.name) for c in user.__table__.columns}
 
     def update_user(self, user_id: int, updates: Dict[str, Any]):
-        """Updates specific fields for a user."""
-        user_id_str = str(user_id)
-        if user_id_str in self.data['users']:
-            self.data['users'][user_id_str].update(updates)
-            self.save_data()
+        with self.app.app_context():
+            User.query.filter_by(user_id=user_id).update(updates)
+            db.session.commit()
 
     def get_house_balance(self) -> float:
-        """Retrieves the current house balance."""
-        return self.data['house_balance']
+        with self.app.app_context():
+            return GlobalState.query.get("house_balance").value["amount"]
 
     def update_house_balance(self, change: float):
-        """Adds or subtracts from the house balance."""
-        self.data['house_balance'] += change
-        self.save_data()
-        
+        with self.app.app_context():
+            state = GlobalState.query.get("house_balance")
+            val = state.value.copy()
+            val["amount"] += change
+            state.value = val
+            db.session.commit()
+
     def add_transaction(self, user_id: int, type: str, amount: float, description: str):
-        """Records a transaction for historical purposes."""
-        user_id_str = str(user_id)
-        if user_id_str not in self.data['transactions']:
-            self.data['transactions'][user_id_str] = []
-        
-        transaction = {
-            "type": type,
-            "amount": amount,
-            "description": description,
-            "timestamp": datetime.now().isoformat()
-        }
-        self.data['transactions'][user_id_str].append(transaction)
-        # Note: Transaction save is implicitly handled by self.save_data() called in update_user/update_house_balance
+        with self.app.app_context():
+            tx = Transaction(user_id=user_id, type=type, amount=amount, description=description)
+            db.session.add(tx)
+            db.session.commit()
 
     def record_game(self, game_data: Dict[str, Any]):
-        """Records a completed game to the global history."""
-        game_data['timestamp'] = datetime.now().isoformat()
-        self.data['games'].append(game_data)
-        # We only keep the last 500 games to prevent the file from getting too large
-        if len(self.data['games']) > 500:
-            self.data['games'] = self.data['games'][-500:]
-        self.save_data()
+        with self.app.app_context():
+            g = Game(data=game_data)
+            db.session.add(g)
+            db.session.commit()
 
     def get_leaderboard(self) -> List[Dict[str, Any]]:
-        """Returns top players by total wagered."""
-        leaderboard_data = []
-        for user_data in self.data['users'].values():
-            leaderboard_data.append({
-                "username": user_data.get('username', f'User{user_data["user_id"]}'),
-                "total_wagered": user_data.get('total_wagered', 0.0)
-            })
-        
-        # Sort by total_wagered descending
-        leaderboard_data.sort(key=lambda x: x['total_wagered'], reverse=True)
-        return leaderboard_data[:50] # Limit to top 50
+        with self.app.app_context():
+            users = User.query.order_by(User.total_wagered.desc()).limit(50).all()
+            return [{"username": u.username or f"User{u.user_id}", "total_wagered": u.total_wagered} for u in users]
+
+    def save_data(self):
+        pass # No longer needed for SQL
 
 # --- 2. Antaria Casino Bot Class ---
 class AntariaCasinoBot:
