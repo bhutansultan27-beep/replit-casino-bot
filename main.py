@@ -851,14 +851,15 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
 
         keyboard = [
             [InlineKeyboardButton("🎲 Dice", callback_data=f"setup_mode_dice_{amount:.2f}"),
-             InlineKeyboardButton("🎯 Darts", callback_data=f"setup_mode_darts_{amount:.2f}")],
-            [InlineKeyboardButton("🏀 Basketball", callback_data=f"setup_mode_basketball_{amount:.2f}"),
-             InlineKeyboardButton("⚽ Soccer", callback_data=f"setup_mode_soccer_{amount:.2f}")],
-            [InlineKeyboardButton("🎳 Bowling", callback_data=f"setup_mode_bowling_{amount:.2f}"),
-             InlineKeyboardButton("🎰 Slots", callback_data=f"slots_bot_{amount:.2f}")],
-            [InlineKeyboardButton("🪙 CoinFlip", callback_data=f"flip_bot_{amount:.2f}"),
-             InlineKeyboardButton("🃏 Blackjack", callback_data=f"bj_bot_{amount:.2f}")],
-            [InlineKeyboardButton("🎡 Roulette", callback_data=f"roulette_menu_{amount:.2f}")]
+             InlineKeyboardButton("🎲 Predict", callback_data=f"setup_mode_predict_{amount:.2f}")],
+            [InlineKeyboardButton("🎯 Darts", callback_data=f"setup_mode_darts_{amount:.2f}"),
+             InlineKeyboardButton("🏀 Basketball", callback_data=f"setup_mode_basketball_{amount:.2f}")],
+            [InlineKeyboardButton("⚽ Soccer", callback_data=f"setup_mode_soccer_{amount:.2f}"),
+             InlineKeyboardButton("🎳 Bowling", callback_data=f"setup_mode_bowling_{amount:.2f}")],
+            [InlineKeyboardButton("🎰 Slots", callback_data=f"slots_bot_{amount:.2f}"),
+             InlineKeyboardButton("🪙 CoinFlip", callback_data=f"flip_bot_{amount:.2f}")],
+            [InlineKeyboardButton("🃏 Blackjack", callback_data=f"bj_bot_{amount:.2f}"),
+             InlineKeyboardButton("🎡 Roulette", callback_data=f"roulette_menu_{amount:.2f}")]
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -897,17 +898,53 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             return
         
         keyboard = [
-            [InlineKeyboardButton("🤖 Play vs Bot", callback_data=f"dice_bot_{wager:.2f}")],
+            [InlineKeyboardButton("🤖 Play vs Bot", callback_data=f"dice_bot_{wager:.2f}"),
+             InlineKeyboardButton("🎲 Predict Mode", callback_data=f"setup_mode_predict_{wager:.2f}")],
             [InlineKeyboardButton("👥 Create PvP Challenge", callback_data=f"dice_player_open_{wager:.2f}")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         sent_msg = await update.message.reply_text(
-            f"🎲 **Dice Game**\n\nWager: ${wager:.2f}\n\nChoose your opponent:",
+            f"🎲 **Dice Game**\n\nWager: ${wager:.2f}\n\nChoose your mode:",
             reply_markup=reply_markup,
             parse_mode="Markdown"
         )
         self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
+
+    async def _setup_predict_interface(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float):
+        """Display the prediction interface as shown in the screenshot"""
+        user_id = update.effective_user.id
+        user_data = self.db.get_user(user_id)
+        
+        text = (
+            "🎲 **Dice Prediction**\n\n"
+            f"Your balance: **${user_data['balance']:.2f}**\n"
+            "Multiplier: **6.00x**\n\n"
+            "Make your prediction:"
+        )
+        
+        keyboard = [
+            [InlineKeyboardButton("1", callback_data=f"predict_{wager:.2f}_1"),
+             InlineKeyboardButton("2", callback_data=f"predict_{wager:.2f}_2"),
+             InlineKeyboardButton("3", callback_data=f"predict_{wager:.2f}_3"),
+             InlineKeyboardButton("4", callback_data=f"predict_{wager:.2f}_4"),
+             InlineKeyboardButton("5", callback_data=f"predict_{wager:.2f}_5"),
+             InlineKeyboardButton("6", callback_data=f"predict_{wager:.2f}_6")],
+            [InlineKeyboardButton("Half Bet", callback_data=f"setup_mode_predict_{max(0.01, wager/2):.2f}"),
+             InlineKeyboardButton(f"Bet: ${wager:.2f}", callback_data="none"),
+             InlineKeyboardButton("Double Bet", callback_data=f"setup_mode_predict_{wager*2:.2f}")],
+            [InlineKeyboardButton("⬅️", callback_data="none"),
+             InlineKeyboardButton("Mode: 🎲", callback_data="none"),
+             InlineKeyboardButton("➡️", callback_data="none")],
+            [InlineKeyboardButton("⬅️ Back", callback_data=f"setup_bet_back_{wager:.2f}"),
+             InlineKeyboardButton("✅ Start", callback_data=f"predict_start_{wager:.2f}")]
+        ]
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        if hasattr(update, 'callback_query') and update.callback_query:
+            await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode="Markdown")
+        else:
+            await update.message.reply_text(text, reply_markup=reply_markup, parse_mode="Markdown")
     
     async def darts_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play darts game setup"""
@@ -1025,14 +1062,15 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
 
         keyboard = [
             [InlineKeyboardButton("🎲 Dice", callback_data=f"setup_mode_dice_{amount:.2f}"),
-             InlineKeyboardButton("🎯 Darts", callback_data=f"setup_mode_darts_{amount:.2f}")],
-            [InlineKeyboardButton("🏀 Basketball", callback_data=f"setup_mode_basketball_{amount:.2f}"),
-             InlineKeyboardButton("⚽ Soccer", callback_data=f"setup_mode_soccer_{amount:.2f}")],
-            [InlineKeyboardButton("🎳 Bowling", callback_data=f"setup_mode_bowling_{amount:.2f}"),
-             InlineKeyboardButton("🎰 Slots", callback_data=f"slots_bot_{amount:.2f}")],
-            [InlineKeyboardButton("🪙 CoinFlip", callback_data=f"flip_bot_{amount:.2f}"),
-             InlineKeyboardButton("🃏 Blackjack", callback_data=f"bj_bot_{amount:.2f}")],
-            [InlineKeyboardButton("🎡 Roulette", callback_data=f"roulette_menu_{amount:.2f}")]
+             InlineKeyboardButton("🎲 Predict", callback_data=f"setup_mode_predict_{amount:.2f}")],
+            [InlineKeyboardButton("🎯 Darts", callback_data=f"setup_mode_darts_{amount:.2f}"),
+             InlineKeyboardButton("🏀 Basketball", callback_data=f"setup_mode_basketball_{amount:.2f}")],
+            [InlineKeyboardButton("⚽ Soccer", callback_data=f"setup_mode_soccer_{amount:.2f}"),
+             InlineKeyboardButton("🎳 Bowling", callback_data=f"setup_mode_bowling_{amount:.2f}")],
+            [InlineKeyboardButton("🎰 Slots", callback_data=f"slots_bot_{amount:.2f}"),
+             InlineKeyboardButton("🪙 CoinFlip", callback_data=f"flip_bot_{amount:.2f}")],
+            [InlineKeyboardButton("🃏 Blackjack", callback_data=f"bj_bot_{amount:.2f}"),
+             InlineKeyboardButton("🎡 Roulette", callback_data=f"roulette_menu_{amount:.2f}")]
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -3664,6 +3702,23 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 page = int(parts[2])
                 target_user_id = int(parts[3])
                 await self.show_matches_page(update, page, target_user_id)
+                return
+
+            if data.startswith("setup_mode_predict_"):
+                parts = data.split("_")
+                wager = float(parts[3])
+                await self._setup_predict_interface(update, context, wager)
+                return
+            
+            if data.startswith("setup_bet_back_"):
+                parts = data.split("_")
+                wager = float(parts[3])
+                # Call bet_command logic essentially (simulated)
+                await self.bet_command(update, context) # This might need context.args adjusted or a helper
+                return
+
+            if data.startswith("predict_start_"):
+                await query.answer("Select a number above to predict!", show_alert=True)
                 return
 
             # Generic game setup (Initial step from /bet menu)
