@@ -904,12 +904,12 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             if selection == "score": multiplier_text = "Multiplier: **3.00x**"
             elif selection == "miss": multiplier_text = "Multiplier: **2.00x**"
             elif selection == "stuck": multiplier_text = "Multiplier: **6.00x**"
-            else: multiplier_text = "Choose your prediction"
+            else: multiplier_text = "Multiplier: **Choose your prediction**"
         elif game_mode == "soccer":
             if selection == "goal": multiplier_text = "Multiplier: **3.00x**"
             elif selection == "miss": multiplier_text = "Multiplier: **1.50x**"
             elif selection == "bar": multiplier_text = "Multiplier: **6.00x**"
-            else: multiplier_text = "Choose your prediction"
+            else: multiplier_text = "Multiplier: **Choose your prediction**"
         else:
             multiplier_text = "Multiplier: **6.00x**"
 
