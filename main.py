@@ -900,10 +900,20 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         selection = getattr(self, "_predict_selections", {}).get(user_id, "None")
         selection_text = f"Selected: **{selection.capitalize()}**" if selection != "None" else "Selected: **None**"
         
+        multiplier_text = "Multiplier: **6.00x**"
+        if game_mode == "basketball":
+            if selection == "score": multiplier_text = "Multiplier: **3.00x**"
+            elif selection == "miss": multiplier_text = "Multiplier: **2.00x**"
+            else: multiplier_text = "Multiplier: **3.00x/2.00x**"
+        elif game_mode == "soccer":
+            if selection == "goal": multiplier_text = "Multiplier: **3.00x**"
+            elif selection == "miss": multiplier_text = "Multiplier: **1.50x**"
+            else: multiplier_text = "Multiplier: **3.00x/1.50x**"
+
         text = (
             f"{current_emoji} **{game_mode.replace('_', ' ').capitalize()} Prediction**\n\n"
             f"Your balance: **${user_data['balance']:.2f}**\n"
-            "Multiplier: **6.00x**\n\n"
+            f"{multiplier_text}\n\n"
             f"{selection_text}"
         )
         
@@ -3578,18 +3588,21 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         await self.show_matches_page(update, 0, user_id)
 
     async def show_matches_page(self, update: Update, page: int, user_id: int):
-        # Fetch games from JSON database since models.py/PostgreSQL might not be fully synced or used for history yet
+        # Fetch games from database
         user_games = []
-        all_games = self.db.data.get("games", [])
-        
-        for g in reversed(all_games):
-            is_participant = (
-                str(g.get('player_id')) == str(user_id) or 
-                str(g.get('challenger')) == str(user_id) or 
-                str(g.get('opponent')) == str(user_id)
-            )
-            if is_participant:
-                user_games.append(g)
+        with self.db.app.app_context():
+            from sqlalchemy import select, or_
+            from models import Game
+            query = select(Game).filter(
+                or_(
+                    Game.data['player_id'].astext == str(user_id),
+                    Game.data['challenger'].astext == str(user_id),
+                    Game.data['opponent'].astext == str(user_id)
+                )
+            ).order_by(Game.id.desc())
+            db_games = db.session.execute(query).scalars().all()
+            for g in db_games:
+                user_games.append(g.data)
         
         total_pages = (len(user_games) + 4) // 5
         if total_pages == 0:
@@ -3778,17 +3791,21 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 
                 # Determine win/loss based on mode and prediction
                 is_win = False
+                multiplier = 6.0
                 if game_mode == "dice" or game_mode == "darts" or game_mode == "bowling":
                     is_win = str(actual_val) == str(prediction)
+                    multiplier = 6.0
                 elif game_mode == "basketball":
                     actual_outcome = "score" if actual_val in [3, 5] else "miss"
                     is_win = prediction == actual_outcome
+                    multiplier = 3.0 if prediction == "score" else 2.0
                 elif game_mode == "soccer":
                     actual_outcome = "goal" if actual_val in [4, 5] else "miss"
                     is_win = prediction == actual_outcome
+                    multiplier = 3.0 if prediction == "goal" else 1.5
 
                 if is_win:
-                    payout = wager * 6 # Simplified multiplier for all
+                    payout = wager * multiplier
                     profit = payout - wager
                     user_data['balance'] += payout
                     user_data['games_won'] += 1
@@ -3819,11 +3836,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     'result': 'win' if is_win else 'loss',
                     'timestamp': datetime.now().isoformat()
                 }
-                if 'games' not in self.db.data:
-                    self.db.data['games'] = []
-                self.db.data['games'].append(game_record)
                 self.db.record_game(game_record)
-                self.db.save_data()
                 return
 
             # Generic game setup (Initial step from /bet menu)
