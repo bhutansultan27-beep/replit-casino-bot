@@ -856,8 +856,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
              InlineKeyboardButton("🏀 Basketball", callback_data=f"setup_mode_basketball_{amount:.2f}")],
             [InlineKeyboardButton("⚽ Soccer", callback_data=f"setup_mode_soccer_{amount:.2f}"),
              InlineKeyboardButton("🎳 Bowling", callback_data=f"setup_mode_bowling_{amount:.2f}")],
-            [InlineKeyboardButton("🎰 Slots", callback_data=f"slots_bot_{amount:.2f}"),
-             InlineKeyboardButton("🪙 CoinFlip", callback_data=f"flip_bot_{amount:.2f}"),
+            [InlineKeyboardButton("🪙 CoinFlip", callback_data=f"flip_bot_{amount:.2f}"),
              InlineKeyboardButton("🃏 Blackjack", callback_data=f"bj_bot_{amount:.2f}")]
         ]
         
@@ -1097,8 +1096,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
              InlineKeyboardButton("🏀 Basketball", callback_data=f"setup_mode_basketball_{amount:.2f}")],
             [InlineKeyboardButton("⚽ Soccer", callback_data=f"setup_mode_soccer_{amount:.2f}"),
              InlineKeyboardButton("🎳 Bowling", callback_data=f"setup_mode_bowling_{amount:.2f}")],
-            [InlineKeyboardButton("🎰 Slots", callback_data=f"slots_bot_{amount:.2f}"),
-             InlineKeyboardButton("🪙 CoinFlip", callback_data=f"flip_bot_{amount:.2f}"),
+            [InlineKeyboardButton("🪙 CoinFlip", callback_data=f"flip_bot_{amount:.2f}"),
              InlineKeyboardButton("🃏 Blackjack", callback_data=f"bj_bot_{amount:.2f}")]
         ]
         
