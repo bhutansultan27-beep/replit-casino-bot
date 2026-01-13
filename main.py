@@ -863,7 +863,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             return
         
         keyboard = [
-            [InlineKeyboardButton("🤖 Play vs Bot", callback_data=f"dice_bot_{wager:.2f}"),
+            [InlineKeyboardButton("🤖 Play vs emojigamblebot", callback_data=f"dice_bot_{wager:.2f}"),
              InlineKeyboardButton("🎱 Predict Mode", callback_data=f"setup_mode_predict_{wager:.2f}")],
             [InlineKeyboardButton("👥 Create PvP Challenge", callback_data=f"dice_player_open_{wager:.2f}")]
         ]
@@ -992,7 +992,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             return
         
         keyboard = [
-            [InlineKeyboardButton("🤖 Play vs Bot", callback_data=f"darts_bot_{wager:.2f}")],
+            [InlineKeyboardButton("🤖 Play vs emojigamblebot", callback_data=f"darts_bot_{wager:.2f}")],
             [InlineKeyboardButton("👥 Create PvP Challenge", callback_data=f"darts_player_open_{wager:.2f}")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -1032,7 +1032,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             return
         
         keyboard = [
-            [InlineKeyboardButton("🤖 Play vs Bot", callback_data=f"basketball_bot_{wager:.2f}")],
+            [InlineKeyboardButton("🤖 Play vs emojigamblebot", callback_data=f"basketball_bot_{wager:.2f}")],
             [InlineKeyboardButton("👥 Create PvP Challenge", callback_data=f"basketball_player_open_{wager:.2f}")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -1236,7 +1236,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                  InlineKeyboardButton("#6", callback_data=f"predict_{wager:.2f}_6")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
-            sent_msg = await update.message.reply_text(f"✅ Won ${profit:.2f}!", reply_markup=reply_markup)
+            sent_msg = await update.message.reply_text(f"✅ @{user_data['username']} won ${profit:.2f}!", reply_markup=reply_markup)
             self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
         else:
             # Loss
@@ -1257,7 +1257,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                  InlineKeyboardButton("#6", callback_data=f"predict_{wager:.2f}_6")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
-            sent_msg = await update.message.reply_text(f"❌ Lost ${wager:.2f}", reply_markup=reply_markup)
+            sent_msg = await update.message.reply_text(f"❌ [emojigamblebot](tg://user?id=8575155625) won ${wager:.2f}", reply_markup=reply_markup)
             self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
         
         # Record game
@@ -2493,7 +2493,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         self.db.data['pending_pvp'] = self.pending_pvp
         self.db.save_data()
         
-        await context.bot.send_message(chat_id=chat_id, text=f"@{username} your turn", parse_mode="Markdown")
+        bot_mention = "[emojigamblebot](tg://user?id=8575155625)"
+        await context.bot.send_message(chat_id=chat_id, text=f"{bot_mention} vs @{username}\n\n@{username} your turn", parse_mode="Markdown")
 
     async def bowling_vs_bot(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float):
         """Play bowling against the bot (called from button)"""
@@ -2530,7 +2531,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         self.db.data['pending_pvp'] = self.pending_pvp
         self.db.save_data()
         
-        await context.bot.send_message(chat_id=chat_id, text=f"@{username} your turn", parse_mode="Markdown")
+        bot_mention = "[emojigamblebot](tg://user?id=8575155625)"
+        await context.bot.send_message(chat_id=chat_id, text=f"{bot_mention} vs @{username}\n\n@{username} your turn", parse_mode="Markdown")
 
     async def create_open_dice_challenge(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float):
         """Create an open dice challenge for anyone to accept"""
@@ -3075,13 +3077,13 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             result = "win"
             user_data['balance'] += (wager * 2) # Wager back + profit
             self.db.update_user(user_id, user_data)
-            result_text = f"✅ Won ${profit:.2f}!"
+            result_text = f"✅ @{user_data['username']} won ${profit:.2f}!"
             self.db.update_house_balance(-wager)
         elif p_val < b_val:
             # LOSS: Already deducted, house keeps it
             profit = -wager
             result = "loss"
-            result_text = f"❌ Lost ${wager:.2f}"
+            result_text = f"❌ [emojigamblebot](tg://user?id=8575155625) won ${wager:.2f}"
             self.db.update_house_balance(wager)
         else:
             # Draw - refund wager
@@ -3135,12 +3137,12 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             profit = wager
             outcome = "win"
             user_display = f"@{username}" if user_data.get('username') else username
-            result_text = f"{user_display} won ${profit:.2f}"
+            result_text = f"✅ {user_display} won ${profit:.2f}"
             self.db.update_house_balance(-wager)
         else:
             profit = -wager
             user_display = f"@{username}" if user_data.get('username') else username
-            result_text = f"{user_display} lost ${wager:.2f}"
+            result_text = f"❌ [emojigamblebot](tg://user?id=8575155625) won ${wager:.2f}"
             self.db.update_house_balance(wager)
 
         # Update user stats and database
@@ -3318,12 +3320,13 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             profit = wager * (multiplier - 1)
             outcome = "win"
             user_display = f"@{username}" if user_data.get('username') else username
-            result_text = f"{user_display} won ${profit:.2f}"
+            result_text = f"✅ {user_display} won ${profit:.2f}"
             self.db.update_house_balance(-profit)
         else:
             profit = -wager
+            outcome = "loss"
             user_display = f"@{username}" if user_data.get('username') else username
-            result_text = f"{user_display} lost ${wager:.2f}"
+            result_text = f"❌ [emojigamblebot](tg://user?id=8575155625) won ${wager:.2f}"
             self.db.update_house_balance(wager)
         
         self._update_user_stats(user_id, wager, profit, outcome)
@@ -3840,7 +3843,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     self.db.update_house_balance(-profit)
                 else:
                     profit = -wager
-                    result_text = f"❌ @{user_data['username']} lost ${wager:.2f}"
+                    result_text = f"❌ [emojigamblebot](tg://user?id=8575155625) won ${wager:.2f}"
                     self.db.update_house_balance(wager)
                 
                 user_data['total_wagered'] += wager
@@ -4016,13 +4019,13 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     user_data['games_won'] += 1
                     self.db.update_user(user_id, user_data)
                     self.db.update_house_balance(-profit)
-                    sent_msg = await context.bot.send_message(chat_id=chat_id, text=f"@{user_data['username']} won ${profit:.2f}", reply_markup=reply_markup)
+                    sent_msg = await context.bot.send_message(chat_id=chat_id, text=f"✅ @{user_data['username']} won ${profit:.2f}!", reply_markup=reply_markup)
                 else:
                     user_data['total_wagered'] += wager
                     user_data['games_played'] += 1
                     self.db.update_user(user_id, user_data)
                     self.db.update_house_balance(wager)
-                    sent_msg = await context.bot.send_message(chat_id=chat_id, text=f"@{user_data['username']} lost ${wager:.2f}", reply_markup=reply_markup)
+                    sent_msg = await context.bot.send_message(chat_id=chat_id, text=f"❌ [emojigamblebot](tg://user?id=8575155625) won ${wager:.2f}", reply_markup=reply_markup)
                 self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
                 self.db.record_game({'type': 'slots_bot', 'player_id': user_id, 'wager': wager, 'slot_value': slot_value, 'result': 'win' if profit > 0 else 'loss', 'payout': profit})
                 return
