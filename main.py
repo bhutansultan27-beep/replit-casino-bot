@@ -949,8 +949,9 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         elif game_mode == "soccer":
             # Soccer: 1 (miss), 2 (miss), 3 (miss), 4 (score), 5 (score)
             prediction_row = [
-                InlineKeyboardButton("Score", callback_data=f"predict_{wager:.2f}_score_{game_mode}"),
-                InlineKeyboardButton("Miss", callback_data=f"predict_{wager:.2f}_miss_{game_mode}")
+                InlineKeyboardButton("Goal", callback_data=f"predict_{wager:.2f}_goal_{game_mode}"),
+                InlineKeyboardButton("Miss", callback_data=f"predict_{wager:.2f}_miss_{game_mode}"),
+                InlineKeyboardButton("Bar", callback_data=f"predict_{wager:.2f}_bar_{game_mode}")
             ]
         elif game_mode == "darts":
             prediction_row = [InlineKeyboardButton(str(i), callback_data=f"predict_{wager:.2f}_{i}_{game_mode}") for i in range(1, 7)]
