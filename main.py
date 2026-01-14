@@ -3973,8 +3973,12 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 self.db.save_data()
                 return
             
-            elif data.startswith("bj_bot_"):
-                wager = float(data.split("_")[2])
+            if data.startswith("bj_bot_"):
+                parts = data.split("_")
+                if len(parts) < 3:
+                    await query.answer("❌ Invalid button data!", show_alert=True)
+                    return
+                wager = float(parts[2])
                 # Simulate the blackjack command logic
                 user_id = query.from_user.id
                 user_data = self.db.get_user(user_id)
@@ -3991,7 +3995,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 self.db.update_user(user_id, {'balance': user_data['balance'] - wager})
 
                 from blackjack import BlackjackGame
-                game = BlackjackGame(wager)
+                game = BlackjackGame(bet_amount=wager)
                 self.blackjack_sessions[user_id] = game
                 await self._display_blackjack_state(update, context, user_id)
 
@@ -4350,6 +4354,10 @@ To withdraw, use:
             # Blackjack button handlers
             elif data.startswith("bj_"):
                 parts = data.split('_')
+                if len(parts) < 3:
+                    await query.answer("❌ Invalid button data!", show_alert=True)
+                    return
+                
                 game_user_id = int(parts[1])
                 action = parts[2]
                 
