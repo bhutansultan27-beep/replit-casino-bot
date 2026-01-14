@@ -4350,17 +4350,14 @@ async def main():
     logger.info("Starting Antaria Casino Bot...")
     bot = AntariaCasinoBot(token=BOT_TOKEN)
     
-    from webhook_server import WebhookServer
-    webhook_server = WebhookServer(bot, port=5000)
-    await webhook_server.start()
-    logger.info("Webhook server started on port 5000")
-    
     job_queue = bot.app.job_queue
     job_queue.run_repeating(bot.check_expired_challenges, interval=5, first=5)
     
     await bot.app.initialize()
     await bot.app.start()
     await bot.app.updater.start_polling(poll_interval=1.0)
+    
+    logger.info("Bot is running with polling mode...")
     
     try:
         while True:
