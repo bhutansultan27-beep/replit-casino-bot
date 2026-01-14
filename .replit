@@ -1,4 +1,4 @@
-modules = ["python-3.11"]
+modules = ["python-3.12"]
 [agent]
 expertMode = true
 
@@ -31,7 +31,7 @@ args = "python main.py"
 
 [deployment]
 deploymentTarget = "vm"
-run = ["python", "main.py"]
+run = ["python"]
 
 [userenv]
 
