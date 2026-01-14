@@ -4218,6 +4218,19 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     rolls = int(parts[6])
                     mode = parts[7]
                     
+                    # Check balance before starting
+                    user_data = self.db.get_user(user_id)
+                    if user_data['balance'] < wager:
+                        await query.answer(f"❌ Insufficient balance! Your balance is ${user_data['balance']:.2f}", show_alert=True)
+                        return
+
+                    # Check for active games
+                    self.pending_pvp = self.db.data.get('pending_pvp', {})
+                    for pid, pgame in self.pending_pvp.items():
+                        if pgame.get('player') == user_id or pgame.get('challenger') == user_id:
+                             await query.answer("❌ You already have an active game! Please finish or wait for it to expire.", show_alert=True)
+                             return
+
                     # Initialize V2 bot game
                     game_id = f"v2_bot_{user_id}_{int(datetime.now().timestamp())}"
                     self.pending_pvp[game_id] = {
