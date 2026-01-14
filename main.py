@@ -553,7 +553,7 @@ class AntariaCasinoBot:
         
         welcome_text = f"""
 🎰 **Antaria Casino**
-💰 Balance: ${user_data['balance']:.2f}
+💰 Balance: **${user_data['balance']:.2f}**
 
 **Games:**
 /dice 10 - Dice 🎲
