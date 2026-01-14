@@ -3901,6 +3901,16 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 await self._show_darts_menu(update, context, wager)
                 return
 
+            if data.startswith("setup_mode_dice_"):
+                wager = float(data.split("_")[3])
+                await self._show_dice_menu(update, context, wager)
+                return
+
+            if data.startswith("setup_mode_darts_"):
+                wager = float(data.split("_")[3])
+                await self._show_darts_menu(update, context, wager)
+                return
+
             if data.startswith("setup_mode_predict_"):
                 parts = data.split("_")
                 wager = float(parts[3])
