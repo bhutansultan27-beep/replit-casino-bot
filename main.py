@@ -26,7 +26,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # --- 1. Database Manager (PostgreSQL) ---
-import models
 from flask import Flask
 from models import db, User, Game, Transaction, GlobalState
 
@@ -39,11 +38,16 @@ class DatabaseManager:
         with self.app.app_context():
             db.create_all()
             # Initialize house balance if not exists
-            if not db.session.get(GlobalState, "house_balance"):
+            house_balance_state = db.session.get(GlobalState, "house_balance")
+            if not house_balance_state:
                 db.session.add(GlobalState(key="house_balance", value={"amount": 10000.00}))
-            if not db.session.get(GlobalState, "dynamic_admins"):
+            
+            dynamic_admins_state = db.session.get(GlobalState, "dynamic_admins")
+            if not dynamic_admins_state:
                 db.session.add(GlobalState(key="dynamic_admins", value={"ids": []}))
-            if not db.session.get(GlobalState, "stickers"):
+            
+            stickers_state = db.session.get(GlobalState, "stickers")
+            if not stickers_state:
                 db.session.add(GlobalState(key="stickers", value={"roulette": {}}))
             db.session.commit()
 
@@ -173,8 +177,12 @@ class AntariaCasinoBot:
             logger.info(f"Loaded {len(self.dynamic_admin_ids)} dynamic admin(s) from database")
         
         # Initialize bot application
-        self.app = Application.builder().token(token).build()
-        self.setup_handlers()
+    token = os.environ.get("TELEGRAM_TOKEN")
+    self.app = Application.builder().token(token).build()
+    # Add job queue check
+    if not self.app.job_queue:
+        logger.warning("Job queue is not available. Some features like challenge expiration may not work.")
+    self.setup_handlers()
         
         # Dictionary to store ongoing PvP challenges
         self.pending_pvp: Dict[str, Any] = self.db.data.get('pending_pvp', {})
