@@ -571,13 +571,45 @@ class AntariaCasinoBot:
 """
         await update.message.reply_text(welcome_text, parse_mode="Markdown")
     
+    async def get_live_rate(self, crypto_id: str) -> float:
+        """Fetch live crypto rate from CoinGecko with caching."""
+        now = datetime.now()
+        cache_key = f"rate_{crypto_id}"
+        
+        # Check cache (10 minutes)
+        if hasattr(self, '_rate_cache') and cache_key in self._rate_cache:
+            rate, expiry = self._rate_cache[cache_key]
+            if now < expiry:
+                return rate
+        else:
+            self._rate_cache = {}
+
+        try:
+            import requests
+            url = f"https://api.coingecko.com/api/v3/simple/price?ids={crypto_id}&vs_currencies=usd"
+            response = requests.get(url, timeout=5)
+            data = response.json()
+            rate = float(data[crypto_id]['usd'])
+            
+            # Update cache
+            self._rate_cache[cache_key] = (rate, now + timedelta(minutes=10))
+            return rate
+        except Exception as e:
+            logger.error(f"Error fetching {crypto_id} rate: {e}")
+            # Fallback to env or defaults
+            if crypto_id == "monero":
+                return float(os.getenv('XMR_USD_RATE', '160.0'))
+            elif crypto_id == "litecoin":
+                return float(os.getenv('LTC_USD_RATE', '100.0'))
+            return 100.0
+
     async def balance_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Show balance with deposit/withdraw buttons"""
         user_data = self.ensure_user_registered(update)
         user_id = update.effective_user.id
         
-        # Mock XMR rate for display
-        xmr_usd_rate = float(os.getenv('XMR_USD_RATE', '160.0'))
+        # Fetch live XMR rate
+        xmr_usd_rate = await self.get_live_rate("monero")
         xmr_balance = user_data['balance'] / xmr_usd_rate
         
         balance_text = f"Your balance: **${user_data['balance']:.2f}** ({xmr_balance:.5f} XMR)"
@@ -1641,8 +1673,9 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         else:
             deposit_memo = None
         
+        # Fetch live rates
+        ltc_rate = await self.get_live_rate("litecoin")
         deposit_fee = float(os.getenv('DEPOSIT_FEE_PERCENT', '2'))
-        ltc_rate = float(os.getenv('LTC_USD_RATE', '100'))
         
         deposit_text = f"""💰 **LTC Deposit**
 
