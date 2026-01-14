@@ -937,13 +937,14 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             
             mode_display = "Normal" if mode == "normal" else "Crazy"
             text = (
-                f"{current_emoji} <b>{game_mode.capitalize()} - Game Details</b>\n\n"
+                f"{current_emoji} <b>{game_mode.capitalize()}</b>\n\n"
                 f"Your balance: <b>${user_data['balance']:,.2f}</b>\n"
-                f"Wager: <b>${wager:,.2f}</b>\n"
+                f"Multiplier: <b>{self._calculate_emoji_multiplier(rolls, pts):.2f}x</b>\n\n"
+                f"<b>Game Details:</b>\n"
                 f"Mode: <b>{mode_display}</b>\n"
                 f"Rolls: <b>{rolls}</b>\n"
                 f"Points: <b>{pts}</b>\n\n"
-                f"Click Start to play!"
+                f"Make your selection:"
             )
             
             # Bet control row
@@ -951,6 +952,15 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 InlineKeyboardButton("Half Bet", callback_data=f"emoji_setup_{game_mode}_{max(1.0, wager/2):.2f}_final_{pts}_{rolls}_{mode}"),
                 InlineKeyboardButton(f"Bet: ${wager:,.0f}", callback_data="none"),
                 InlineKeyboardButton("Double Bet", callback_data=f"emoji_setup_{game_mode}_{wager*2:.2f}_final_{pts}_{rolls}_{mode}")
+            ])
+            
+            # Mode selection row (arrows and emoji)
+            next_mode = self._get_next_game_mode(game_mode)
+            prev_mode = self._get_prev_game_mode(game_mode)
+            keyboard.append([
+                InlineKeyboardButton("⬅️", callback_data=f"emoji_setup_{prev_mode}_{wager:.2f}_mode"),
+                InlineKeyboardButton(f"Mode: {current_emoji}", callback_data="none"),
+                InlineKeyboardButton("➡️", callback_data=f"emoji_setup_{next_mode}_{wager:.2f}_mode")
             ])
             
             # Action row
@@ -968,6 +978,11 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
 
     async def _show_game_prediction_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float, game_mode: str = "dice"):
         """Display the game prediction menu as shown in the screenshot"""
+        # Route to multi-step setup for emoji games
+        if game_mode in ["dice", "basketball", "soccer", "darts", "bowling", "coinflip"]:
+            await self._show_emoji_game_setup(update, context, wager, game_mode)
+            return
+
         user_id = update.effective_user.id
         user_data = self.db.get_user(user_id)
         
