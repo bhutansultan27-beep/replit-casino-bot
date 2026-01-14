@@ -1,4 +1,4 @@
-modules = ["python-3.12", "postgresql-16"]
+modules = ["python-3.11"]
 [agent]
 expertMode = true
 
@@ -30,8 +30,8 @@ task = "shell.exec"
 args = "python main.py"
 
 [deployment]
-deploymentTarget = "vm"
-run = ["python"]
+deploymentTarget = "autoscale"
+run = ["gunicorn", "--bind", "0.0.0.0:5000", "main:app"]
 
 [userenv]
 
