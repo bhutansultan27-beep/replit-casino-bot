@@ -1010,10 +1010,10 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 multiplier = 0.00
 
         text = (
-            f"{current_emoji} <b>{game_mode.replace('_', ' ').capitalize()} Prediction</b>\n\n"
+            f"{current_emoji} <b>{game_mode.replace('_', ' ').capitalize()}</b>\n\n"
             f"Your balance: <b>${user_data['balance']:,.2f}</b>\n"
             f"Multiplier: <b>{multiplier:.2f}x</b>\n\n"
-            f"Make your prediction:"
+            f"Make your selection:"
         )
         
         keyboard = []
@@ -1063,7 +1063,6 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         
         # Action row
         keyboard.append([
-            InlineKeyboardButton("🤖 Play vs Bot", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_mode"),
             InlineKeyboardButton("✅ Start", callback_data=f"predict_start_{wager:.2f}_{game_mode}")
         ])
         keyboard.append([
