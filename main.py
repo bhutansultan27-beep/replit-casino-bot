@@ -895,6 +895,30 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 user_id
             )
 
+    def _get_next_game_mode(self, current: str) -> str:
+        modes = ["dice", "darts", "basketball", "bowling", "soccer", "coinflip"]
+        try:
+            idx = modes.index(current)
+            return modes[(idx + 1) % len(modes)]
+        except ValueError:
+            return modes[0]
+
+    def _get_prev_game_mode(self, current: str) -> str:
+        modes = ["dice", "darts", "basketball", "bowling", "soccer", "coinflip"]
+        try:
+            idx = modes.index(current)
+            return modes[(idx - 1) % len(modes)]
+        except ValueError:
+            return modes[0]
+
+    def _calculate_emoji_multiplier(self, rolls: int, pts: int) -> float:
+        # Simple multiplier logic based on rolls and points
+        # More rolls/points = harder to win = higher multiplier
+        base = 1.95
+        roll_mult = 1.0 + (rolls - 1) * 0.5
+        pts_mult = 1.0 + (pts - 1) * 0.8
+        return round(base * roll_mult * pts_mult, 2)
+
     async def _show_emoji_game_setup(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float, game_mode: str, step: str = "mode", params: Dict = None):
         """Display the setup menu for emoji games (mode, rolls, points)"""
         user_id = update.effective_user.id
