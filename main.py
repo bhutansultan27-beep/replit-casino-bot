@@ -3218,12 +3218,18 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         if emoji in ["⚽", "🏀"]: score = 1 if val >= 4 else 0
         else: score = val
 
+        # Ensure pending_pvp is up to date
         self.pending_pvp = self.db.data.get('pending_pvp', {})
+        
         for cid, challenge in list(self.pending_pvp.items()):
+            # Check if this challenge is in the same chat
+            if challenge.get('chat_id') != chat_id:
+                continue
+
             # Generic V2 Bot
             if cid.startswith("v2_bot_") and challenge.get('player') == user_id and challenge.get('emoji') == emoji:
-                if not challenge.get('wager_deducted'):
-                    user_data = self.db.get_user(user_id)
+                if not challenge.get('waiting_for_emoji'):
+                    continue
                     # Use a small epsilon to avoid floating point issues with "all" bets
                     if user_data['balance'] < (challenge['wager'] - 0.001):
                         await update.message.reply_text(f"❌ Insufficient balance to start the game! (Balance: ${user_data['balance']:.2f}, Wager: ${challenge['wager']:.2f})")
