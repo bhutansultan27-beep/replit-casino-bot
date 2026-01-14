@@ -905,31 +905,66 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         current_emoji = emoji_map.get(game_mode, "🎲")
         
         keyboard = []
+        
         if step == "mode":
-            text = f"{current_emoji} <b>{game_mode.capitalize()} - Select Mode</b>\n\nChoose your game mode:"
+            text = (
+                f"{current_emoji} <b>{game_mode.replace('_', ' ').capitalize()}</b>\n\n"
+                f"Your balance: <b>${user_data['balance']:,.2f}</b>\n"
+                f"Multiplier: 0.00x\n\n"
+                f"Choose your game mode:"
+            )
             keyboard.append([
                 InlineKeyboardButton("Normal (Highest)", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_rolls_normal"),
                 InlineKeyboardButton("Crazy (Lowest)", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_rolls_inverted")
             ])
-            keyboard.append([InlineKeyboardButton("⬅️ Back", callback_data=f"predict_menu_{wager:.2f}_{game_mode}")])
         elif step == "rolls":
             mode = params.get("mode")
-            text = f"{current_emoji} <b>{game_mode.capitalize()} - Select Rolls</b>\n\nChoose the amount of rolls:"
+            text = (
+                f"{current_emoji} <b>{game_mode.replace('_', ' ').capitalize()}</b>\n\n"
+                f"Your balance: <b>${user_data['balance']:,.2f}</b>\n"
+                f"Multiplier: 0.00x\n\n"
+                f"Choose the amount of rolls:"
+            )
             keyboard.append([
                 InlineKeyboardButton("1 Roll", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_points_1_{mode}"),
                 InlineKeyboardButton("2 Rolls", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_points_2_{mode}")
             ])
-            keyboard.append([InlineKeyboardButton("⬅️ Back", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_mode")])
         elif step == "points":
             mode = params.get("mode")
             rolls = params.get("rolls")
-            text = f"{current_emoji} <b>{game_mode.capitalize()} - Select Points</b>\n\nChoose the amount of points:"
+            text = (
+                f"{current_emoji} <b>{game_mode.replace('_', ' ').capitalize()}</b>\n\n"
+                f"Your balance: <b>${user_data['balance']:,.2f}</b>\n"
+                f"Multiplier: 0.00x\n\n"
+                f"Choose the amount of points:"
+            )
             keyboard.append([
                 InlineKeyboardButton("1 Pt", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_final_1_{rolls}_{mode}"),
                 InlineKeyboardButton("2 Pts", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_final_2_{rolls}_{mode}"),
                 InlineKeyboardButton("3 Pts", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_final_3_{rolls}_{mode}")
             ])
-            keyboard.append([InlineKeyboardButton("⬅️ Back", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_rolls_{mode}")])
+        
+        if step in ["mode", "rolls", "points"]:
+            # Bet control row
+            keyboard.append([
+                InlineKeyboardButton("Half Bet", callback_data=f"emoji_setup_{game_mode}_{max(1.0, wager/2):.2f}_{step}"),
+                InlineKeyboardButton(f"Bet: ${wager:,.0f}", callback_data="none"),
+                InlineKeyboardButton("Double Bet", callback_data=f"emoji_setup_{game_mode}_{wager*2:.2f}_{step}")
+            ])
+            
+            # Mode selection row (arrows and emoji)
+            next_mode = self._get_next_game_mode(game_mode)
+            prev_mode = self._get_prev_game_mode(game_mode)
+            keyboard.append([
+                InlineKeyboardButton("⬅️", callback_data=f"emoji_setup_{prev_mode}_{wager:.2f}_mode"),
+                InlineKeyboardButton(f"Mode: {current_emoji}", callback_data="none"),
+                InlineKeyboardButton("➡️", callback_data=f"emoji_setup_{next_mode}_{wager:.2f}_mode")
+            ])
+            
+            # Back button
+            back_callback = f"predict_menu_{wager:.2f}_{game_mode}" if step == "mode" else f"emoji_setup_{game_mode}_{wager:.2f}_{'mode' if step == 'rolls' else 'rolls'}"
+            keyboard.append([InlineKeyboardButton("⬅️ Back", callback_data=back_callback)])
+
         elif step == "final":
             mode = params.get("mode")
             rolls = params.get("rolls")
