@@ -3163,13 +3163,15 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         val = update.message.dice.value
         chat_id = update.message.chat_id
         
+        logger.info(f"Received dice roll: user={user_id}, emoji={emoji}, value={val}")
+
         # Scoring logic
         if emoji in ["⚽", "🏀"]: score = 1 if val >= 4 else 0
         else: score = val
 
         # Ensure pending_pvp is up to date
         self.pending_pvp = self.db.data.get('pending_pvp', {})
-        
+        logger.info(f"Current pending_pvp keys: {list(self.pending_pvp.keys())}")
         for cid, challenge in list(self.pending_pvp.items()):
             # Check if this challenge is in the same chat
             if challenge.get('chat_id') != chat_id:
