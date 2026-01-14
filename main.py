@@ -905,27 +905,100 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 await update.message.reply_text("❌ Invalid amount")
                 return
         
-        if wager <= 0.01:
-            await update.message.reply_text("❌ Min: $0.01")
+        if wager < 1.0:
+            await update.message.reply_text("❌ Minimum bet is $1.00")
             return
         
         if wager > user_data['balance']:
             await update.message.reply_text(f"❌ Balance: ${user_data['balance']:.2f}")
             return
         
+        await self._show_dice_menu(update, context, wager)
+
+    async def _show_dice_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float):
+        """Display the dice game menu"""
+        user_id = update.effective_user.id
+        user_data = self.db.get_user(user_id)
+        
+        text = (
+            f"🎲 <b>Dice Game</b>\n\n"
+            f"Your balance: <b>${user_data['balance']:,.2f}</b>\n"
+            f"Wager: <b>${wager:,.2f}</b>\n\n"
+            f"Choose your game mode:"
+        )
+        
         keyboard = [
-            [InlineKeyboardButton("🤖 Play vs emojigamblebot", callback_data=f"dice_bot_{wager:.2f}"),
-             InlineKeyboardButton("🎱 Predict Mode", callback_data=f"setup_mode_predict_{wager:.2f}")],
-            [InlineKeyboardButton("👥 Create PvP Challenge", callback_data=f"dice_player_open_{wager:.2f}")]
+            [InlineKeyboardButton("🤖 Play vs Bot", callback_data=f"dice_bot_{wager:.2f}"),
+             InlineKeyboardButton("👥 Create PvP", callback_data=f"dice_player_open_{wager:.2f}")],
+            [InlineKeyboardButton("🎱 Predict Mode", callback_data=f"setup_mode_predict_{wager:.2f}_dice")],
+            [InlineKeyboardButton("Half Bet", callback_data=f"dice_menu_{max(1.0, wager/2):.2f}"),
+             InlineKeyboardButton("Double Bet", callback_data=f"dice_menu_{wager*2:.2f}")],
+            [InlineKeyboardButton("⬅️ Switch Game (🎯)", callback_data=f"darts_menu_{wager:.2f}")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        sent_msg = await update.message.reply_text(
-            f"🎲 **Dice Game**\n\nWager: ${wager:.2f}\n\nChoose your mode:",
-            reply_markup=reply_markup,
-            parse_mode="Markdown"
+        if update.callback_query:
+            await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode="HTML")
+        else:
+            sent_msg = await update.message.reply_text(text, reply_markup=reply_markup, parse_mode="HTML")
+            self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
+
+    async def darts_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Play darts game setup"""
+        user_data = self.ensure_user_registered(update)
+        user_id = update.effective_user.id
+        
+        if not context.args:
+            await update.message.reply_text("Usage: `/darts <amount|all>`", parse_mode="Markdown")
+            return
+        
+        wager = 0.0
+        if context.args[0].lower() == "all":
+            wager = user_data['balance']
+        else:
+            try:
+                wager = round(float(context.args[0]), 2)
+            except ValueError:
+                await update.message.reply_text("❌ Invalid amount")
+                return
+        
+        if wager < 1.0:
+            await update.message.reply_text("❌ Minimum bet is $1.00")
+            return
+        
+        if wager > user_data['balance']:
+            await update.message.reply_text(f"❌ Balance: ${user_data['balance']:.2f}")
+            return
+        
+        await self._show_darts_menu(update, context, wager)
+
+    async def _show_darts_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float):
+        """Display the darts game menu"""
+        user_id = update.effective_user.id
+        user_data = self.db.get_user(user_id)
+        
+        text = (
+            f"🎯 <b>Darts Game</b>\n\n"
+            f"Your balance: <b>${user_data['balance']:,.2f}</b>\n"
+            f"Wager: <b>${wager:,.2f}</b>\n\n"
+            f"Choose your game mode:"
         )
-        self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
+        
+        keyboard = [
+            [InlineKeyboardButton("🤖 Play vs Bot", callback_data=f"darts_bot_{wager:.2f}"),
+             InlineKeyboardButton("👥 Create PvP", callback_data=f"darts_player_open_{wager:.2f}")],
+            [InlineKeyboardButton("🎱 Predict Mode", callback_data=f"setup_mode_predict_{wager:.2f}_darts")],
+            [InlineKeyboardButton("Half Bet", callback_data=f"darts_menu_{max(1.0, wager/2):.2f}"),
+             InlineKeyboardButton("Double Bet", callback_data=f"darts_menu_{wager*2:.2f}")],
+            [InlineKeyboardButton("➡️ Switch Game (🎲)", callback_data=f"dice_menu_{wager:.2f}")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        if update.callback_query:
+            await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode="HTML")
+        else:
+            sent_msg = await update.message.reply_text(text, reply_markup=reply_markup, parse_mode="HTML")
+            self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
 
     async def _setup_predict_interface(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float, game_mode: str = "dice"):
         """Display the prediction interface as shown in the screenshot"""
@@ -3818,7 +3891,17 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 await self.show_matches_page(update, page, target_user_id)
                 return
 
-            if data.startswith("setup_mode_predict_"):
+            # Custom menu switching
+        if data.startswith("dice_menu_"):
+            wager = float(data.split("_")[2])
+            await self._show_dice_menu(update, context, wager)
+            return
+        if data.startswith("darts_menu_"):
+            wager = float(data.split("_")[2])
+            await self._show_darts_menu(update, context, wager)
+            return
+
+        if data.startswith("setup_mode_predict_"):
                 parts = data.split("_")
                 wager = float(parts[3])
                 game_mode = parts[4] if len(parts) > 4 else "dice"
