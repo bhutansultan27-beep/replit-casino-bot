@@ -947,55 +947,54 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         
         current_emoji = emoji_map.get(game_mode, "🎲")
         
-        # Get current selection if any
-        selection = getattr(self, "_predict_selections", {}).get(user_id, "None")
-        selection_text = f"Selected: **{selection.capitalize()}**" if selection != "None" else "Selected: **None**"
+        # Get current selections
+        selections = getattr(self, "_predict_selections", {}).get(user_id, set())
+        if not isinstance(selections, set):
+            selections = {str(selections)} if selections != "None" else set()
+            
+        selection_list = sorted(list(selections))
+        selection_text = f"Selected: <b>{', '.join([s.capitalize() for p in selection_list])}</b>" if selections else "Selected: <b>None</b>"
         
-        if game_mode == "basketball":
-            if selection == "score": multiplier_text = "Multiplier: **3.00x**"
-            elif selection == "miss": multiplier_text = "Multiplier: **2.00x**"
-            elif selection == "stuck": multiplier_text = "Multiplier: **6.00x**"
-            else: multiplier_text = "Multiplier: **Choose your prediction**"
-        elif game_mode == "soccer":
-            if selection == "goal": multiplier_text = "Multiplier: **3.00x**"
-            elif selection == "miss": multiplier_text = "Multiplier: **1.50x**"
-            elif selection == "bar": multiplier_text = "Multiplier: **6.00x**"
-            else: multiplier_text = "Multiplier: **Choose your prediction**"
+        if selections:
+            multiplier = round(6.0 / len(selections), 2)
+            multiplier_text = f"Multiplier: <b>{multiplier:.2f}x</b>"
         else:
-            multiplier_text = "Multiplier: **6.00x**"
+            multiplier_text = "Multiplier: <b>Choose your prediction</b>"
 
         text = (
-            f"{current_emoji} **{game_mode.replace('_', ' ').capitalize()} Prediction**\n\n"
-            f"Your balance: **${user_data['balance']:.2f}**\n"
+            f"{current_emoji} <b>{game_mode.replace('_', ' ').capitalize()} Prediction</b>\n\n"
+            f"Your balance: <b>${user_data['balance']:,.2f}</b>\n"
             f"{multiplier_text}\n\n"
-            f"{selection_text}"
+            f"Make your prediction:"
         )
         
         # Define prediction buttons based on mode
         if game_mode == "dice" or game_mode == "darts" or game_mode == "bowling":
-            prediction_buttons = [InlineKeyboardButton(str(i), callback_data=f"setup_predict_select_{wager:.2f}_{i}_{game_mode}") for i in range(1, 7)]
-            # 2 rows for 1-6
+            prediction_buttons = []
+            for i in range(1, 7):
+                label = f"{i} ✅" if str(i) in selections else str(i)
+                prediction_buttons.append(InlineKeyboardButton(label, callback_data=f"setup_predict_select_{wager:.2f}_{i}_{game_mode}"))
             prediction_rows = [prediction_buttons[:3], prediction_buttons[3:]]
         elif game_mode == "basketball":
-            prediction_buttons = [
-                InlineKeyboardButton("Score", callback_data=f"setup_predict_select_{wager:.2f}_score_{game_mode}"),
-                InlineKeyboardButton("Miss", callback_data=f"setup_predict_select_{wager:.2f}_miss_{game_mode}"),
-                InlineKeyboardButton("Stuck", callback_data=f"setup_predict_select_{wager:.2f}_stuck_{game_mode}")
-            ]
+            options = ["score", "miss", "stuck"]
+            prediction_buttons = []
+            for opt in options:
+                label = f"{opt.capitalize()} ✅" if opt in selections else opt.capitalize()
+                prediction_buttons.append(InlineKeyboardButton(label, callback_data=f"setup_predict_select_{wager:.2f}_{opt}_{game_mode}"))
             prediction_rows = [prediction_buttons]
         elif game_mode == "soccer":
-            prediction_buttons = [
-                InlineKeyboardButton("Goal", callback_data=f"setup_predict_select_{wager:.2f}_goal_{game_mode}"),
-                InlineKeyboardButton("Miss", callback_data=f"setup_predict_select_{wager:.2f}_miss_{game_mode}"),
-                InlineKeyboardButton("Bar", callback_data=f"setup_predict_select_{wager:.2f}_bar_{game_mode}")
-            ]
+            options = ["goal", "miss", "bar"]
+            prediction_buttons = []
+            for opt in options:
+                label = f"{opt.capitalize()} ✅" if opt in selections else opt.capitalize()
+                prediction_buttons.append(InlineKeyboardButton(label, callback_data=f"setup_predict_select_{wager:.2f}_{opt}_{game_mode}"))
             prediction_rows = [prediction_buttons]
 
         keyboard = []
         keyboard.extend(prediction_rows)
         keyboard.extend([
-            [InlineKeyboardButton("Half Bet", callback_data=f"setup_mode_predict_{max(0.01, wager/2):.2f}_{game_mode}"),
-             InlineKeyboardButton(f"Bet: ${wager:.2f}", callback_data="none"),
+            [InlineKeyboardButton("Half Bet", callback_data=f"setup_mode_predict_{max(1.0, wager/2):.2f}_{game_mode}"),
+             InlineKeyboardButton(f"Bet: ${wager:,.2f}", callback_data="none"),
              InlineKeyboardButton("Double Bet", callback_data=f"setup_mode_predict_{wager*2:.2f}_{game_mode}")],
             [InlineKeyboardButton("⬅️", callback_data=f"setup_mode_predict_{wager:.2f}_{prev_mode}"),
              InlineKeyboardButton(f"Mode: {current_emoji}", callback_data="none"),
@@ -1006,9 +1005,9 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         
         reply_markup = InlineKeyboardMarkup(keyboard)
         if hasattr(update, 'callback_query') and update.callback_query:
-            await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode="Markdown")
+            await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode="HTML")
         else:
-            await update.message.reply_text(text, reply_markup=reply_markup, parse_mode="Markdown")
+            await update.message.reply_text(text, reply_markup=reply_markup, parse_mode="HTML")
     
     async def darts_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play darts game setup"""

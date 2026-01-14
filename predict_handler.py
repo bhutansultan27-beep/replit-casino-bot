@@ -17,9 +17,24 @@ async def handle_predict(bot_instance, update: Update, context: ContextTypes.DEF
         wager = float(parts[3])
         prediction = parts[4]
         game_mode = parts[5]
+        
         if not hasattr(bot_instance, "_predict_selections"):
             bot_instance._predict_selections = {}
-        bot_instance._predict_selections[user_id] = prediction
+        
+        if user_id not in bot_instance._predict_selections:
+            bot_instance._predict_selections[user_id] = set()
+        elif not isinstance(bot_instance._predict_selections[user_id], set):
+            bot_instance._predict_selections[user_id] = {str(bot_instance._predict_selections[user_id])}
+
+        if prediction in bot_instance._predict_selections[user_id]:
+            bot_instance._predict_selections[user_id].remove(prediction)
+        else:
+            if len(bot_instance._predict_selections[user_id]) < 5:
+                bot_instance._predict_selections[user_id].add(prediction)
+            else:
+                await query.answer("❌ Max 5 selections!", show_alert=True)
+                return
+                
         await bot_instance._setup_predict_interface(update, context, wager, game_mode)
         return
 
@@ -28,20 +43,23 @@ async def handle_predict(bot_instance, update: Update, context: ContextTypes.DEF
         wager = float(parts[2])
         game_mode = parts[3]
         
-        prediction = getattr(bot_instance, "_predict_selections", {}).get(user_id)
-        if not prediction:
-            await query.answer("❌ Please select a prediction first!", show_alert=True)
+        selections = getattr(bot_instance, "_predict_selections", {}).get(user_id, set())
+        if not selections:
+            await query.answer("❌ Please select at least one prediction!", show_alert=True)
             return
         
         user_data = bot_instance.db.get_user(user_id)
         if wager > user_data['balance']:
-            await query.answer(f"❌ Balance: ${user_data['balance']:.2f}", show_alert=True)
+            await query.answer(f"❌ Balance: ${user_data['balance']:,.2f}", show_alert=True)
             return
+        
+        multiplier = round(6.0 / len(selections), 2)
         
         if hasattr(bot_instance, "_predict_selections") and user_id in bot_instance._predict_selections:
             del bot_instance._predict_selections[user_id]
         
         user_data['balance'] -= wager
+        bot_instance.db.update_user(user_id, user_data)
         
         emoji_map = {"dice": "🎲", "basketball": "🏀", "soccer": "⚽", "darts": "🎯", "bowling": "🎳"}
         dice_emoji = emoji_map.get(game_mode, "🎲")
@@ -51,48 +69,40 @@ async def handle_predict(bot_instance, update: Update, context: ContextTypes.DEF
         await asyncio.sleep(4)
         
         is_win = False
-        multiplier = 6.0
         if game_mode in ["dice", "darts", "bowling"]:
-            is_win = str(actual_val) == str(prediction)
-            multiplier = 6.0
+            is_win = str(actual_val) in selections
         elif game_mode == "basketball":
             actual_outcome = "score" if actual_val in [3, 5] else "miss"
-            is_win = prediction == actual_outcome
-            if prediction == "score": multiplier = 3.0
-            elif prediction == "miss": multiplier = 2.0
-            else: multiplier = 6.0
+            is_win = actual_outcome in selections
         elif game_mode == "soccer":
             if actual_val in [4, 5]: actual_outcome = "goal"
             elif actual_val == 6: actual_outcome = "bar"
             else: actual_outcome = "miss"
-            is_win = prediction == actual_outcome
-            if prediction == "goal": multiplier = 3.0
-            elif prediction == "miss": multiplier = 1.5
-            else: multiplier = 6.0
+            is_win = actual_outcome in selections
 
         if is_win:
             payout = wager * multiplier
             profit = payout - wager
             user_data['balance'] += payout
             user_data['games_won'] += 1
-            user_display = f"**{user_data.get('username', f'User{user_id}')}**"
-            result_text = f"🎉 {user_display} won **${profit:.2f}**!"
+            user_display = f"<b>{user_data.get('username', f'User{user_id}')}</b>"
+            result_text = f"🎉 {user_display} won <b>${profit:,.2f}</b>! ({multiplier}x)"
             bot_instance.db.update_house_balance(-profit)
         else:
             profit = -wager
-            result_text = f"❌ [emojigamblebot](tg://user?id=8575155625) won **${wager:.2f}**"
+            result_text = f"❌ <a href=\"tg://user?id=8575155625\">emojigamblebot</a> won <b>${wager:,.2f}</b>"
             bot_instance.db.update_house_balance(wager)
         
         user_data['total_wagered'] += wager
         user_data['games_played'] += 1
         bot_instance.db.update_user(user_id, user_data)
         
-        bot_instance.db.add_transaction(user_id, f"predict_{game_mode}", profit, f"Predict {game_mode.upper()} - Wager: ${wager:.2f}")
+        bot_instance.db.add_transaction(user_id, f"predict_{game_mode}", profit, f"Predict {game_mode.upper()} - Wager: ${wager:,.2f}")
         bot_instance.db.record_game({
             'type': f'predict_{game_mode}',
             'player_id': user_id,
             'wager': wager,
-            'predicted': prediction,
+            'predicted': list(selections),
             'actual': actual_val,
             'result': 'win' if is_win else 'loss',
             'timestamp': datetime.now().isoformat()
@@ -105,7 +115,7 @@ async def handle_predict(bot_instance, update: Update, context: ContextTypes.DEF
             chat_id=chat_id, 
             text=result_text, 
             reply_markup=reply_markup, 
-            parse_mode="Markdown",
+            parse_mode="HTML",
             reply_to_message_id=dice_message.message_id
         )
         return
