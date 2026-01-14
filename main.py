@@ -3171,6 +3171,10 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
 
         # Ensure pending_pvp is up to date
         self.pending_pvp = self.db.data.get('pending_pvp', {})
+        # If empty, check if we need to sync from the persistent house balance/state
+        if not self.pending_pvp:
+             logger.info("pending_pvp is empty in memory, check database persistence")
+        
         logger.info(f"Current pending_pvp keys: {list(self.pending_pvp.keys())}")
         for cid, challenge in list(self.pending_pvp.items()):
             # Check if this challenge is in the same chat
