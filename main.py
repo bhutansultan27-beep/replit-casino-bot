@@ -51,15 +51,39 @@ class DatabaseManager:
     def data(self):
         # Compatibility layer for existing code that accesses self.db.data
         with self.app.app_context():
-            house_balance = db.session.get(GlobalState, "house_balance").value["amount"]
-            dynamic_admins = db.session.get(GlobalState, "dynamic_admins").value["ids"]
-            stickers = db.session.get(GlobalState, "stickers").value
+            house_balance_state = db.session.get(GlobalState, "house_balance")
+            house_balance = house_balance_state.value["amount"] if house_balance_state else 10000.00
+            
+            dynamic_admins_state = db.session.get(GlobalState, "dynamic_admins")
+            dynamic_admins = dynamic_admins_state.value["ids"] if dynamic_admins_state else []
+            
+            stickers_state = db.session.get(GlobalState, "stickers")
+            stickers = stickers_state.value if stickers_state else {}
+            
+            pending_pvp_state = db.session.get(GlobalState, "pending_pvp")
+            pending_pvp = pending_pvp_state.value if pending_pvp_state else {}
+            
             return {
                 "house_balance": house_balance,
                 "dynamic_admins": dynamic_admins,
                 "stickers": stickers,
-                "pending_pvp": {} # We'll keep this in memory for now as it's transient
+                "pending_pvp": pending_pvp
             }
+
+    def save_data(self):
+        # Compatibility layer
+        pass
+
+    def update_pending_pvp(self, pending_pvp_data: Dict[str, Any]):
+        with self.app.app_context():
+            state = db.session.get(GlobalState, "pending_pvp")
+            if not state:
+                state = GlobalState(key="pending_pvp", value=pending_pvp_data)
+                db.session.add(state)
+            else:
+                # Force SQLAlchemy to detect change in JSON
+                state.value = dict(pending_pvp_data)
+            db.session.commit()
 
     def get_user(self, user_id: int) -> Dict[str, Any]:
         with self.app.app_context():
@@ -4224,16 +4248,16 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                         await query.answer(f"❌ Insufficient balance! Your balance is ${user_data['balance']:.2f}", show_alert=True)
                         return
 
-                    # Check for active games
+                    # Check for active games - IMPROVED SYNC
                     self.pending_pvp = self.db.data.get('pending_pvp', {})
-                    for pid, pgame in self.pending_pvp.items():
+                    for pid, pgame in list(self.pending_pvp.items()):
                         if pgame.get('player') == user_id or pgame.get('challenger') == user_id:
                              await query.answer("❌ You already have an active game! Please finish or wait for it to expire.", show_alert=True)
                              return
 
                     # Initialize V2 bot game
                     game_id = f"v2_bot_{user_id}_{int(datetime.now().timestamp())}"
-                    self.pending_pvp[game_id] = {
+                    game_state = {
                         "game": g_mode,
                         "mode": mode,
                         "rolls": rolls,
@@ -4246,16 +4270,26 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                         "emoji": self.emoji_map.get(g_mode, "🎲"),
                         "player": user_id,
                         "chat_id": chat_id,
-                        "emoji_wait": datetime.now().isoformat()
+                        "emoji_wait": datetime.now().isoformat(),
+                        "waiting_for_emoji": True,
+                        "created_at": datetime.now().isoformat()
                     }
-                    self.db.data['pending_pvp'] = self.pending_pvp
-                    self.db.save_data()
+                    
+                    self.pending_pvp[game_id] = game_state
+                    
+                    # Persist immediately to DatabaseManager
+                    if hasattr(self.db, 'update_pending_pvp'):
+                        self.db.update_pending_pvp(self.pending_pvp)
+                    else:
+                        # Fallback to current method
+                        self.db.data['pending_pvp'] = self.pending_pvp
+                        self.db.save_data()
                     
                     bot_mention = "[emojigamblebot](tg://user?id=8575155625)"
                     user_mention = f"@{update.effective_user.username}" if update.effective_user.username else update.effective_user.first_name
                     await context.bot.send_message(
                         chat_id=chat_id, 
-                        text=f"🎮 **{g_mode.capitalize()} Series**\n\n{bot_mention} vs {user_mention}\n\n{user_mention} your turn! Send {self.pending_pvp[game_id]['emoji']}",
+                        text=f"🎮 **{g_mode.capitalize()} Series**\n\n{bot_mention} vs {user_mention}\n\n{user_mention} your turn! Send {game_state['emoji']}",
                         parse_mode="Markdown"
                     )
                 return
