@@ -1215,12 +1215,12 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         )
     
     async def predict_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Play dice predict game - predict what you'll roll"""
+        """Play dice predict game - predict what you'll roll with multiple choices"""
         user_data = self.ensure_user_registered(update)
         user_id = update.effective_user.id
         
         if len(context.args) < 2:
-            await update.message.reply_text("Usage: `/predict <amount|all> #<number>`\nExample: `/predict 5 #6`", parse_mode="Markdown")
+            await update.message.reply_text("Usage: `/predict <amount|all> #<number1>,#<number2>...`\nExample: `/predict 5 #1,#3,#6`", parse_mode="HTML")
             return
         
         wager = 0.0
@@ -1228,93 +1228,102 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             wager = user_data['balance']
         else:
             try:
-                wager = round(float(context.args[0]), 2)
+                arg = context.args[0].lower().replace('$', '').replace(',', '')
+                wager = round(float(arg), 2)
             except ValueError:
-                await update.message.reply_text("❌ Invalid amount")
+                await update.message.reply_text("❌ Invalid amount", parse_mode="HTML")
                 return
         
-        # Parse the predicted number
-        predicted_str = context.args[1]
-        if not predicted_str.startswith('#'):
-            await update.message.reply_text("❌ Prediction must start with # (e.g., #6)")
+        if wager < 1.0:
+            await update.message.reply_text("❌ Minimum bet is $1.00", parse_mode="HTML")
             return
-        
-        try:
-            predicted_number = int(predicted_str[1:])
-        except ValueError:
-            await update.message.reply_text("❌ Invalid number")
-            return
-        
-        if predicted_number < 1 or predicted_number > 6:
-            await update.message.reply_text("❌ Prediction must be between #1 and #6")
-            return
-        
-        if wager <= 0.01:
-            await update.message.reply_text("❌ Min: $0.01")
-            return
-        
+            
         if wager > user_data['balance']:
-            await update.message.reply_text(f"❌ Balance: ${user_data['balance']:.2f}")
+            await update.message.reply_text(f"❌ Balance: <b>${user_data['balance']:,.2f}</b>", parse_mode="HTML")
             return
+
+        # Parse predictions
+        pred_arg = context.args[1]
+        raw_predictions = [p.strip() for p in pred_arg.split(',')]
+        predictions = set()
         
-        # Deduct wager from user balance
+        for p in raw_predictions:
+            if not p.startswith('#'):
+                await update.message.reply_text(f"❌ Prediction {p} must start with #", parse_mode="HTML")
+                return
+            try:
+                num = int(p[1:])
+                if 1 <= num <= 6:
+                    predictions.add(num)
+                else:
+                    await update.message.reply_text(f"❌ Number {p} must be between 1 and 6", parse_mode="HTML")
+                    return
+            except ValueError:
+                await update.message.reply_text(f"❌ Invalid prediction: {p}", parse_mode="HTML")
+                return
+
+        if not predictions:
+            await update.message.reply_text("❌ No valid predictions provided", parse_mode="HTML")
+            return
+            
+        if len(predictions) > 5:
+            await update.message.reply_text("❌ You can't predict all 6 numbers (or 5 for logic sanity)", parse_mode="HTML")
+            return
+
+        # Multiplier logic: 6 / number of choices
+        multiplier = round(6.0 / len(predictions), 2)
+        
+        # Deduct wager
         self.db.update_user(user_id, {'balance': user_data['balance'] - wager})
         
-        # Send the dice emoji and wait for result
+        # Send the dice
         dice_message = await update.message.reply_dice(emoji="🎲")
         actual_roll = dice_message.dice.value
         
-        await asyncio.sleep(3)
+        await asyncio.sleep(4)
         
-        # Check if prediction matches
-        if actual_roll == predicted_number:
-            # Win!
-            payout = wager * 6
+        if actual_roll in predictions:
+            payout = wager * multiplier
             profit = payout - wager
-            new_balance = user_data['balance'] + payout
+            new_balance = user_data['balance'] + payout # User balance was already deducted
             
             self.db.update_user(user_id, {
-                        'balance': new_balance,
-                        'total_wagered': user_data['total_wagered'] + wager,
+                'balance': new_balance,
+                'total_wagered': user_data['total_wagered'] + wager,
                 'wagered_since_last_withdrawal': user_data.get('wagered_since_last_withdrawal', 0) + wager,
                 'games_played': user_data['games_played'] + 1,
                 'games_won': user_data['games_won'] + 1
             })
             self.db.update_house_balance(-profit)
             
-            # Winner display name bold without @
             user_display = f"<b>{user_data.get('username', f'User{user_id}')}</b>"
-            sent_msg = await update.message.reply_text(
-                f"🎉 {user_display} won <b>${profit:,.2f}</b>!",
+            await update.message.reply_text(
+                f"🎉 {user_display} won <b>${profit:,.2f}</b>! ({multiplier}x)",
                 parse_mode="HTML",
                 reply_to_message_id=update.message.message_id
             )
-            self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
         else:
-            # Loss
             self.db.update_user(user_id, {
-                        'total_wagered': user_data['total_wagered'] + wager,
+                'total_wagered': user_data['total_wagered'] + wager,
                 'wagered_since_last_withdrawal': user_data.get('wagered_since_last_withdrawal', 0) + wager,
                 'games_played': user_data['games_played'] + 1
             })
             self.db.update_house_balance(wager)
             
-            sent_msg = await update.message.reply_text(
+            await update.message.reply_text(
                 f"❌ <a href=\"tg://user?id=8575155625\">emojigamblebot</a> won <b>${wager:,.2f}</b>",
                 parse_mode="HTML",
                 reply_to_message_id=update.message.message_id
             )
-            self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
         
-        # Record game
         self.db.record_game({
             'type': 'dice_predict',
             'player_id': user_id,
             'wager': wager,
-            'predicted': predicted_number,
+            'predictions': list(predictions),
             'actual_roll': actual_roll,
-            'result': 'win' if actual_roll == predicted_number else 'loss',
-            'payout': (wager * 6) if actual_roll == predicted_number else 0
+            'result': 'win' if actual_roll in predictions else 'loss',
+            'payout': (wager * multiplier) if actual_roll in predictions else 0
         })
     
     async def coinflip_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
