@@ -996,7 +996,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             
             mode_display = "Normal" if mode == "normal" else "Crazy"
             text = (
-                f"{current_emoji} <b>{game_mode.capitalize()}</b>\n\n"
+                f"{current_emoji} <b>{game_mode.replace('_', ' ').capitalize()}</b>\n\n"
                 f"Your balance: <b>${user_data['balance']:,.2f}</b>\n"
                 f"Multiplier: <b>{self._calculate_emoji_multiplier(rolls, pts):.2f}x</b>\n\n"
                 f"<b>Game Details:</b>\n"
@@ -1017,9 +1017,9 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             next_mode = self._get_next_game_mode(game_mode)
             prev_mode = self._get_prev_game_mode(game_mode)
             keyboard.append([
-                InlineKeyboardButton("⬅️", callback_data=f"emoji_setup_{prev_mode}_{wager:.2f}_mode"),
+                InlineKeyboardButton("⬅️", callback_data=f"emoji_setup_{prev_mode}_{wager:.2f}_final_{pts}_{rolls}_{mode}"),
                 InlineKeyboardButton(f"Mode: {current_emoji}", callback_data="none"),
-                InlineKeyboardButton("➡️", callback_data=f"emoji_setup_{next_mode}_{wager:.2f}_mode")
+                InlineKeyboardButton("➡️", callback_data=f"emoji_setup_{next_mode}_{wager:.2f}_final_{pts}_{rolls}_{mode}")
             ])
             
             # Action row
