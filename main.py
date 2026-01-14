@@ -3751,7 +3751,6 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             self.clicked_buttons.add(button_key)
         
         try:
-            # Matches Pagination
             if data.startswith("match_page_"):
                 parts = data.split('_')
                 page = int(parts[2])
@@ -3775,13 +3774,17 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 # Call bet_command logic essentially (simulated)
                 await self.bet_command(update, context, amount=wager)
                 return
+        except Exception as e:
+            logger.error(f"Error in button_callback first block: {e}")
 
-            # Button ownership check
-        if (query.message.chat_id, query.message.message_id) in self.button_ownership:
-            owner_id = self.button_ownership[(query.message.chat_id, query.message.message_id)]
-            if user_id != owner_id:
-                await query.answer("❌ This is not your game/menu!", show_alert=True)
-                return
+        try:
+            if ownership_key in self.button_ownership:
+                owner_id = self.button_ownership[ownership_key]
+                if user_id != owner_id:
+                    await query.answer("❌ This is not your game/menu!", show_alert=True)
+                    return
+        except Exception:
+            pass
 
         if data == "tip_cancel":
             await query.message.delete()
