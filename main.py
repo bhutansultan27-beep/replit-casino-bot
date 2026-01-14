@@ -912,12 +912,32 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             return modes[0]
 
     def _calculate_emoji_multiplier(self, rolls: int, pts: int) -> float:
-        # Simple multiplier logic based on rolls and points
-        # More rolls/points = harder to win = higher multiplier
-        base = 1.95
-        roll_mult = 1.0 + (rolls - 1) * 0.5
-        pts_mult = 1.0 + (pts - 1) * 0.8
-        return round(base * roll_mult * pts_mult, 2)
+        """
+        Calculate multiplier for emoji games based on number of rolls and series points.
+        Logic: 
+        - Multiplier starts at 1.95x for 1 Roll, 1 Pt (best of 1).
+        - Each additional point (Bo3, Bo5) increases difficulty significantly.
+        - Multiple rolls per round also increase difficulty.
+        """
+        # Base multiplier for a single roll, single point game
+        multiplier = 1.95
+        
+        # Series length adjustments (approximate based on winning probabilities)
+        # 1 Pt: 1.95x
+        # 2 Pts (Bo3): ~3.8x
+        # 3 Pts (Bo5): ~5.8x
+        if pts == 2:
+            multiplier = 3.80
+        elif pts == 3:
+            multiplier = 5.80
+            
+        # Multiple rolls per round increase difficulty further
+        # 1 Roll: 1.0x
+        # 2 Rolls: ~1.5x (Harder to beat bot if bot also gets 2 rolls, or if we need higher sum)
+        if rolls == 2:
+            multiplier *= 1.5
+            
+        return round(multiplier, 2)
 
     async def _show_emoji_game_setup(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float, game_mode: str, step: str = "mode", params: Dict = None):
         """Display the setup menu for emoji games (mode, rolls, points)"""
