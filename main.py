@@ -3974,30 +3974,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 return
             
             if data.startswith("bj_bot_"):
-                parts = data.split("_")
-                if len(parts) < 3:
-                    await query.answer("❌ Invalid button data!", show_alert=True)
-                    return
-                wager = float(parts[2])
-                # Simulate the blackjack command logic
-                user_id = query.from_user.id
-                user_data = self.db.get_user(user_id)
-                if wager > user_data['balance']:
-                    await query.answer(f"❌ Insufficient balance! (${user_data['balance']:.2f})", show_alert=True)
-                    return
-                
-                # Check if already in a game
-                if user_id in self.blackjack_sessions:
-                    await query.answer("❌ You already have an active Blackjack game!", show_alert=True)
-                    return
-
-                # Deduct wager
-                self.db.update_user(user_id, {'balance': user_data['balance'] - wager})
-
-                from blackjack import BlackjackGame
-                game = BlackjackGame(bet_amount=wager)
-                self.blackjack_sessions[user_id] = game
-                await self._display_blackjack_state(update, context, user_id)
+                # Already handled in the bj_ block above
+                return
 
             elif data.startswith("slots_bot_"):
                 wager = float(data.split("_")[2])
@@ -4358,8 +4336,39 @@ To withdraw, use:
                     await query.answer("❌ Invalid button data!", show_alert=True)
                     return
                 
-                game_user_id = int(parts[1])
-                action = parts[2]
+                # Check for "bj_bot_<wager>" format (initiation from menu)
+                if parts[1] == "bot":
+                    try:
+                        wager = float(parts[2])
+                    except (IndexError, ValueError):
+                        await query.answer("❌ Invalid wager!", show_alert=True)
+                        return
+                        
+                    user_id = query.from_user.id
+                    user_data = self.db.get_user(user_id)
+                    if wager > user_data['balance']:
+                        await query.answer(f"❌ Insufficient balance! (${user_data['balance']:.2f})", show_alert=True)
+                        return
+                    
+                    if user_id in self.blackjack_sessions:
+                        await query.answer("❌ You already have an active Blackjack game!", show_alert=True)
+                        return
+
+                    self.db.update_user(user_id, {'balance': user_data['balance'] - wager})
+                    from blackjack import BlackjackGame
+                    game = BlackjackGame(bet_amount=wager)
+                    game.start_game()
+                    self.blackjack_sessions[user_id] = game
+                    await self._display_blackjack_state(update, context, user_id)
+                    return
+
+                # Normal gameplay actions: bj_<user_id>_<action>
+                try:
+                    game_user_id = int(parts[1])
+                    action = parts[2]
+                except (IndexError, ValueError):
+                    await query.answer("❌ Invalid action data!", show_alert=True)
+                    return
                 
                 # Verify this is the correct user's game
                 if user_id != game_user_id:
