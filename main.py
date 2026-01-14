@@ -553,7 +553,7 @@ class AntariaCasinoBot:
         
         welcome_text = f"""
 🎰 **Antaria Casino**
-💰 Balance: **${user_data['balance']:.2f}**
+💰 Balance: **${user_data['balance']:,.2f}**
 
 **Games:**
 /dice 10 - Dice 🎲
@@ -612,7 +612,7 @@ class AntariaCasinoBot:
         xmr_usd_rate = await self.get_live_rate("monero")
         xmr_balance = user_data['balance'] / xmr_usd_rate
         
-        balance_text = f"Your balance: **${user_data['balance']:.2f}** ({xmr_balance:.5f} XMR)"
+        balance_text = f"Your balance: **${user_data['balance']:,.2f}** ({xmr_balance:.5f} XMR)"
         
         keyboard = [
             [InlineKeyboardButton("💳 Deposit", callback_data="deposit_mock"),
