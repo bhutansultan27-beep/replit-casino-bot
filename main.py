@@ -3179,6 +3179,10 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             if cid.startswith("v2_bot_") and challenge.get('player') == user_id and challenge.get('emoji') == emoji:
                 if not challenge.get('waiting_for_emoji'):
                     continue
+                
+                # Check balance if wager not yet deducted
+                if not challenge.get('wager_deducted'):
+                    user_data = self.db.get_user(user_id)
                     # Use a small epsilon to avoid floating point issues with "all" bets
                     if user_data['balance'] < (challenge['wager'] - 0.001):
                         await update.message.reply_text(f"❌ Insufficient balance to start the game! (Balance: ${user_data['balance']:.2f}, Wager: ${challenge['wager']:.2f})")
@@ -3202,6 +3206,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     
                     asyncio.create_task(delayed_roll_again(cid, user_mention, chat_id))
                 else:
+                    # Player finished their rolls, now bot rolls
+                    challenge['waiting_for_emoji'] = False
                     p_tot = sum(challenge['p_rolls'][-challenge['rolls']:])
                     b_tot = 0
                     for _ in range(challenge['rolls']):
@@ -3230,7 +3236,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                             u = self.db.get_user(user_id)
                             # w (the wager) was already deducted when starting the game
                             # We only add (w * 2) for the total payout (initial bet + winnings)
-                            u['balance'] += w
+                            u['balance'] += w * 2
                             self.db.update_user(user_id, u)
                             self.db.update_house_balance(-w)
                             await context.bot.send_message(chat_id=chat_id, text=f"🏆 **WINNER!** You won the series and ${w:.2f}!")
@@ -3242,7 +3248,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                                 'p_pts': challenge['p_pts'],
                                 'b_pts': challenge['b_pts'],
                                 'result': 'win',
-                                'payout': w,
+                                'payout': w * 2,
                                 'timestamp': datetime.now().isoformat()
                             })
                         else:
@@ -3271,8 +3277,11 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                         reply_markup = InlineKeyboardMarkup(keyboard)
                         score_text = f"User: {challenge['p_pts']}\nBot: {challenge['b_pts']}"
                         challenge['waiting_for_cashout'] = True
+                        challenge['waiting_for_emoji'] = True
                         challenge['emoji_wait'] = datetime.now().isoformat()
                         await context.bot.send_message(chat_id=chat_id, text=f"{score_text}\n\nNext round! Send your emoji.", reply_markup=reply_markup)
+                
+                self.db.data['pending_pvp'] = self.pending_pvp
                 self.db.save_data()
                 return
 
