@@ -120,6 +120,15 @@ class AntariaCasinoBot:
         # Initialize the internal database manager
         self.db = DatabaseManager()
         
+        self.emoji_map = {
+            "dice": "🎲",
+            "basketball": "🏀",
+            "soccer": "⚽",
+            "darts": "🎯",
+            "bowling": "🎳",
+            "coinflip": "🪙"
+        }
+        
         # Admin user IDs from environment variable (permanent admins)
         admin_ids_str = os.getenv("ADMIN_IDS", "")
         self.env_admin_ids = set()
@@ -886,6 +895,55 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 user_id
             )
 
+    async def _show_emoji_game_setup(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float, game_mode: str, step: str = "mode", params: Dict = None):
+        """Display the setup menu for emoji games (mode, rolls, points)"""
+        user_id = update.effective_user.id
+        user_data = self.db.get_user(user_id)
+        params = params or {}
+        
+        emoji_map = {
+            "dice": "🎲",
+            "basketball": "🏀",
+            "soccer": "⚽",
+            "darts": "🎯",
+            "bowling": "🎳",
+            "coinflip": "🪙"
+        }
+        current_emoji = emoji_map.get(game_mode, "🎲")
+        
+        keyboard = []
+        if step == "mode":
+            text = f"{current_emoji} <b>{game_mode.capitalize()} - Select Mode</b>\n\nWager: ${wager:,.2f}"
+            keyboard.append([
+                InlineKeyboardButton("Normal (Highest)", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_rolls_normal"),
+                InlineKeyboardButton("Inverted (Lowest)", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_rolls_inverted")
+            ])
+        elif step == "rolls":
+            mode = params.get("mode")
+            text = f"{current_emoji} <b>{game_mode.capitalize()} - Select Rolls</b>\n\nWager: ${wager:,.2f}\nMode: {mode.capitalize()}"
+            keyboard.append([
+                InlineKeyboardButton("1 Roll", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_points_1_{mode}"),
+                InlineKeyboardButton("2 Rolls", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_points_2_{mode}"),
+                InlineKeyboardButton("3 Rolls", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_points_3_{mode}")
+            ])
+        elif step == "points":
+            mode = params.get("mode")
+            rolls = params.get("rolls")
+            text = f"{current_emoji} <b>{game_mode.capitalize()} - Select Series Points</b>\n\nWager: ${wager:,.2f}\nMode: {mode.capitalize()}\nRolls: {rolls}"
+            keyboard.append([
+                InlineKeyboardButton("1 Pt (Single)", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_start_1_{rolls}_{mode}"),
+                InlineKeyboardButton("2 Pts (Bo3)", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_start_2_{rolls}_{mode}"),
+                InlineKeyboardButton("3 Pts (Bo5)", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_start_3_{rolls}_{mode}")
+            ])
+            
+        keyboard.append([InlineKeyboardButton("⬅️ Back", callback_data=f"predict_menu_{wager:.2f}_{game_mode}")])
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        if update.callback_query:
+            await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode="HTML")
+        else:
+            await update.message.reply_text(text, reply_markup=reply_markup, parse_mode="HTML")
+
     async def _show_game_prediction_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float, game_mode: str = "dice"):
         """Display the game prediction menu as shown in the screenshot"""
         user_id = update.effective_user.id
@@ -983,8 +1041,11 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         
         # Action row
         keyboard.append([
-            InlineKeyboardButton("⬅️ Back", callback_data=f"setup_bet_back_{wager:.2f}"),
+            InlineKeyboardButton("🤖 Play vs Bot", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_mode"),
             InlineKeyboardButton("✅ Start", callback_data=f"predict_start_{wager:.2f}_{game_mode}")
+        ])
+        keyboard.append([
+            InlineKeyboardButton("⬅️ Back", callback_data=f"setup_bet_back_{wager:.2f}")
         ])
         
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -4058,6 +4119,56 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 page = int(parts[2])
                 target_user_id = int(parts[3])
                 await self.show_matches_page(update, page, target_user_id)
+                return
+
+            # Emoji game setup callbacks
+            if data.startswith("emoji_setup_"):
+                parts = data.split("_")
+                g_mode = parts[2]
+                wager = float(parts[3])
+                next_step = parts[4]
+                
+                if next_step == "mode":
+                    await self._show_emoji_game_setup(update, context, wager, g_mode, "mode")
+                elif next_step == "rolls":
+                    mode = parts[5]
+                    await self._show_emoji_game_setup(update, context, wager, g_mode, "rolls", {"mode": mode})
+                elif next_step == "points":
+                    rolls = int(parts[5])
+                    mode = parts[6]
+                    await self._show_emoji_game_setup(update, context, wager, g_mode, "points", {"mode": mode, "rolls": rolls})
+                elif next_step == "start":
+                    pts = int(parts[5])
+                    rolls = int(parts[6])
+                    mode = parts[7]
+                    
+                    # Initialize V2 bot game
+                    game_id = f"v2_bot_{user_id}_{int(datetime.now().timestamp())}"
+                    self.pending_pvp[game_id] = {
+                        "game": g_mode,
+                        "mode": mode,
+                        "rolls": rolls,
+                        "pts": pts,
+                        "p_pts": 0,
+                        "b_pts": 0,
+                        "p_rolls": [],
+                        "cur_rolls": 0,
+                        "wager": wager,
+                        "emoji": self.emoji_map.get(g_mode, "🎲"),
+                        "player": user_id,
+                        "chat_id": chat_id,
+                        "emoji_wait": datetime.now().isoformat()
+                    }
+                    self.db.data['pending_pvp'] = self.pending_pvp
+                    self.db.save_data()
+                    
+                    bot_mention = "[emojigamblebot](tg://user?id=8575155625)"
+                    user_mention = f"@{update.effective_user.username}" if update.effective_user.username else update.effective_user.first_name
+                    await context.bot.send_message(
+                        chat_id=chat_id, 
+                        text=f"🎮 **{g_mode.capitalize()} Series**\n\n{bot_mention} vs {user_mention}\n\n{user_mention} your turn! Send {self.pending_pvp[game_id]['emoji']}",
+                        parse_mode="Markdown"
+                    )
                 return
 
             # Custom menu switching
