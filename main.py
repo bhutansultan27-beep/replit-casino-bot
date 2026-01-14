@@ -3175,7 +3175,14 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         if not self.pending_pvp:
              logger.info("pending_pvp is empty in memory, check database persistence")
         
+        # Fallback for bot games that might not be in pending_pvp but the user is sending an emoji
+        # This often happens if the session was restarted or state wasn't saved correctly
         logger.info(f"Current pending_pvp keys: {list(self.pending_pvp.keys())}")
+        
+        # Determine the roll value for legacy pvp logic
+        roll_value = val
+
+        found_game = False
         for cid, challenge in list(self.pending_pvp.items()):
             # Check if this challenge is in the same chat
             if challenge.get('chat_id') != chat_id:
@@ -3183,6 +3190,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
 
             # Generic V2 Bot
             if cid.startswith("v2_bot_") and challenge.get('player') == user_id and challenge.get('emoji') == emoji:
+                found_game = True
                 if not challenge.get('waiting_for_emoji'):
                     continue
                 
