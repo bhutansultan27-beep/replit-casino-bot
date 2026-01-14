@@ -1,44 +1,30 @@
-# Antaria Casino Bot
-
-A Telegram-based casino bot with games like blackjack, roulette, and more.
+# Antaria Casino Telegram Bot
 
 ## Overview
-This is a Python Telegram bot that provides casino gaming functionality including:
-- Blackjack
-- Roulette
-- PvP games
-- User balance management
-- Referral system
-- Achievements and leaderboards
-
-## Tech Stack
-- Python 3.12
-- python-telegram-bot library
-- Flask + SQLAlchemy for database management
-- PostgreSQL database
+This is a Telegram casino bot with gambling games including dice, darts, basketball, soccer, bowling, roulette, blackjack, coinflip, and prediction games. It uses PostgreSQL for persistent data storage.
 
 ## Project Structure
-- `main.py` - Main bot application with all command handlers
-- `blackjack.py` - Blackjack game logic
-- `models.py` - SQLAlchemy database models
-- `database.py` - Legacy JSON database manager (replaced by PostgreSQL)
-- `predict_handler.py` - Prediction handler utilities
+- `main.py` - Main bot logic with all command handlers and game logic
+- `models.py` - SQLAlchemy database models (User, Game, Transaction, GlobalState)
+- `database.py` - Legacy JSON database manager (not used with PostgreSQL)
+- `blackjack.py` - Blackjack game logic implementation
+- `predict_handler.py` - Handler for prediction games
 
 ## Required Environment Variables
-- `TELEGRAM_TOKEN` or `TELEGRAM_BOT_TOKEN` - Telegram bot API token (required)
+- `TELEGRAM_BOT_TOKEN` or `TELEGRAM_TOKEN` - Telegram Bot API token (required)
+- `ADMIN_IDS` - Comma-separated list of admin Telegram user IDs
 - `DATABASE_URL` - PostgreSQL connection string (auto-configured by Replit)
-- `ADMIN_IDS` - Comma-separated list of admin Telegram user IDs (optional)
-- `LTC_MASTER_ADDRESS` - Litecoin master address for deposits (optional)
-- `LTC_USD_RATE` - LTC to USD rate (default: 100)
-- `XMR_USD_RATE` - XMR to USD rate (default: 160)
-- `DEPOSIT_FEE_PERCENT` - Deposit fee percentage (default: 2)
-
-## Running the Bot
-The bot runs via `python main.py` and connects to Telegram using the bot token.
+- `SESSION_SECRET` - Flask session secret
 
 ## Database
-Uses Replit's built-in PostgreSQL database with the following tables:
-- users - User accounts and balances
-- games - Game history
-- transactions - Transaction records
-- global_state - Global settings like house balance
+Uses PostgreSQL with the following tables:
+- `users` - User accounts and balances
+- `games` - Game history
+- `transactions` - Transaction history
+- `global_state` - Global configuration (house balance, stickers, etc.)
+
+## Running the Bot
+The bot runs via `python main.py` and uses long polling to receive Telegram updates.
+
+## Recent Changes
+- 2026-01-14: Migrated to Replit environment with PostgreSQL database
