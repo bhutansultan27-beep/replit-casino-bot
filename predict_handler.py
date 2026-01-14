@@ -1,6 +1,10 @@
 import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
+from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 async def handle_predict(bot_instance, update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -34,7 +38,7 @@ async def handle_predict(bot_instance, update: Update, context: ContextTypes.DEF
             await query.answer(f"❌ Balance: ${user_data['balance']:.2f}", show_alert=True)
             return
         
-        if user_id in getattr(bot_instance, "_predict_selections", {}):
+        if hasattr(bot_instance, "_predict_selections") and user_id in bot_instance._predict_selections:
             del bot_instance._predict_selections[user_id]
         
         user_data['balance'] -= wager
@@ -84,7 +88,15 @@ async def handle_predict(bot_instance, update: Update, context: ContextTypes.DEF
         bot_instance.db.update_user(user_id, user_data)
         
         bot_instance.db.add_transaction(user_id, f"predict_{game_mode}", profit, f"Predict {game_mode.upper()} - Wager: ${wager:.2f}")
-        bot_instance.db.record_game({"type": f"predict_{game_mode}", "player_id": user_id, "wager": wager, "result": "win" if is_win else "loss"})
+        bot_instance.db.record_game({
+            'type': f'predict_{game_mode}',
+            'player_id': user_id,
+            'wager': wager,
+            'predicted': prediction,
+            'actual': actual_val,
+            'result': 'win' if is_win else 'loss',
+            'timestamp': datetime.now().isoformat()
+        })
         
         keyboard = [[InlineKeyboardButton("Play Again", callback_data=f"setup_mode_predict_{wager:.2f}_{game_mode}")]]
         reply_markup = InlineKeyboardMarkup(keyboard)

@@ -3771,177 +3771,62 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     await query.answer("❌ Invalid button data!", show_alert=True)
                     return
                 wager = float(parts[3])
-                # Call bet_command logic essentially (simulated)
                 await self.bet_command(update, context, amount=wager)
                 return
-        except Exception as e:
-            logger.error(f"Error in button_callback first block: {e}")
+            
+            if data.startswith("setup_predict_select_") or data.startswith("predict_start_"):
+                from predict_handler import handle_predict
+                await handle_predict(self, update, context)
+                return
 
-        try:
             if ownership_key in self.button_ownership:
                 owner_id = self.button_ownership[ownership_key]
                 if user_id != owner_id:
                     await query.answer("❌ This is not your game/menu!", show_alert=True)
                     return
-        except Exception:
-            pass
 
-        if data == "tip_cancel":
-            await query.message.delete()
-            return
-            
-        elif data.startswith("tip_confirm_"):
-            parts = data.split("_")
-            target_id = int(parts[2])
-            amount = float(parts[3])
-            
-            user_data = self.db.get_user(user_id)
-            if user_data['balance'] < amount:
-                await query.answer("❌ Insufficient balance!", show_alert=True)
+            if data == "tip_cancel":
+                await query.message.delete()
                 return
                 
-            recipient_data = self.db.get_user(target_id)
-            
-            # Perform transaction
-            user_data['balance'] -= amount
-            recipient_data['balance'] += amount
-            
-            self.db.update_user(user_id, user_data)
-            self.db.update_user(target_id, recipient_data)
-            
-            self.db.add_transaction(user_id, "tip_sent", -amount, f"Tip to @{recipient_data.get('username', target_id)}")
-            self.db.add_transaction(target_id, "tip_received", amount, f"Tip from @{user_data.get('username', user_id)}")
-            
-            await query.message.delete()
-            await context.bot.send_message(
-                chat_id=chat_id,
-                text=f"Tip successful! **{recipient_data.get('username', target_id)}** receives **${amount:.2f}**!",
-                parse_mode="Markdown"
-            )
-            
-            # Notify receiver
-            try:
+            elif data.startswith("tip_confirm_"):
+                parts = data.split("_")
+                target_id = int(parts[2])
+                amount = float(parts[3])
+                
+                user_data = self.db.get_user(user_id)
+                if user_data['balance'] < amount:
+                    await query.answer("❌ Insufficient balance!", show_alert=True)
+                    return
+                    
+                recipient_data = self.db.get_user(target_id)
+                
+                # Perform transaction
+                user_data['balance'] -= amount
+                recipient_data['balance'] += amount
+                
+                self.db.update_user(user_id, user_data)
+                self.db.update_user(target_id, recipient_data)
+                
+                self.db.add_transaction(user_id, "tip_sent", -amount, f"Tip to @{recipient_data.get('username', target_id)}")
+                self.db.add_transaction(target_id, "tip_received", amount, f"Tip from @{user_data.get('username', user_id)}")
+                
+                await query.message.delete()
                 await context.bot.send_message(
-                    chat_id=target_id,
-                    text=f"🎁 You received a tip of **${amount:.2f}** from **{user_data.get('username', user_id)}**!",
+                    chat_id=chat_id,
+                    text=f"Tip successful! **{recipient_data.get('username', target_id)}** receives **${amount:.2f}**!",
                     parse_mode="Markdown"
                 )
-            except Exception:
-                pass
-            return
-
-        if data.startswith("setup_predict_select_"):
-                parts = data.split("_")
-                wager = float(parts[3])
-                prediction = parts[4]
-                game_mode = parts[5]
-                if not hasattr(self, "_predict_selections"):
-                    self._predict_selections = {}
-                self._predict_selections[user_id] = prediction
-                await self._setup_predict_interface(update, context, wager, game_mode)
-                return
-
-            if data.startswith("predict_start_"):
-                parts = data.split("_")
-                wager = float(parts[2])
-                game_mode = parts[3]
                 
-                prediction = getattr(self, "_predict_selections", {}).get(user_id)
-                if not prediction:
-                    await query.answer("❌ Please select a prediction first!", show_alert=True)
-                    return
-                
-                # Fetch user data once
-                user_data = self.db.get_user(user_id)
-                if wager > user_data['balance']:
-                    await query.answer(f"❌ Balance: ${user_data['balance']:.2f}", show_alert=True)
-                    return
-                
-                # Clear selection for next game
-                del self._predict_selections[user_id]
-                
-                # Deduct wager from local user_data balance
-                user_data['balance'] -= wager
-                
-                # Send emoji based on mode
-                emoji_map = {"dice": "🎲", "basketball": "🏀", "soccer": "⚽", "darts": "🎯", "bowling": "🎳"}
-                dice_emoji = emoji_map.get(game_mode, "🎲")
-                dice_message = await context.bot.send_dice(chat_id=chat_id, emoji=dice_emoji)
-                actual_val = dice_message.dice.value
-                
-                await asyncio.sleep(4)
-                
-                # Determine win/loss based on mode and prediction
-                is_win = False
-                multiplier = 6.0
-                if game_mode == "dice" or game_mode == "darts" or game_mode == "bowling":
-                    is_win = str(actual_val) == str(prediction)
-                    multiplier = 6.0
-                elif game_mode == "basketball":
-                    # 1,2,4 = miss, 3,5 = score
-                    if actual_val in [3, 5]:
-                        actual_outcome = "score"
-                    else:
-                        actual_outcome = "miss"
-                    
-                    is_win = prediction == actual_outcome
-                    if prediction == "score":
-                        multiplier = 3.0
-                    elif prediction == "miss":
-                        multiplier = 2.0
-                    else: # Stuck or other
-                        multiplier = 6.0
-                elif game_mode == "soccer":
-                    # 1,2,3 = miss, 4,5 = goal, 6 = bar
-                    if actual_val in [4, 5]:
-                        actual_outcome = "goal"
-                    elif actual_val == 6:
-                        actual_outcome = "bar"
-                    else:
-                        actual_outcome = "miss"
-                    
-                    is_win = prediction == actual_outcome
-                    if prediction == "goal":
-                        multiplier = 3.0
-                    elif prediction == "miss":
-                        multiplier = 1.5
-                    else: # Bar or other
-                        multiplier = 6.0
-
-                if is_win:
-                    payout = wager * multiplier
-                    profit = payout - wager
-                    user_data['balance'] += payout
-                    user_data['games_won'] += 1
-                    user_display = f"**{user_data.get('username', f'User{user_id}')}**"
-                    result_text = f"🎉 {user_display} won **${profit:.2f}**!"
-                    self.db.update_house_balance(-profit)
-                else:
-                    profit = -wager
-                    result_text = f"❌ [emojigamblebot](tg://user?id=8575155625) won **${wager:.2f}**"
-                    self.db.update_house_balance(wager)
-                
-                user_data['total_wagered'] += wager
-                user_data['games_played'] += 1
-                
-                # Save the final user state once
-                self.db.update_user(user_id, user_data)
-                
-                # Show results with play again buttons
-                await self._setup_predict_interface(update, context, wager, game_mode)
-                await context.bot.send_message(chat_id=chat_id, text=result_text)
-                
-                # Update history for matches command
-                game_record = {
-                    'type': f'predict_{game_mode}',
-                    'player_id': user_id,
-                    'wager': wager,
-                    'predicted': prediction,
-                    'actual': actual_val,
-                    'result': 'win' if is_win else 'loss',
-                    'timestamp': datetime.now().isoformat()
-                }
-                self.db.record_game(game_record)
+                # Notify receiver
+                try:
+                    await context.bot.send_message(
+                        chat_id=target_id,
+                        text=f"🎁 You received a tip of **${amount:.2f}** from **{user_data.get('username', user_id)}**!",
+                        parse_mode="Markdown"
+                    )
+                except Exception:
+                    pass
                 return
 
             # Generic game setup (Initial step from /bet menu)
@@ -4147,76 +4032,6 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 wager = float(parts[1])
                 choice = parts[2]
                 await self.roulette_play(update, context, wager, choice)
-            
-            # Game Callbacks (Predict play again)
-            elif data.startswith("predict_"):
-                parts = data.split('_')
-                wager = float(parts[1])
-                prediction = parts[2]
-                game_mode = parts[3] if len(parts) > 3 else "dice"
-                
-                user_data = self.db.get_user(user_id)
-                
-                if wager > user_data['balance']:
-                    await query.answer(f"❌ Balance: ${user_data['balance']:.2f}", show_alert=True)
-                    return
-                
-                # Deduct wager
-                self.db.update_user(user_id, {'balance': user_data['balance'] - wager})
-                
-                # Send emoji based on mode
-                emoji_map = {"dice": "🎲", "basketball": "🏀", "soccer": "⚽", "darts": "🎯", "bowling": "🎳"}
-                dice_emoji = emoji_map.get(game_mode, "🎲")
-                dice_message = await context.bot.send_dice(chat_id=chat_id, emoji=dice_emoji)
-                actual_val = dice_message.dice.value
-                
-                await asyncio.sleep(4)
-                
-                # Determine win/loss based on mode and prediction
-                is_win = False
-                if game_mode == "dice" or game_mode == "darts" or game_mode == "bowling":
-                    is_win = str(actual_val) == str(prediction)
-                elif game_mode == "basketball":
-                    # 1,2,4 = miss, 3 = score, 5 = score
-                    actual_outcome = "score" if actual_val in [3, 5] else "miss"
-                    # Note: "stuck" isn't a native value for basketball emoji in Telegram dice, 
-                    # but we keep it for the UI. Usually it's just score or miss.
-                    is_win = prediction == actual_outcome
-                elif game_mode == "soccer":
-                    # 1,2,3 = miss, 4,5 = goal
-                    actual_outcome = "goal" if actual_val in [4, 5] else "miss"
-                    is_win = prediction == actual_outcome
-
-                if is_win:
-                    payout = wager * 6 # Simplified multiplier for all
-                    profit = payout - wager
-                    user_data['balance'] += payout
-                    user_data['games_won'] += 1
-                    user_display = f"**{user_data.get('username', f'User{user_id}')}**"
-                    result_text = f"🎉 {user_display} won **${profit:.2f}**!"
-                    self.db.update_house_balance(-profit)
-                else:
-                    profit = -wager
-                    result_text = f"❌ [emojigamblebot](tg://user?id=8575155625) won **${wager:.2f}**"
-                    self.db.update_house_balance(wager)
-                
-                user_data['total_wagered'] += wager
-                user_data['games_played'] += 1
-                self.db.update_user(user_id, user_data)
-                
-                # Show results with play again buttons
-                await self._setup_predict_interface(update, context, wager, game_mode)
-                await context.bot.send_message(chat_id=chat_id, text=result_text)
-                
-                self.db.record_game({
-                    'type': f'predict_{game_mode}',
-                    'player_id': user_id,
-                    'wager': wager,
-                    'predicted': prediction,
-                    'actual': actual_val,
-                    'result': 'win' if is_win else 'loss'
-                })
-                return
             
             # Game Callbacks (Slots play again)
             elif data.startswith("slots_"):
@@ -4511,7 +4326,6 @@ To withdraw, use:
             
             else:
                 await query.edit_message_text("Something went wrong or this button is for a different command!")
-            
         except Exception as e:
             logger.error(f"Error in button_callback: {e}")
             await context.bot.send_message(chat_id=query.message.chat_id, text="An unexpected error occurred. Please try the command again.")
