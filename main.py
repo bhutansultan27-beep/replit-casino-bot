@@ -3892,16 +3892,16 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 return
 
             # Custom menu switching
-        if data.startswith("dice_menu_"):
-            wager = float(data.split("_")[2])
-            await self._show_dice_menu(update, context, wager)
-            return
-        if data.startswith("darts_menu_"):
-            wager = float(data.split("_")[2])
-            await self._show_darts_menu(update, context, wager)
-            return
+            if data.startswith("dice_menu_"):
+                wager = float(data.split("_")[2])
+                await self._show_dice_menu(update, context, wager)
+                return
+            if data.startswith("darts_menu_"):
+                wager = float(data.split("_")[2])
+                await self._show_darts_menu(update, context, wager)
+                return
 
-        if data.startswith("setup_mode_predict_"):
+            if data.startswith("setup_mode_predict_"):
                 parts = data.split("_")
                 wager = float(parts[3])
                 game_mode = parts[4] if len(parts) > 4 else "dice"
