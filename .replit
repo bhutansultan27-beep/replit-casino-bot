@@ -31,3 +31,8 @@ outputType = "console"
 [deployment]
 deploymentTarget = "vm"
 run = ["python", "main.py"]
+
+[userenv]
+
+[userenv.shared]
+ADMIN_IDS = "7748988189"
