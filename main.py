@@ -177,12 +177,12 @@ class AntariaCasinoBot:
             logger.info(f"Loaded {len(self.dynamic_admin_ids)} dynamic admin(s) from database")
         
         # Initialize bot application
-    token = os.environ.get("TELEGRAM_TOKEN")
-    self.app = Application.builder().token(token).build()
-    # Add job queue check
-    if not self.app.job_queue:
-        logger.warning("Job queue is not available. Some features like challenge expiration may not work.")
-    self.setup_handlers()
+        token = os.environ.get("TELEGRAM_TOKEN")
+        self.app = Application.builder().token(token).build()
+        # Add job queue check
+        if not self.app.job_queue:
+            logger.warning("Job queue is not available. Some features like challenge expiration may not work.")
+        self.setup_handlers()
         
         # Dictionary to store ongoing PvP challenges
         self.pending_pvp: Dict[str, Any] = self.db.data.get('pending_pvp', {})
