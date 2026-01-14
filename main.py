@@ -782,38 +782,40 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         
         await update.message.reply_text(history_text, parse_mode="Markdown")
     
-    async def bet_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def bet_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE, amount: Optional[float] = None):
         """Unified betting command with game selection menu."""
         user_id = update.effective_user.id
         self.db.get_user(user_id) # Ensure registered
         
-        if not context.args:
-            await update.message.reply_text("Usage: /bet <amount|all>")
-            return
-            
-        amount_str = context.args[0].lower()
-        user_data = self.db.get_user(user_id)
-        
-        if amount_str == 'all':
-            amount = user_data['balance']
-        else:
-            try:
-                # Remove common currency symbols and commas
-                clean_str = amount_str.replace('$', '').replace(',', '')
-                # If there are any letters (excluding 'all' which is handled above), ignore the message
-                if any(c.isalpha() for c in clean_str):
-                    return
-                amount = float(clean_str)
-            except ValueError:
-                # Silently ignore invalid numeric formats with letters
+        if amount is None:
+            if not context.args:
+                await update.effective_message.reply_text("Usage: /bet <amount|all>")
                 return
+                
+            amount_str = context.args[0].lower()
+            user_data = self.db.get_user(user_id)
+            
+            if amount_str == 'all':
+                amount = user_data['balance']
+            else:
+                try:
+                    # Remove common currency symbols and commas
+                    clean_str = amount_str.replace('$', '').replace(',', '')
+                    # If there are any letters (excluding 'all' which is handled above), ignore the message
+                    if any(c.isalpha() for c in clean_str):
+                        return
+                    amount = float(clean_str)
+                except ValueError:
+                    # Silently ignore invalid numeric formats with letters
+                    return
         
+        user_data = self.db.get_user(user_id)
         if amount < 1.0:
-            await update.message.reply_text("❌ Minimum bet is $1.00")
+            await update.effective_message.reply_text("❌ Minimum bet is $1.00")
             return
             
         if amount > user_data['balance']:
-            await update.message.reply_text(f"❌ Insufficient balance! (${user_data['balance']:.2f})")
+            await update.effective_message.reply_text(f"❌ Insufficient balance! (${user_data['balance']:.2f})")
             return
 
         keyboard = [
@@ -828,12 +830,20 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
-        await self.send_with_buttons(
-            update.message.chat_id,
-            f"💰 **Bet: ${amount:.2f}**\nSelect a game to play:",
-            reply_markup,
-            user_id
-        )
+        
+        if update.callback_query:
+            await update.callback_query.edit_message_text(
+                f"💰 **Bet: ${amount:.2f}**\nSelect a game to play:",
+                reply_markup=reply_markup,
+                parse_mode="Markdown"
+            )
+        else:
+            await self.send_with_buttons(
+                update.effective_chat.id,
+                f"💰 **Bet: ${amount:.2f}**\nSelect a game to play:",
+                reply_markup,
+                user_id
+            )
 
     async def dice_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play dice game setup"""
@@ -1044,38 +1054,40 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         )
         self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
     
-    async def bet_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def bet_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE, amount: Optional[float] = None):
         """Unified betting command with game selection menu."""
         user_id = update.effective_user.id
         self.db.get_user(user_id) # Ensure registered
         
-        if not context.args:
-            await update.message.reply_text("Usage: /bet <amount|all>")
-            return
-            
-        amount_str = context.args[0].lower()
-        user_data = self.db.get_user(user_id)
-        
-        if amount_str == 'all':
-            amount = user_data['balance']
-        else:
-            try:
-                # Remove common currency symbols and commas
-                clean_str = amount_str.replace('$', '').replace(',', '')
-                # If there are any letters (excluding 'all' which is handled above), ignore the message
-                if any(c.isalpha() for c in clean_str):
-                    return
-                amount = float(clean_str)
-            except ValueError:
-                # Silently ignore invalid numeric formats with letters
+        if amount is None:
+            if not context.args:
+                await update.effective_message.reply_text("Usage: /bet <amount|all>")
                 return
+                
+            amount_str = context.args[0].lower()
+            user_data = self.db.get_user(user_id)
+            
+            if amount_str == 'all':
+                amount = user_data['balance']
+            else:
+                try:
+                    # Remove common currency symbols and commas
+                    clean_str = amount_str.replace('$', '').replace(',', '')
+                    # If there are any letters (excluding 'all' which is handled above), ignore the message
+                    if any(c.isalpha() for c in clean_str):
+                        return
+                    amount = float(clean_str)
+                except ValueError:
+                    # Silently ignore invalid numeric formats with letters
+                    return
         
+        user_data = self.db.get_user(user_id)
         if amount < 1.0:
-            await update.message.reply_text("❌ Minimum bet is $1.00")
+            await update.effective_message.reply_text("❌ Minimum bet is $1.00")
             return
             
         if amount > user_data['balance']:
-            await update.message.reply_text(f"❌ Insufficient balance! (${user_data['balance']:.2f})")
+            await update.effective_message.reply_text(f"❌ Insufficient balance! (${user_data['balance']:.2f})")
             return
 
         keyboard = [
@@ -1090,12 +1102,20 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
-        await self.send_with_buttons(
-            update.message.chat_id,
-            f"💰 **Bet: ${amount:.2f}**\nSelect a game to play:",
-            reply_markup,
-            user_id
-        )
+        
+        if update.callback_query:
+            await update.callback_query.edit_message_text(
+                f"💰 **Bet: ${amount:.2f}**\nSelect a game to play:",
+                reply_markup=reply_markup,
+                parse_mode="Markdown"
+            )
+        else:
+            await self.send_with_buttons(
+                update.effective_chat.id,
+                f"💰 **Bet: ${amount:.2f}**\nSelect a game to play:",
+                reply_markup,
+                user_id
+            )
 
     async def dice_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play dice game setup"""
@@ -3754,9 +3774,12 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             
             if data.startswith("setup_bet_back_"):
                 parts = data.split("_")
+                if len(parts) < 4:
+                    await query.answer("❌ Invalid button data!", show_alert=True)
+                    return
                 wager = float(parts[3])
                 # Call bet_command logic essentially (simulated)
-                await self.bet_command(update, context) # This might need context.args adjusted or a helper
+                await self.bet_command(update, context, amount=wager)
                 return
 
             if data.startswith("setup_predict_select_"):
