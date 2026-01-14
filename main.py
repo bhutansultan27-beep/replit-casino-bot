@@ -1151,177 +1151,99 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
 
     async def dice_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play dice game setup"""
-        user_data = self.ensure_user_registered(update)
-        user_id = update.effective_user.id
-        
-        if not context.args:
-            await update.message.reply_text("Usage: `/dice <amount|all>`", parse_mode="Markdown")
-            return
-        
-        wager = 0.0
-        if context.args[0].lower() == "all":
-            wager = user_data['balance']
-        else:
+        amount = 1.0
+        if context.args:
             try:
-                wager = round(float(context.args[0]), 2)
+                arg = context.args[0].lower().replace('$', '').replace(',', '')
+                if arg == 'all':
+                    user_id = update.effective_user.id
+                    user_data = self.db.get_user(user_id)
+                    amount = user_data['balance']
+                else:
+                    amount = float(arg)
             except ValueError:
-                await update.message.reply_text("❌ Invalid amount")
-                return
-        
-        if wager < 1.0:
-            await update.message.reply_text("❌ Minimum bet is $1.00")
-            return
-        
-        if wager > user_data['balance']:
-            await update.message.reply_text(f"❌ Balance: ${user_data['balance']:.2f}")
-            return
-        
-        await self._show_game_prediction_menu(update, context, wager, "dice")
+                pass
+        await self._show_game_prediction_menu(update, context, amount, "dice")
 
     async def darts_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play darts game setup"""
-        user_data = self.ensure_user_registered(update)
-        user_id = update.effective_user.id
-        
-        if not context.args:
-            await update.message.reply_text("Usage: `/darts <amount|all>`", parse_mode="Markdown")
-            return
-        
-        wager = 0.0
-        if context.args[0].lower() == "all":
-            wager = user_data['balance']
-        else:
+        amount = 1.0
+        if context.args:
             try:
-                wager = round(float(context.args[0]), 2)
+                arg = context.args[0].lower().replace('$', '').replace(',', '')
+                if arg == 'all':
+                    user_id = update.effective_user.id
+                    user_data = self.db.get_user(user_id)
+                    amount = user_data['balance']
+                else:
+                    amount = float(arg)
             except ValueError:
-                await update.message.reply_text("❌ Invalid amount")
-                return
-        
-        if wager < 1.0:
-            await update.message.reply_text("❌ Minimum bet is $1.00")
-            return
-        
-        if wager > user_data['balance']:
-            await update.message.reply_text(f"❌ Balance: ${user_data['balance']:.2f}")
-            return
-        
-        await self._show_game_prediction_menu(update, context, wager, "darts")
+                pass
+        await self._show_game_prediction_menu(update, context, amount, "darts")
 
     async def basketball_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play basketball game setup"""
-        user_data = self.ensure_user_registered(update)
-        user_id = update.effective_user.id
-        
-        if not context.args:
-            await update.message.reply_text("Usage: `/basketball <amount|all>`", parse_mode="Markdown")
-            return
-        
-        wager = 0.0
-        if context.args[0].lower() == "all":
-            wager = user_data['balance']
-        else:
+        amount = 1.0
+        if context.args:
             try:
-                wager = round(float(context.args[0]), 2)
+                arg = context.args[0].lower().replace('$', '').replace(',', '')
+                if arg == 'all':
+                    user_id = update.effective_user.id
+                    user_data = self.db.get_user(user_id)
+                    amount = user_data['balance']
+                else:
+                    amount = float(arg)
             except ValueError:
-                await update.message.reply_text("❌ Invalid amount")
-                return
-        
-        if wager < 1.0:
-            await update.message.reply_text("❌ Minimum bet is $1.00")
-            return
-        
-        if wager > user_data['balance']:
-            await update.message.reply_text(f"❌ Balance: ${user_data['balance']:.2f}")
-            return
-        
-        await self._show_game_prediction_menu(update, context, wager, "basketball")
+                pass
+        await self._show_game_prediction_menu(update, context, amount, "basketball")
 
     async def soccer_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play soccer game setup"""
-        user_data = self.ensure_user_registered(update)
-        user_id = update.effective_user.id
-        
-        if not context.args:
-            await update.message.reply_text("Usage: `/soccer <amount|all>`", parse_mode="Markdown")
-            return
-        
-        wager = 0.0
-        if context.args[0].lower() == "all":
-            wager = user_data['balance']
-        else:
+        amount = 1.0
+        if context.args:
             try:
-                wager = round(float(context.args[0]), 2)
+                arg = context.args[0].lower().replace('$', '').replace(',', '')
+                if arg == 'all':
+                    user_id = update.effective_user.id
+                    user_data = self.db.get_user(user_id)
+                    amount = user_data['balance']
+                else:
+                    amount = float(arg)
             except ValueError:
-                await update.message.reply_text("❌ Invalid amount")
-                return
-        
-        if wager < 1.0:
-            await update.message.reply_text("❌ Minimum bet is $1.00")
-            return
-        
-        if wager > user_data['balance']:
-            await update.message.reply_text(f"❌ Balance: ${user_data['balance']:.2f}")
-            return
-        
-        await self._show_game_prediction_menu(update, context, wager, "soccer")
+                pass
+        await self._show_game_prediction_menu(update, context, amount, "soccer")
 
     async def bowling_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play bowling game setup"""
-        user_data = self.ensure_user_registered(update)
-        user_id = update.effective_user.id
-        
-        if not context.args:
-            await update.message.reply_text("Usage: `/bowling <amount|all>`", parse_mode="Markdown")
-            return
-        
-        wager = 0.0
-        if context.args[0].lower() == "all":
-            wager = user_data['balance']
-        else:
+        amount = 1.0
+        if context.args:
             try:
-                wager = round(float(context.args[0]), 2)
+                arg = context.args[0].lower().replace('$', '').replace(',', '')
+                if arg == 'all':
+                    user_id = update.effective_user.id
+                    user_data = self.db.get_user(user_id)
+                    amount = user_data['balance']
+                else:
+                    amount = float(arg)
             except ValueError:
-                await update.message.reply_text("❌ Invalid amount")
-                return
-        
-        if wager < 1.0:
-            await update.message.reply_text("❌ Minimum bet is $1.00")
-            return
-        
-        if wager > user_data['balance']:
-            await update.message.reply_text(f"❌ Balance: ${user_data['balance']:.2f}")
-            return
-        
-        await self._show_game_prediction_menu(update, context, wager, "bowling")
+                pass
+        await self._show_game_prediction_menu(update, context, amount, "bowling")
 
     async def coinflip_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play coinflip game setup"""
-        user_data = self.ensure_user_registered(update)
-        user_id = update.effective_user.id
-        
-        if not context.args:
-            await update.message.reply_text("Usage: `/coinflip <amount|all>`", parse_mode="Markdown")
-            return
-        
-        wager = 0.0
-        if context.args[0].lower() == "all":
-            wager = user_data['balance']
-        else:
+        amount = 1.0
+        if context.args:
             try:
-                wager = round(float(context.args[0]), 2)
+                arg = context.args[0].lower().replace('$', '').replace(',', '')
+                if arg == 'all':
+                    user_id = update.effective_user.id
+                    user_data = self.db.get_user(user_id)
+                    amount = user_data['balance']
+                else:
+                    amount = float(arg)
             except ValueError:
-                await update.message.reply_text("❌ Invalid amount")
-                return
-        
-        if wager < 1.0:
-            await update.message.reply_text("❌ Minimum bet is $1.00")
-            return
-        
-        if wager > user_data['balance']:
-            await update.message.reply_text(f"❌ Balance: ${user_data['balance']:.2f}")
-            return
-        
-        await self._show_game_prediction_menu(update, context, wager, "coinflip")
+                pass
+        await self._show_game_prediction_menu(update, context, amount, "coinflip")
 
     async def _setup_predict_interface(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float, game_mode: str = "dice"):
         """Display the prediction interface as shown in the screenshot"""
@@ -1550,23 +1472,83 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
 
     async def dice_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play dice game setup"""
-        await self._generic_emoji_command(update, context, "dice", "🎲")
+        amount = 1.0
+        if context.args:
+            try:
+                arg = context.args[0].lower().replace('$', '').replace(',', '')
+                if arg == 'all':
+                    user_id = update.effective_user.id
+                    user_data = self.db.get_user(user_id)
+                    amount = user_data['balance']
+                else:
+                    amount = float(arg)
+            except ValueError:
+                pass
+        await self._show_game_prediction_menu(update, context, amount, "dice")
 
     async def darts_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play darts game setup"""
-        await self._generic_emoji_command(update, context, "darts", "🎯")
+        amount = 1.0
+        if context.args:
+            try:
+                arg = context.args[0].lower().replace('$', '').replace(',', '')
+                if arg == 'all':
+                    user_id = update.effective_user.id
+                    user_data = self.db.get_user(user_id)
+                    amount = user_data['balance']
+                else:
+                    amount = float(arg)
+            except ValueError:
+                pass
+        await self._show_game_prediction_menu(update, context, amount, "darts")
 
     async def basketball_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play basketball game setup"""
-        await self._generic_emoji_command(update, context, "basketball", "🏀")
+        amount = 1.0
+        if context.args:
+            try:
+                arg = context.args[0].lower().replace('$', '').replace(',', '')
+                if arg == 'all':
+                    user_id = update.effective_user.id
+                    user_data = self.db.get_user(user_id)
+                    amount = user_data['balance']
+                else:
+                    amount = float(arg)
+            except ValueError:
+                pass
+        await self._show_game_prediction_menu(update, context, amount, "basketball")
 
     async def soccer_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play soccer game setup"""
-        await self._generic_emoji_command(update, context, "soccer", "⚽")
+        amount = 1.0
+        if context.args:
+            try:
+                arg = context.args[0].lower().replace('$', '').replace(',', '')
+                if arg == 'all':
+                    user_id = update.effective_user.id
+                    user_data = self.db.get_user(user_id)
+                    amount = user_data['balance']
+                else:
+                    amount = float(arg)
+            except ValueError:
+                pass
+        await self._show_game_prediction_menu(update, context, amount, "soccer")
 
     async def bowling_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play bowling game setup"""
-        await self._generic_emoji_command(update, context, "bowling", "🎳")
+        amount = 1.0
+        if context.args:
+            try:
+                arg = context.args[0].lower().replace('$', '').replace(',', '')
+                if arg == 'all':
+                    user_id = update.effective_user.id
+                    user_data = self.db.get_user(user_id)
+                    amount = user_data['balance']
+                else:
+                    amount = float(arg)
+            except ValueError:
+                pass
+        await self._show_game_prediction_menu(update, context, amount, "bowling")
 
     async def _generic_emoji_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE, game_name: str, emoji: str):
         """Generic emoji game setup with nested options"""
@@ -1723,52 +1705,19 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
     
     async def coinflip_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play coinflip game setup"""
-        user_data = self.ensure_user_registered(update)
-        user_id = update.effective_user.id
-        
-        if not context.args:
-            await update.message.reply_text("Usage: `/flip <amount|all>`", parse_mode="Markdown")
-            return
-        
-        wager = 0.0
-        if context.args[0].lower() == "all":
-            wager = user_data['balance']
-        else:
+        amount = 1.0
+        if context.args:
             try:
-                wager = round(float(context.args[0]), 2)
+                arg = context.args[0].lower().replace('$', '').replace(',', '')
+                if arg == 'all':
+                    user_id = update.effective_user.id
+                    user_data = self.db.get_user(user_id)
+                    amount = user_data['balance']
+                else:
+                    amount = float(arg)
             except ValueError:
-                await update.message.reply_text("❌ Invalid amount")
-                return
-            
-        if wager <= 0.01:
-            await update.message.reply_text("❌ Min: $0.01")
-            return
-        
-        if wager > user_data['balance']:
-            await update.message.reply_text(f"❌ Balance: ${user_data['balance']:.2f}")
-            return
-        
-        # Check for PvP opponent mention (this part is complex and often relies on bot permissions)
-        opponent_id = None
-        if len(context.args) > 1 and context.args[1].startswith('@'):
-            # In a real bot, we'd need to fetch user ID from username
-            # For simplicity, we'll keep the Bot vs. Bot or open challenge structure for now.
-            await update.message.reply_text("❌ Player-to-player challenges are currently only supported via callback buttons after initiating a game.")
-            return
-
-        # Default is Bot vs. Player with Heads/Tails selection
-        keyboard = [
-            [InlineKeyboardButton("Heads", callback_data=f"flip_bot_{wager:.2f}_heads")],
-            [InlineKeyboardButton("Tails", callback_data=f"flip_bot_{wager:.2f}_tails")]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        sent_msg = await update.message.reply_text(
-            f"🪙 **Coin Flip**\n\nWager: ${wager:.2f}\n\nChoose heads or tails:",
-            reply_markup=reply_markup,
-            parse_mode="Markdown"
-        )
-        self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
+                pass
+        await self._show_game_prediction_menu(update, context, amount, "coinflip")
     
     async def roulette_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play roulette game"""
