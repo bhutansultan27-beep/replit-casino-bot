@@ -13,6 +13,5 @@ dependencies = [
     "psycopg2-binary>=2.9.11",
     "python-telegram-bot>=22.5",
     "sqlalchemy>=2.0.45",
-    "telegram>=0.0.1",
     "tzlocal>=3.0",
 ]
