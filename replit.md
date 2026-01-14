@@ -1,47 +1,37 @@
 # Antaria Casino Telegram Bot
 
 ## Overview
-A Telegram casino bot built with Python that provides gambling games including dice, darts, basketball, soccer, bowling, coinflip, roulette, blackjack, and PvP challenges.
-
-## Current State
-The project is fully configured and ready to run once the TELEGRAM_BOT_TOKEN is provided.
+This is a Telegram casino bot built with Python using the `python-telegram-bot` library. It provides various gambling games and features for Telegram users.
 
 ## Project Structure
-- `main.py` - Main bot application with all game handlers and command logic
+- `main.py` - Main bot application with all command handlers and game logic
 - `models.py` - SQLAlchemy database models (User, Game, Transaction, GlobalState)
-- `database.py` - Database utilities
-- `blackjack.py` - Blackjack game logic
-- `predict_handler.py` - Prediction handler logic
+- `database.py` - Legacy JSON database manager (not currently used, replaced by PostgreSQL)
+- `blackjack.py` - Blackjack game logic and mechanics
+- `predict_handler.py` - Handler for prediction-based games
 
-## Tech Stack
-- Python 3.11
-- python-telegram-bot 22.x (async)
-- Flask + Flask-SQLAlchemy (for database operations within bot context)
-- PostgreSQL (via DATABASE_URL)
-- SQLAlchemy 2.x with modern type hints
+## Database
+The bot uses PostgreSQL for data persistence. Key tables:
+- `users` - User accounts with balance, stats, achievements
+- `games` - Game history records
+- `transactions` - Transaction history
+- `global_state` - Global configuration (house balance, dynamic admins, stickers)
 
-## Configuration
+## Environment Variables Required
+- `TELEGRAM_BOT_TOKEN` - Your Telegram bot token from @BotFather (format: `123456789:ABCDefGHIJKLmnoPQRStuvWXYz`)
+- `ADMIN_IDS` - Comma-separated list of Telegram user IDs for admin access
+- `DATABASE_URL` - PostgreSQL connection string (auto-configured by Replit)
 
-### Required Environment Variables
-- `TELEGRAM_BOT_TOKEN` or `TELEGRAM_TOKEN` - Telegram Bot API token (required)
-- `ADMIN_IDS` - Comma-separated list of admin user IDs (optional, currently set to: 7748988189)
-- `DATABASE_URL` - PostgreSQL connection string (automatically configured)
-
-### Running the Bot
-The bot runs via the "Telegram Bot" workflow which executes `python main.py`.
-
-### Deployment
-Configured for VM deployment since the bot needs to run continuously for polling.
-
-## Database Schema
-- **Users** - Player accounts with balance, stats, referral info
-- **Games** - Game history records
-- **Transactions** - Balance change history
-- **GlobalState** - House balance, admin list, sticker configs
+## Running the Bot
+The bot runs in polling mode via the "Telegram Bot" workflow which executes `python main.py`.
 
 ## Features
-- Multiple casino games (dice, roulette, blackjack, etc.)
-- PvP challenges between users
-- Referral system with earnings
-- Admin commands for user management
-- Automatic challenge expiration
+- Multiple casino games: Dice, Darts, Basketball, Soccer, Bowling, Coinflip, Roulette, Blackjack
+- PvP betting between users
+- User balance management with deposits/withdrawals
+- Referral system
+- Leaderboards
+- Admin commands for managing users and house balance
+
+## Recent Changes
+- January 2026: Migrated to Replit environment with PostgreSQL database
