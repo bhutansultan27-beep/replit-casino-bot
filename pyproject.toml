@@ -5,12 +5,13 @@ description = "Add your description here"
 requires-python = ">=3.11"
 dependencies = [
     "aiohttp>=3.13.2",
+    "apscheduler>=3.10.4",
     "email-validator>=2.3.0",
     "flask>=3.1.2",
     "flask-sqlalchemy>=3.1.1",
     "gunicorn>=23.0.0",
     "psycopg2-binary>=2.9.11",
-    "python-telegram-bot[job-queue]>=22.5",
+    "python-telegram-bot>=22.5",
     "sqlalchemy>=2.0.45",
-    "telegram>=0.0.1",
+    "tzlocal>=3.0",
 ]
