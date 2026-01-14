@@ -576,10 +576,14 @@ class AntariaCasinoBot:
         user_data = self.ensure_user_registered(update)
         user_id = update.effective_user.id
         
-        balance_text = f"💰 **Balance: ${user_data['balance']:.2f}**"
+        # Mock XMR rate for display
+        xmr_usd_rate = float(os.getenv('XMR_USD_RATE', '160.0'))
+        xmr_balance = user_data['balance'] / xmr_usd_rate
+        
+        balance_text = f"Your balance: **${user_data['balance']:.2f}** ({xmr_balance:.5f} XMR)"
         
         keyboard = [
-            [InlineKeyboardButton("💵 Deposit", callback_data="deposit_mock"),
+            [InlineKeyboardButton("💳 Deposit", callback_data="deposit_mock"),
              InlineKeyboardButton("💸 Withdraw", callback_data="withdraw_mock")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -931,9 +935,10 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         )
         
         # Define prediction buttons based on mode
-        if game_mode == "dice":
+        if game_mode == "dice" or game_mode == "darts" or game_mode == "bowling":
             prediction_buttons = [InlineKeyboardButton(str(i), callback_data=f"setup_predict_select_{wager:.2f}_{i}_{game_mode}") for i in range(1, 7)]
-            prediction_rows = [prediction_buttons]
+            # 2 rows for 1-6
+            prediction_rows = [prediction_buttons[:3], prediction_buttons[3:]]
         elif game_mode == "basketball":
             prediction_buttons = [
                 InlineKeyboardButton("Score", callback_data=f"setup_predict_select_{wager:.2f}_score_{game_mode}"),
@@ -947,12 +952,6 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 InlineKeyboardButton("Miss", callback_data=f"setup_predict_select_{wager:.2f}_miss_{game_mode}"),
                 InlineKeyboardButton("Bar", callback_data=f"setup_predict_select_{wager:.2f}_bar_{game_mode}")
             ]
-            prediction_rows = [prediction_buttons]
-        elif game_mode == "darts":
-            prediction_buttons = [InlineKeyboardButton(str(i), callback_data=f"setup_predict_select_{wager:.2f}_{i}_{game_mode}") for i in range(1, 7)]
-            prediction_rows = [prediction_buttons]
-        else: # Bowling
-            prediction_buttons = [InlineKeyboardButton(str(i), callback_data=f"setup_predict_select_{wager:.2f}_{i}_{game_mode}") for i in range(1, 7)]
             prediction_rows = [prediction_buttons]
 
         keyboard = []
@@ -1232,7 +1231,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         
         # Check if prediction matches
         if actual_roll == predicted_number:
-            # Win! 6x payout (since odds are 1/6)
+            # Win!
             payout = wager * 6
             profit = payout - wager
             new_balance = user_data['balance'] + payout
@@ -1246,17 +1245,13 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             })
             self.db.update_house_balance(-profit)
             
-            # Add 6 play-again buttons for each number
-            keyboard = [
-                [InlineKeyboardButton("#1", callback_data=f"predict_{wager:.2f}_1"),
-                 InlineKeyboardButton("#2", callback_data=f"predict_{wager:.2f}_2"),
-                 InlineKeyboardButton("#3", callback_data=f"predict_{wager:.2f}_3")],
-                [InlineKeyboardButton("#4", callback_data=f"predict_{wager:.2f}_4"),
-                 InlineKeyboardButton("#5", callback_data=f"predict_{wager:.2f}_5"),
-                 InlineKeyboardButton("#6", callback_data=f"predict_{wager:.2f}_6")]
-            ]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            sent_msg = await update.message.reply_text(f"✅ @{user_data['username']}\nwon ${profit:.2f}", parse_mode="Markdown")
+            # Winner display name bold without @
+            user_display = f"**{user_data.get('username', f'User{user_id}')}**"
+            sent_msg = await update.message.reply_text(
+                f"🎉 {user_display} won **${profit:.2f}**!",
+                parse_mode="Markdown",
+                reply_to_message_id=update.message.message_id
+            )
             self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
         else:
             # Loss
@@ -1267,17 +1262,11 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             })
             self.db.update_house_balance(wager)
             
-            # Add 6 play-again buttons for each number
-            keyboard = [
-                [InlineKeyboardButton("#1", callback_data=f"predict_{wager:.2f}_1"),
-                 InlineKeyboardButton("#2", callback_data=f"predict_{wager:.2f}_2"),
-                 InlineKeyboardButton("#3", callback_data=f"predict_{wager:.2f}_3")],
-                [InlineKeyboardButton("#4", callback_data=f"predict_{wager:.2f}_4"),
-                 InlineKeyboardButton("#5", callback_data=f"predict_{wager:.2f}_5"),
-                 InlineKeyboardButton("#6", callback_data=f"predict_{wager:.2f}_6")]
-            ]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            sent_msg = await update.message.reply_text(f"❌ [emojigamblebot](tg://user?id=8575155625)\nwon ${wager:.2f}", parse_mode="Markdown")
+            sent_msg = await update.message.reply_text(
+                f"❌ [emojigamblebot](tg://user?id=8575155625) won **${wager:.2f}**",
+                parse_mode="Markdown",
+                reply_to_message_id=update.message.message_id
+            )
             self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
         
         # Record game
@@ -1621,19 +1610,17 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             await update.message.reply_text("❌ You cannot tip yourself.")
             return
 
-        # Perform transaction
-        user_data['balance'] -= amount
-        recipient_data['balance'] += amount
+        keyboard = [
+            [InlineKeyboardButton("✅ Confirm", callback_data=f"tip_confirm_{recipient_data['user_id']}_{amount:.2f}"),
+             InlineKeyboardButton("❌ Cancel", callback_data="tip_cancel")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
         
-        self.db.update_user(user_id, user_data)
-        self.db.update_user(recipient_data['user_id'], recipient_data)
-        
-        self.db.add_transaction(user_id, "tip_sent", -amount, f"Tip to @{recipient_username}")
-        self.db.add_transaction(recipient_data['user_id'], "tip_received", amount, f"Tip from @{update.effective_user.username or update.effective_user.first_name}")
-
         await update.message.reply_text(
-            f"✅ Success! You tipped @{recipient_username} **${amount:.2f}**.",
-            parse_mode="Markdown"
+            f"You want to tip **{recipient_username}** with **${amount:.2f}**. Is that correct?",
+            reply_markup=reply_markup,
+            parse_mode="Markdown",
+            reply_to_message_id=update.message.message_id
         )
 
     async def deposit_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -3011,11 +2998,15 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         if c_val > a_val:
             winner_id = challenger_id
             loser_id = user_id
-            result_text = f"✅ @{challenger_user['username']}\nwon ${wager:.2f}"
+            winner_user = self.db.get_user(winner_id)
+            winner_display = f"**{winner_user.get('username', f'User{winner_id}')}**"
+            result_text = f"🎉 {winner_display} won **${wager:.2f}**"
         elif a_val > c_val:
             winner_id = user_id
             loser_id = challenger_id
-            result_text = f"✅ @{acceptor_user['username']}\nwon ${wager:.2f}"
+            winner_user = self.db.get_user(winner_id)
+            winner_display = f"**{winner_user.get('username', f'User{winner_id}')}**"
+            result_text = f"🎉 {winner_display} won **${wager:.2f}**"
         else:
             # Draw: refund both wagers (already deducted)
             self.db.update_user(challenger_id, {'balance': challenger_user['balance'] + wager})
@@ -3056,7 +3047,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         self.db.add_transaction(loser_id, f"{game_type}_pvp_loss", -wager, f"{game_type.upper()} PvP Loss vs {self.db.get_user(winner_id)['username']}")
         self.db.record_game({"type": f"{game_type}_pvp", "challenger": challenger_id, "opponent": user_id, "wager": wager, "result": "win"})
         
-        final_text = f"✅ @{winner_user['username']}\nwon ${wager:.2f}"
+        final_text = f"🎉 **{winner_user.get('username', f'User{winner_id}')}** won **${wager:.2f}**"
         
         keyboard = [
             [InlineKeyboardButton("🤖 Play vs Bot", callback_data=f"{game_type}_bot_{wager:.2f}")],
@@ -3100,13 +3091,16 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             result = "win"
             user_data['balance'] += (wager * 2) # Wager back + profit
             self.db.update_user(user_id, user_data)
-            result_text = f"✅ @{user_data['username']} won ${profit:.2f}!"
+            
+            # Winner display name bold without @
+            user_display = f"**{user_data.get('username', f'User{user_id}')}**"
+            result_text = f"🎉 {user_display} won **${profit:.2f}**!"
             self.db.update_house_balance(-wager)
         elif p_val < b_val:
             # LOSS: Already deducted, house keeps it
             profit = -wager
             result = "loss"
-            result_text = f"❌ [emojigamblebot](tg://user?id=8575155625) won ${wager:.2f}"
+            result_text = f"❌ [emojigamblebot](tg://user?id=8575155625) won **${wager:.2f}**"
             self.db.update_house_balance(wager)
         else:
             # Draw - refund wager
@@ -3782,7 +3776,58 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 await self.bet_command(update, context, amount=wager)
                 return
 
-            if data.startswith("setup_predict_select_"):
+            # Button ownership check
+        if (query.message.chat_id, query.message.message_id) in self.button_ownership:
+            owner_id = self.button_ownership[(query.message.chat_id, query.message.message_id)]
+            if user_id != owner_id:
+                await query.answer("❌ This is not your game/menu!", show_alert=True)
+                return
+
+        if data == "tip_cancel":
+            await query.message.delete()
+            return
+            
+        elif data.startswith("tip_confirm_"):
+            parts = data.split("_")
+            target_id = int(parts[2])
+            amount = float(parts[3])
+            
+            user_data = self.db.get_user(user_id)
+            if user_data['balance'] < amount:
+                await query.answer("❌ Insufficient balance!", show_alert=True)
+                return
+                
+            recipient_data = self.db.get_user(target_id)
+            
+            # Perform transaction
+            user_data['balance'] -= amount
+            recipient_data['balance'] += amount
+            
+            self.db.update_user(user_id, user_data)
+            self.db.update_user(target_id, recipient_data)
+            
+            self.db.add_transaction(user_id, "tip_sent", -amount, f"Tip to @{recipient_data.get('username', target_id)}")
+            self.db.add_transaction(target_id, "tip_received", amount, f"Tip from @{user_data.get('username', user_id)}")
+            
+            await query.message.delete()
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=f"Tip successful! **{recipient_data.get('username', target_id)}** receives **${amount:.2f}**!",
+                parse_mode="Markdown"
+            )
+            
+            # Notify receiver
+            try:
+                await context.bot.send_message(
+                    chat_id=target_id,
+                    text=f"🎁 You received a tip of **${amount:.2f}** from **{user_data.get('username', user_id)}**!",
+                    parse_mode="Markdown"
+                )
+            except Exception:
+                pass
+            return
+
+        if data.startswith("setup_predict_select_"):
                 parts = data.split("_")
                 wager = float(parts[3])
                 prediction = parts[4]
@@ -3865,11 +3910,12 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     profit = payout - wager
                     user_data['balance'] += payout
                     user_data['games_won'] += 1
-                    result_text = f"✅ @{user_data['username']} won ${profit:.2f}!"
+                    user_display = f"**{user_data.get('username', f'User{user_id}')}**"
+                    result_text = f"🎉 {user_display} won **${profit:.2f}**!"
                     self.db.update_house_balance(-profit)
                 else:
                     profit = -wager
-                    result_text = f"❌ [emojigamblebot](tg://user?id=8575155625) won ${wager:.2f}"
+                    result_text = f"❌ [emojigamblebot](tg://user?id=8575155625) won **${wager:.2f}**"
                     self.db.update_house_balance(wager)
                 
                 user_data['total_wagered'] += wager
@@ -4143,11 +4189,12 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     profit = payout - wager
                     user_data['balance'] += payout
                     user_data['games_won'] += 1
-                    result_text = f"✅ @{user_data['username']} won ${profit:.2f}!"
+                    user_display = f"**{user_data.get('username', f'User{user_id}')}**"
+                    result_text = f"🎉 {user_display} won **${profit:.2f}**!"
                     self.db.update_house_balance(-profit)
                 else:
                     profit = -wager
-                    result_text = f"❌ [emojigamblebot](tg://user?id=8575155625) won ${wager:.2f}"
+                    result_text = f"❌ [emojigamblebot](tg://user?id=8575155625) won **${wager:.2f}**"
                     self.db.update_house_balance(wager)
                 
                 user_data['total_wagered'] += wager
