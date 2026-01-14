@@ -1063,10 +1063,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         
         # Action row
         keyboard.append([
+            InlineKeyboardButton("⬅️ Back", callback_data=f"setup_bet_back_{wager:.2f}"),
             InlineKeyboardButton("✅ Start", callback_data=f"predict_start_{wager:.2f}_{game_mode}")
-        ])
-        keyboard.append([
-            InlineKeyboardButton("⬅️ Back", callback_data=f"setup_bet_back_{wager:.2f}")
         ])
         
         reply_markup = InlineKeyboardMarkup(keyboard)
