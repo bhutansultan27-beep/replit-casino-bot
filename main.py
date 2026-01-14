@@ -4394,24 +4394,28 @@ To withdraw, use:
     def run(self):
         """Start the bot."""
         # Schedule task to check for expired challenges every 5 seconds
-        job_queue = self.app.job_queue
-        job_queue.run_repeating(self.check_expired_challenges, interval=5, first=5)
+        if not self.app.job_queue:
+            logger.warning("JobQueue is not available. Timer-based features will not work.")
+        else:
+            self.app.job_queue.run_repeating(self.check_expired_challenges, interval=5, first=5)
         
         self.app.run_polling(poll_interval=1.0)
 
 
 async def main():
-    BOT_TOKEN = os.getenv("TELEGRAM_TOKEN") or os.getenv("TELEGRAM_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE") 
+    BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN") or os.getenv("TELEGRAM_TOKEN")
     
-    if BOT_TOKEN == "YOUR_BOT_TOKEN_HERE":
+    if not BOT_TOKEN or BOT_TOKEN == "YOUR_BOT_TOKEN_HERE":
         logger.error("!!! FATAL ERROR: Please set the TELEGRAM_BOT_TOKEN environment variable. !!!")
         return
     
     logger.info("Starting Antaria Casino Bot...")
     bot = AntariaCasinoBot(token=BOT_TOKEN)
     
-    job_queue = bot.app.job_queue
-    job_queue.run_repeating(bot.check_expired_challenges, interval=5, first=5)
+    if bot.app.job_queue:
+        bot.app.job_queue.run_repeating(bot.check_expired_challenges, interval=5, first=5)
+    else:
+        logger.warning("JobQueue is not available. Timer-based features will not work.")
     
     await bot.app.initialize()
     await bot.app.start()
@@ -4425,7 +4429,8 @@ async def main():
     except KeyboardInterrupt:
         pass
     finally:
-        await bot.app.updater.stop()
+        if bot.app.updater:
+            await bot.app.updater.stop()
         await bot.app.stop()
         await bot.app.shutdown()
 
