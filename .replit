@@ -1,4 +1,4 @@
-modules = ["python-3.12", "postgresql-16"]
+modules = ["python-3.11"]
 [agent]
 expertMode = true
 
@@ -37,3 +37,7 @@ run = ["python", "main.py"]
 
 [userenv.shared]
 ADMIN_IDS = "7748988189"
+
+[[ports]]
+localPort = 5000
+externalPort = 80
