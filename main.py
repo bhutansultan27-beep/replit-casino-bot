@@ -552,10 +552,10 @@ class AntariaCasinoBot:
                     )
         
         welcome_text = f"""
-🎰 **Antaria Casino**
-💰 Balance: **${user_data['balance']:,.2f}**
+🎰 <b>Antaria Casino</b>
+💰 Balance: <b>${user_data['balance']:,.2f}</b>
 
-**Games:**
+<b>Games:</b>
 /dice 10 - Dice 🎲
 /darts 10 - Darts 🎯
 /basketball 10 - Basketball 🏀
@@ -564,12 +564,12 @@ class AntariaCasinoBot:
 /flip 10 heads - Coin Flip 🪙
 /predict 10 #6 - Predict 🎱
 
-**Menu:**
+<b>Menu:</b>
 /bal - Balance
 /bonus - Get bonus
 /stats - Your stats
 """
-        await update.message.reply_text(welcome_text, parse_mode="Markdown")
+        await update.message.reply_text(welcome_text, parse_mode="HTML")
     
     async def get_live_rate(self, crypto_id: str) -> float:
         """Fetch live crypto rate from CoinGecko with caching."""
@@ -612,7 +612,7 @@ class AntariaCasinoBot:
         xmr_usd_rate = await self.get_live_rate("monero")
         xmr_balance = user_data['balance'] / xmr_usd_rate
         
-        balance_text = f"Your balance: **${user_data['balance']:,.2f}** ({xmr_balance:.5f} XMR)"
+        balance_text = f"Your balance: <b>${user_data['balance']:,.2f}</b> ({xmr_balance:.5f} XMR)"
         
         keyboard = [
             [InlineKeyboardButton("💳 Deposit", callback_data="deposit_mock"),
@@ -623,7 +623,7 @@ class AntariaCasinoBot:
         await update.message.reply_text(
             balance_text, 
             reply_markup=reply_markup, 
-            parse_mode="Markdown",
+            parse_mode="HTML",
             reply_to_message_id=update.message.message_id
         )
     
