@@ -620,7 +620,12 @@ class AntariaCasinoBot:
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await update.message.reply_text(balance_text, reply_markup=reply_markup, parse_mode="Markdown")
+        await update.message.reply_text(
+            balance_text, 
+            reply_markup=reply_markup, 
+            parse_mode="Markdown",
+            reply_to_message_id=update.message.message_id
+        )
     
     async def bonus_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Show bonus status"""
