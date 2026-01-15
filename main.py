@@ -3328,8 +3328,16 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     await asyncio.sleep(2)
                     d = await context.bot.send_dice(chat_id=chat_id, emoji=emoji)
                     bv = d.dice.value
-                    b_tot += (1 if bv >= 4 else 0) if emoji in ["⚽", "🏀"] else bv
+                    if emoji in ["⚽", "🏀"]:
+                        b_val = 1 if bv >= 4 else 0
+                    else:
+                        b_val = bv
+                    b_tot += b_val
                     await asyncio.sleep(3.5)
+                
+                # Update challenge after bot rolls to ensure final score is captured
+                challenge = self.pending_pvp.get(cid)
+                if not challenge: return
                 
                 win = None
                 if challenge['mode'] == "normal":
