@@ -1040,8 +1040,11 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             mode = params.get("mode")
             rolls = params.get("rolls")
             pts = params.get("pts")
+            opponent = params.get("opponent", "bot")
             
             mode_display = "Normal" if mode == "normal" else "Crazy"
+            opponent_display = "vs Bot" if opponent == "bot" else "vs Player"
+            
             text = (
                 f"{current_emoji} <b>{game_mode.replace('_', ' ').capitalize()}</b>\n\n"
                 f"Your balance: <b>${user_data['balance']:,.2f}</b>\n"
@@ -1049,30 +1052,39 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 f"<b>Game Details:</b>\n"
                 f"Mode: <b>{mode_display}</b>\n"
                 f"Rolls: <b>{rolls}</b>\n"
-                f"Points: <b>{pts}</b>\n\n"
+                f"Points: <b>{pts}</b>\n"
+                f"Opponent: <b>{opponent_display}</b>\n\n"
                 f"Make your selection:"
             )
             
             # Bet control row
             keyboard.append([
-                InlineKeyboardButton("Half Bet", callback_data=f"emoji_setup_{game_mode}_{max(1.0, wager/2):.2f}_final_{pts}_{rolls}_{mode}"),
+                InlineKeyboardButton("Half Bet", callback_data=f"emoji_setup_{game_mode}_{max(1.0, wager/2):.2f}_final_{pts}_{rolls}_{mode}_{opponent}"),
                 InlineKeyboardButton(f"Bet: ${wager:,.0f}", callback_data="none"),
-                InlineKeyboardButton("Double Bet", callback_data=f"emoji_setup_{game_mode}_{wager*2:.2f}_final_{pts}_{rolls}_{mode}")
+                InlineKeyboardButton("Double Bet", callback_data=f"emoji_setup_{game_mode}_{wager*2:.2f}_final_{pts}_{rolls}_{mode}_{opponent}")
             ])
             
-            # Mode selection row (arrows and emoji)
+            # Mode selection row
             next_mode = self._get_next_game_mode(game_mode)
             prev_mode = self._get_prev_game_mode(game_mode)
             keyboard.append([
-                InlineKeyboardButton("⬅️", callback_data=f"emoji_setup_{prev_mode}_{wager:.2f}_final_{pts}_{rolls}_{mode}"),
+                InlineKeyboardButton("⬅️", callback_data=f"emoji_setup_{prev_mode}_{wager:.2f}_final_{pts}_{rolls}_{mode}_{opponent}"),
                 InlineKeyboardButton(f"Mode: {current_emoji}", callback_data="none"),
-                InlineKeyboardButton("➡️", callback_data=f"emoji_setup_{next_mode}_{wager:.2f}_final_{pts}_{rolls}_{mode}")
+                InlineKeyboardButton("➡️", callback_data=f"emoji_setup_{next_mode}_{wager:.2f}_final_{pts}_{rolls}_{mode}_{opponent}")
+            ])
+            
+            # Opponent selection row
+            keyboard.append([
+                InlineKeyboardButton("🤖 vs Bot" + (" ✅" if opponent == "bot" else ""), callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_final_{pts}_{rolls}_{mode}_bot"),
+                InlineKeyboardButton("👥 vs Player" + (" ✅" if opponent == "player" else ""), callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_final_{pts}_{rolls}_{mode}_player")
             ])
             
             # Action row
+            start_callback = f"emoji_setup_{game_mode}_{wager:.2f}_start_{pts}_{rolls}_{mode}" if opponent == "bot" else f"v2_pvp_{game_mode}_{wager:.2f}_{rolls}_{mode}_{pts}"
+            
             keyboard.append([
                 InlineKeyboardButton("⬅️ Back", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_points_{rolls}_{mode}"),
-                InlineKeyboardButton("✅ Start", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_start_{pts}_{rolls}_{mode}")
+                InlineKeyboardButton("✅ Start", callback_data=start_callback)
             ])
             
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -4275,89 +4287,26 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 wager = float(parts[3])
                 next_step = parts[4]
                 
-                if next_step == "mode":
-                    await self._show_emoji_game_setup(update, context, wager, g_mode, "mode")
-                elif next_step == "rolls":
-                    mode = parts[5]
-                    await self._show_emoji_game_setup(update, context, wager, g_mode, "rolls", {"mode": mode})
+                params = {}
+                if next_step == "rolls":
+                    params["mode"] = parts[5]
                 elif next_step == "points":
-                    rolls = int(parts[5])
-                    mode = parts[6]
-                    await self._show_emoji_game_setup(update, context, wager, g_mode, "points", {"mode": mode, "rolls": rolls})
+                    params["rolls"] = int(parts[5])
+                    params["mode"] = parts[6]
                 elif next_step == "final":
-                    pts = int(parts[5])
-                    rolls = int(parts[6])
-                    mode = parts[7]
-                    await self._show_emoji_game_setup(update, context, wager, g_mode, "final", {"mode": mode, "rolls": rolls, "pts": pts})
+                    params["pts"] = int(parts[5])
+                    params["rolls"] = int(parts[6])
+                    params["mode"] = parts[7]
+                    if len(parts) > 8:
+                        params["opponent"] = parts[8]
                 elif next_step == "start":
                     pts = int(parts[5])
                     rolls = int(parts[6])
                     mode = parts[7]
-                    
-                    # Check balance before starting
-                    user_data = self.db.get_user(user_id)
-                    if user_data['balance'] < wager:
-                        await query.answer(f"❌ Insufficient balance! Your balance is ${user_data['balance']:.2f}", show_alert=True)
-                        return
-
-                    # Check for active games - IMPROVED SYNC
-                    self.pending_pvp = self.db.data.get('pending_pvp', {})
-                    for pid, pgame in list(self.pending_pvp.items()):
-                        if pgame.get('player') == user_id or pgame.get('challenger') == user_id:
-                             await query.answer("❌ You already have an active game! Please finish or wait for it to expire.", show_alert=True)
-                             return
-
-                    # Initialize V2 bot game
-                    game_id = f"v2_bot_{user_id}_{int(datetime.now().timestamp())}"
-                    
-                    # Deduct balance immediately
-                    user_data = self.db.get_user(user_id)
-                    self.db.update_user(user_id, {'balance': max(0, user_data['balance'] - wager)})
-                    self.db.add_transaction(user_id, "game_bet", -wager, f"Bet on {g_mode} vs Bot")
-                    
-                    # Log for debugging
-                    logger.info(f"Initialized V2 bot game {game_id} for user {user_id} with wager {wager}")
-                    
-                    game_state = {
-                        "game": g_mode,
-                        "mode": mode,
-                        "rolls": rolls,
-                        "pts": pts,
-                        "p_pts": 0,
-                        "b_pts": 0,
-                        "p_rolls": [],
-                        "cur_rolls": 0,
-                        "wager": wager,
-                        "wager_deducted": True,
-                        "emoji": self.emoji_map.get(g_mode, "🎲"),
-                        "player": user_id,
-                        "chat_id": chat_id,
-                        "emoji_wait": datetime.now().isoformat(),
-                        "waiting_for_emoji": True,
-                        "created_at": datetime.now().isoformat()
-                    }
-                    
-                    self.pending_pvp[game_id] = game_state
-                    
-                    # Persist immediately to DatabaseManager
-                    if hasattr(self.db, 'update_pending_pvp'):
-                        self.db.update_pending_pvp(self.pending_pvp)
-                    else:
-                        # Fallback to current method
-                        self.db.data['pending_pvp'] = self.pending_pvp
-                        self.db.save_data()
-                    
-                    bot_username = (await context.bot.get_me()).username
-                    bot_mention = f"[@{bot_username}](tg://user?id={context.bot.id})"
-                    user_mention = f"@{update.effective_user.username}" if update.effective_user.username else update.effective_user.first_name
-                    await context.bot.send_message(
-                        chat_id=chat_id, 
-                        text=f"🎮 **{g_mode.capitalize()} Series**\n\n{bot_mention} vs {user_mention}\n\n{user_mention} your turn! Send {game_state['emoji']}",
-                        parse_mode="Markdown"
-                    )
-                    
-                    # Log to confirm message was sent
-                    logger.info(f"Sent start message for {game_id}")
+                    await self.start_generic_v2_bot(update, context, g_mode, wager, rolls, mode, pts)
+                    return
+                
+                await self._show_emoji_game_setup(update, context, wager, g_mode, next_step, params)
                 return
 
             # Custom menu switching
