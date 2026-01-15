@@ -1015,10 +1015,20 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 InlineKeyboardButton("3 Pts", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_final_3_{rolls}_{mode}")
             ])
         
+        # VS Bot/Player buttons in game setup (Only in groups)
+        is_private = update.effective_chat.type == "private"
+        if not is_private and step == "final":
+            keyboard.insert(-1, [
+                InlineKeyboardButton("🤖 vs Bot ✅" if not params or not params.get('opponent') == 'bot' else "🤖 vs Bot", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_final_{pts}_{rolls}_{mode}_bot"),
+                InlineKeyboardButton("👥 vs Player ✅" if params and params.get('opponent') == 'player' else "👥 vs Player", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_final_{pts}_{rolls}_{mode}_player")
+            ])
+        
         if step in ["mode", "rolls", "points"]:
+            text += f"\n\nOpponent: {params.get('opponent', 'vs Bot') if params else 'vs Bot'}"
             # Bet control row
+            half_wager = wager / 2
             keyboard.append([
-                InlineKeyboardButton("Half Bet", callback_data=f"emoji_setup_{game_mode}_{max(1.0, wager/2):.2f}_{step}"),
+                InlineKeyboardButton("Half Bet", callback_data=f"emoji_setup_{game_mode}_{half_wager:.2f}_{step}"),
                 InlineKeyboardButton(f"Bet: ${wager:,.0f}", callback_data="none"),
                 InlineKeyboardButton("Double Bet", callback_data=f"emoji_setup_{game_mode}_{wager*2:.2f}_{step}")
             ])
@@ -1035,6 +1045,14 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             # Back button
             back_callback = f"predict_menu_{wager:.2f}_{game_mode}" if step == "mode" else f"emoji_setup_{game_mode}_{wager:.2f}_{'mode' if step == 'rolls' else 'rolls'}"
             keyboard.append([InlineKeyboardButton("⬅️ Back", callback_data=back_callback)])
+            
+            # Remove Opponent selection row if private
+            is_private = update.effective_chat.type == "private"
+            if is_private and step == "final":
+                # Find and remove the row with vs Bot / vs Player
+                keyboard = [row for row in keyboard if not any(btn.text and ("vs Bot" in btn.text or "vs Player" in btn.text) for btn in row)]
+                # Ensure it's vs bot
+                if params: params['opponent'] = 'bot'
 
         elif step == "final":
             mode = params.get("mode")
@@ -1188,10 +1206,11 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 InlineKeyboardButton("🆚 Player", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_mode"),
                 InlineKeyboardButton("🤖 Bot", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_start_1_1_normal")
             ])
-
+        
         # Bet control row
+        half_wager = wager / 2
         keyboard.append([
-            InlineKeyboardButton("Half Bet", callback_data=f"predict_menu_{max(1.0, wager/2):.2f}_{game_mode}"),
+            InlineKeyboardButton("Half Bet", callback_data=f"predict_menu_{half_wager:.2f}_{game_mode}"),
             InlineKeyboardButton(f"Bet: ${wager:,.0f}", callback_data="none"),
             InlineKeyboardButton("Double Bet", callback_data=f"predict_menu_{wager*2:.2f}_{game_mode}")
         ])
@@ -1214,7 +1233,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         if update.callback_query:
             await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode="HTML")
         else:
-            sent_msg = await update.message.reply_text(text, reply_markup=reply_markup, parse_mode="HTML")
+            sent_msg = await update.message.reply_text(text, reply_markup=reply_markup, parse_mode="HTML", reply_to_message_id=update.effective_message.message_id)
             self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
 
     async def dice_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1231,6 +1250,12 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                     amount = float(arg)
             except ValueError:
                 pass
+        
+        # Ensure minimum bet
+        if amount < 1.0:
+            await update.effective_message.reply_text("❌ Minimum bet is $1.00", reply_to_message_id=update.effective_message.message_id)
+            return
+
         await self._show_game_prediction_menu(update, context, amount, "dice")
 
     async def darts_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1247,6 +1272,12 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                     amount = float(arg)
             except ValueError:
                 pass
+
+        # Ensure minimum bet
+        if amount < 1.0:
+            await update.effective_message.reply_text("❌ Minimum bet is $1.00", reply_to_message_id=update.effective_message.message_id)
+            return
+
         await self._show_game_prediction_menu(update, context, amount, "darts")
 
     async def basketball_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1263,6 +1294,12 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                     amount = float(arg)
             except ValueError:
                 pass
+
+        # Ensure minimum bet
+        if amount < 1.0:
+            await update.effective_message.reply_text("❌ Minimum bet is $1.00", reply_to_message_id=update.effective_message.message_id)
+            return
+
         await self._show_game_prediction_menu(update, context, amount, "basketball")
 
     async def soccer_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1279,6 +1316,12 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                     amount = float(arg)
             except ValueError:
                 pass
+
+        # Ensure minimum bet
+        if amount < 1.0:
+            await update.effective_message.reply_text("❌ Minimum bet is $1.00", reply_to_message_id=update.effective_message.message_id)
+            return
+
         await self._show_game_prediction_menu(update, context, amount, "soccer")
 
     async def bowling_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1295,6 +1338,12 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                     amount = float(arg)
             except ValueError:
                 pass
+
+        # Ensure minimum bet
+        if amount < 1.0:
+            await update.effective_message.reply_text("❌ Minimum bet is $1.00", reply_to_message_id=update.effective_message.message_id)
+            return
+
         await self._show_game_prediction_menu(update, context, amount, "bowling")
 
     async def coinflip_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1552,6 +1601,12 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                     amount = float(arg)
             except ValueError:
                 pass
+        
+        # Ensure minimum bet
+        if amount < 1.0:
+            await update.effective_message.reply_text("❌ Minimum bet is $1.00", reply_to_message_id=update.effective_message.message_id)
+            return
+
         await self._show_game_prediction_menu(update, context, amount, "dice")
 
     async def darts_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1568,6 +1623,12 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                     amount = float(arg)
             except ValueError:
                 pass
+
+        # Ensure minimum bet
+        if amount < 1.0:
+            await update.effective_message.reply_text("❌ Minimum bet is $1.00", reply_to_message_id=update.effective_message.message_id)
+            return
+
         await self._show_game_prediction_menu(update, context, amount, "darts")
 
     async def basketball_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1584,6 +1645,12 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                     amount = float(arg)
             except ValueError:
                 pass
+
+        # Ensure minimum bet
+        if amount < 1.0:
+            await update.effective_message.reply_text("❌ Minimum bet is $1.00", reply_to_message_id=update.effective_message.message_id)
+            return
+
         await self._show_game_prediction_menu(update, context, amount, "basketball")
 
     async def soccer_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1600,6 +1667,12 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                     amount = float(arg)
             except ValueError:
                 pass
+
+        # Ensure minimum bet
+        if amount < 1.0:
+            await update.effective_message.reply_text("❌ Minimum bet is $1.00", reply_to_message_id=update.effective_message.message_id)
+            return
+
         await self._show_game_prediction_menu(update, context, amount, "soccer")
 
     async def bowling_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1616,6 +1689,12 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                     amount = float(arg)
             except ValueError:
                 pass
+
+        # Ensure minimum bet
+        if amount < 1.0:
+            await update.effective_message.reply_text("❌ Minimum bet is $1.00", reply_to_message_id=update.effective_message.message_id)
+            return
+
         await self._show_game_prediction_menu(update, context, amount, "bowling")
 
     async def _generic_emoji_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE, game_name: str, emoji: str):
@@ -4334,6 +4413,15 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 return
 
             # Custom menu switching
+            if data.startswith("predict_menu_") or data.startswith("emoji_setup_"):
+                parts = data.split("_")
+                wager_idx = 2 if data.startswith("predict_menu_") else 3
+                wager = float(parts[wager_idx])
+                
+                if wager < 1.0:
+                    await query.answer("❌ Minimum bet is $1.00", show_alert=True)
+                    return
+
             if data.startswith("predict_menu_"):
                 parts = data.split("_")
                 wager = float(parts[2])
