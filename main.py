@@ -4271,6 +4271,9 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     self.db.update_user(user_id, {'balance': max(0, user_data['balance'] - wager)})
                     self.db.add_transaction(user_id, "game_bet", -wager, f"Bet on {g_mode} vs Bot")
                     
+                    # Log for debugging
+                    logger.info(f"Initialized V2 bot game {game_id} for user {user_id} with wager {wager}")
+                    
                     game_state = {
                         "game": g_mode,
                         "mode": mode,
@@ -4300,7 +4303,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                         self.db.data['pending_pvp'] = self.pending_pvp
                         self.db.save_data()
                     
-                    bot_mention = "[emojigamblebot](tg://user?id=8575155625)"
+                    bot_mention = f"[{context.bot.username or 'Bot'}](tg://user?id={context.bot.id})"
                     user_mention = f"@{update.effective_user.username}" if update.effective_user.username else update.effective_user.first_name
                     await context.bot.send_message(
                         chat_id=chat_id, 
