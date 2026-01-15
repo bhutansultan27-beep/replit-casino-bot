@@ -961,13 +961,16 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         emoji_map = self.emoji_map
         current_emoji = emoji_map.get(game_mode, "🎲")
         
+        # Consistent multiplier for PvP/Bot series
+        multiplier = 1.95
+        
         keyboard = []
         
         if step == "mode":
             text = (
                 f"{current_emoji} <b>{game_mode.replace('_', ' ').capitalize()}</b>\n\n"
                 f"Your balance: <b>${user_data['balance']:,.2f}</b>\n"
-                f"Multiplier: 0.00x\n\n"
+                f"Multiplier: <b>{multiplier:.2f}x</b>\n\n"
                 f"Choose your game mode:"
             )
             keyboard.append([
@@ -979,7 +982,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             text = (
                 f"{current_emoji} <b>{game_mode.replace('_', ' ').capitalize()}</b>\n\n"
                 f"Your balance: <b>${user_data['balance']:,.2f}</b>\n"
-                f"Multiplier: 0.00x\n\n"
+                f"Multiplier: <b>{multiplier:.2f}x</b>\n\n"
                 f"Choose the amount of rolls:"
             )
             keyboard.append([
@@ -992,7 +995,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             text = (
                 f"{current_emoji} <b>{game_mode.replace('_', ' ').capitalize()}</b>\n\n"
                 f"Your balance: <b>${user_data['balance']:,.2f}</b>\n"
-                f"Multiplier: 0.00x\n\n"
+                f"Multiplier: <b>{multiplier:.2f}x</b>\n\n"
                 f"Choose the amount of points:"
             )
             keyboard.append([
