@@ -3419,15 +3419,19 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             pending_pvp_state = db.session.get(GlobalState, "pending_pvp")
             self.pending_pvp = pending_pvp_state.value if pending_pvp_state else {}
         
+        logger.info(f"Checking for matching game in {len(self.pending_pvp)} pending challenges")
         found_game = False
         for cid, challenge in list(self.pending_pvp.items()):
+            logger.debug(f"Checking challenge {cid}: player={challenge.get('player')}, emoji={challenge.get('emoji')}, waiting={challenge.get('waiting_for_emoji')}")
             if challenge.get('chat_id') != chat_id:
                 continue
 
             # Generic V2 Bot
             if cid.startswith("v2_bot_") and challenge.get('player') == user_id and challenge.get('emoji') == emoji:
                 found_game = True
+                logger.info(f"Match found: {cid}")
                 if not challenge.get('waiting_for_emoji'):
+                    logger.warning(f"Game found but not waiting for emoji: {cid}")
                     continue
                 
                 # Ensure state keys exist
@@ -4718,17 +4722,19 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     ]
                     await query.edit_message_text(f"**{game.capitalize()}** Ready!\n\nWager: ${wager:.2f}\nMode: {mode}\nRolls: {rolls}\nTarget: {pts}\n\nChoose Opponent:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
-            elif data.startswith("v2_bot_"):
+            if data.startswith("v2_bot_"):
                 parts = data.split('_')
                 if len(parts) >= 7:
                     game, wager, rolls, mode, pts = parts[2], float(parts[3]), int(parts[4]), parts[5], int(parts[6])
                     await self.start_generic_v2_bot(update, context, game, wager, rolls, mode, pts)
+                return
 
             elif data.startswith("v2_pvp_"):
                 parts = data.split('_')
                 if len(parts) >= 7:
                     game, wager, rolls, mode, pts = parts[2], float(parts[3]), int(parts[4]), parts[5], int(parts[6])
                     await self.start_generic_v2_pvp(update, context, game, wager, rolls, mode, pts)
+                return
 
             elif data.startswith("v2_accept_"):
                 cid = data.replace("v2_accept_", "")
