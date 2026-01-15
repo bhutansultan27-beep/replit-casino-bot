@@ -3232,8 +3232,14 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     # Use a small epsilon to avoid floating point issues with "all" bets
                     if user_data['balance'] < (challenge['wager'] - 0.001):
                         await update.message.reply_text(f"❌ Insufficient balance to start the game! (Balance: ${user_data['balance']:.2f}, Wager: ${challenge['wager']:.2f})")
+                        # Clean up failed game
+                        if cid in self.pending_pvp:
+                            del self.pending_pvp[cid]
+                            self.db.data['pending_pvp'] = self.pending_pvp
+                            self.db.save_data()
                         return
                     self.db.update_user(user_id, {'balance': max(0, user_data['balance'] - challenge['wager'])})
+                    self.db.add_transaction(user_id, "game_bet", -challenge['wager'], f"Bet on {challenge.get('game', 'game')} vs Bot")
                     challenge['wager_deducted'] = True
                 
                 challenge['p_rolls'].append(score)
@@ -4265,6 +4271,12 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
 
                     # Initialize V2 bot game
                     game_id = f"v2_bot_{user_id}_{int(datetime.now().timestamp())}"
+                    
+                    # Deduct balance immediately
+                    user_data = self.db.get_user(user_id)
+                    self.db.update_user(user_id, {'balance': max(0, user_data['balance'] - wager)})
+                    self.db.add_transaction(user_id, "game_bet", -wager, f"Bet on {g_mode} vs Bot")
+                    
                     game_state = {
                         "game": g_mode,
                         "mode": mode,
@@ -4275,6 +4287,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                         "p_rolls": [],
                         "cur_rolls": 0,
                         "wager": wager,
+                        "wager_deducted": True,
                         "emoji": self.emoji_map.get(g_mode, "🎲"),
                         "player": user_id,
                         "chat_id": chat_id,
