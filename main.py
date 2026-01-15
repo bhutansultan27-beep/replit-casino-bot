@@ -1152,6 +1152,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         keyboard = []
         
         # Prediction buttons
+        is_private = update.effective_chat.type == "private"
+        
         if game_mode in ["dice", "darts", "bowling"]:
             row1, row2 = [], []
             for i in range(1, 7):
@@ -1179,6 +1181,13 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 label = f"{opt.capitalize()} ✅" if opt in selections else opt.capitalize()
                 row.append(InlineKeyboardButton(label, callback_data=f"setup_predict_select_{wager:.2f}_{opt}_{game_mode}"))
             keyboard.append(row)
+
+        # VS Player / VS Bot buttons (Only in groups)
+        if not is_private and game_mode in ["dice", "darts", "basketball", "soccer", "bowling"]:
+            keyboard.append([
+                InlineKeyboardButton("🆚 Player", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_mode"),
+                InlineKeyboardButton("🤖 Bot", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_start_1_1_normal")
+            ])
 
         # Bet control row
         keyboard.append([
@@ -3900,7 +3909,13 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             "wager_deducted": False, "message_id": query.message.message_id
         }
         self.db.save_data()
-        await query.edit_message_text(f"**{game.capitalize()} vs Bot**\nTarget: {pts}\nMode: {mode.capitalize()}\n\n👉 Send your {rolls} {emoji} now!", parse_mode="Markdown")
+        
+        # In DMs, we just inform the user to send their emoji.
+        # In groups, we could still edit if desired, but user wants a new message.
+        msg_text = f"**{game.capitalize()} vs Bot**\nTarget: {pts}\nMode: {mode.capitalize()}\n\n👉 Send your {rolls} {emoji} now!"
+        await context.bot.send_message(chat_id=query.message.chat_id, text=msg_text, parse_mode="Markdown")
+        # Keep the menu alive or delete? User says "dont want it to edit the message that has all the game details and start button"
+        # So we leave the original message as is (it still has the start buttons though, but button_callback handles single-use)
 
     async def start_generic_v2_pvp(self, update: Update, context: ContextTypes.DEFAULT_TYPE, game: str, wager: float, rolls: int, mode: str, pts: int):
         query = update.callback_query
@@ -3924,7 +3939,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         }
         self.db.save_data()
         keyboard = [[InlineKeyboardButton("Join Challenge", callback_data=f"v2_accept_{cid}")]]
-        await query.edit_message_text(f"{emoji} **{game.capitalize()} PvP**\nChallenger: @{user_data['username']}\nWager: ${wager:.2f}\nMode: {mode.capitalize()}\nTarget: {pts}\n\nClick below to join!", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+        msg_text = f"{emoji} **{game.capitalize()} PvP**\nChallenger: @{user_data['username']}\nWager: ${wager:.2f}\nMode: {mode.capitalize()}\nTarget: {pts}\n\nClick below to join!"
+        await context.bot.send_message(chat_id=query.message.chat_id, text=msg_text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
     async def accept_generic_v2_pvp(self, update: Update, context: ContextTypes.DEFAULT_TYPE, cid: str):
         query = update.callback_query
@@ -3941,7 +3957,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             
         challenge['opponent'] = user_id
         challenge['p2_deducted'] = False
-        await query.edit_message_text("✅ Challenge Accepted! Starting...")
+        await context.bot.send_message(chat_id=query.message.chat_id, text="✅ Challenge Accepted! Starting...")
         asyncio.create_task(self.generic_v2_pvp_loop(context, cid))
 
     async def generic_v2_pvp_loop(self, context: ContextTypes.DEFAULT_TYPE, cid: str):
