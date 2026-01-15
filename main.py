@@ -2744,37 +2744,25 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
     # --- GAME LOGIC ---
 
     def _update_user_stats(self, user_id: int, wager: float, profit: float, result: str):
-        """Helper to update common user stats and playthrough requirements."""
-        user_data = self.db.get_user(user_id)
-        
-        user_data['balance'] += profit
-        user_data['games_played'] += 1
-        user_data['total_wagered'] += wager
-        user_data['wagered_since_last_withdrawal'] += wager
-        user_data['total_pnl'] += profit
-        
-        if result == "win":
-            user_data['games_won'] += 1
-            user_data['win_streak'] = user_data.get('win_streak', 0) + 1
-            user_data['best_win_streak'] = max(user_data.get('best_win_streak', 0), user_data['win_streak'])
-        elif result == "loss":
-            user_data['win_streak'] = 0
+        """Update user statistics after a game."""
+        with self.db.app.app_context():
+            from sqlalchemy import select
+            user = db.session.execute(select(User).filter_by(user_id=user_id)).scalar_one_or_none()
+            if not user:
+                return
 
-        # Set first wager date
-        if not user_data.get('first_wager_date'):
-            user_data['first_wager_date'] = datetime.now().isoformat()
-        
-        self.db.update_user(user_id, user_data)
-        
-        # Handle referral earnings (1% of wager)
-        referrer_code = user_data.get('referred_by')
-        if referrer_code:
-            referrer_data = next((u for u in self.db.data['users'].values() if u.get('referral_code') == referrer_code), None)
-            if referrer_data:
-                referral_commission = wager * 0.01
-                referrer_data['referral_earnings'] += referral_commission
-                referrer_data['unclaimed_referral_earnings'] += referral_commission
-                self.db.update_user(referrer_data['user_id'], referrer_data)
+            user.total_wagered += wager
+            user.total_pnl += profit
+            user.games_played += 1
+            if result == "win":
+                user.games_won += 1
+                user.win_streak += 1
+                if user.win_streak > user.best_win_streak:
+                    user.best_win_streak = user.win_streak
+            else:
+                user.win_streak = 0
+            
+            db.session.commit()
 
 
     async def dice_vs_bot(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float):
@@ -4225,6 +4213,9 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         try:
             if data.startswith("match_page_"):
                 parts = data.split('_')
+                if len(parts) < 4:
+                    await query.answer("❌ Invalid match page data!", show_alert=True)
+                    return
                 page = int(parts[2])
                 target_user_id = int(parts[3])
                 await self.show_matches_page(update, page, target_user_id)
@@ -4233,6 +4224,9 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             # Emoji game setup callbacks
             if data.startswith("emoji_setup_"):
                 parts = data.split("_")
+                if len(parts) < 5:
+                    await query.answer("❌ Invalid setup data!", show_alert=True)
+                    return
                 g_mode = parts[2]
                 wager = float(parts[3])
                 next_step = parts[4]
