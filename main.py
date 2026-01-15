@@ -2770,190 +2770,242 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         query = update.callback_query
         user_id = query.from_user.id
         user_data = self.db.get_user(user_id)
-        username = user_data.get('username', f'User{user_id}')
         chat_id = query.message.chat_id
         
         if wager > user_data['balance']:
-            await context.bot.send_message(chat_id=chat_id, text=f"❌ Balance: ${user_data['balance']:.2f}")
+            await query.answer(f"❌ Insufficient balance! Balance: ${user_data['balance']:.2f}", show_alert=True)
             return
         
-        # Deduct wager from player
+        # Deduct wager and log transaction
         self.db.update_user(user_id, {'balance': user_data['balance'] - wager})
+        self.db.add_transaction(user_id, "game_bet", -wager, "Bet on Dice vs Bot")
         
-        # Bot sends its emoji
-        bot_dice_msg = await context.bot.send_dice(chat_id=chat_id, emoji="🎲")
-        await asyncio.sleep(3)
-        bot_roll = bot_dice_msg.dice.value
-        
-        # Store pending game and wait for player emoji
-        game_id = f"dice_bot_{user_id}_{int(datetime.now().timestamp())}"
-        self.pending_pvp[game_id] = {
-            "type": "dice_bot",
-            "player": user_id,
-            "bot_roll": bot_roll,
+        # Initialize V2 bot game state (Unified logic)
+        game_id = f"v2_bot_{user_id}_{int(datetime.now().timestamp())}"
+        game_state = {
+            "game": "dice",
+            "mode": "normal",
+            "rolls": 1,
+            "pts": 1,
+            "p_pts": 0,
+            "b_pts": 0,
+            "p_rolls": [],
+            "cur_rolls": 0,
             "wager": wager,
+            "wager_deducted": True,
             "emoji": "🎲",
+            "player": user_id,
             "chat_id": chat_id,
+            "emoji_wait": datetime.now().isoformat(),
             "waiting_for_emoji": True,
-            "emoji_wait_started": datetime.now().isoformat()
+            "created_at": datetime.now().isoformat()
         }
+        
+        self.pending_pvp[game_id] = game_state
         self.db.data['pending_pvp'] = self.pending_pvp
         self.db.save_data()
         
-        bot_mention = "[emojigamblebot](tg://user?id=8575155625)"
-        await context.bot.send_message(chat_id=chat_id, text=f"{bot_mention} vs @{username}\n\n@{username} your turn", parse_mode="Markdown")
+        bot_mention = f"[{context.bot.username or 'Bot'}](tg://user?id={context.bot.id})"
+        user_mention = f"@{update.effective_user.username}" if update.effective_user.username else update.effective_user.first_name
+        
+        await query.answer()
+        await context.bot.send_message(
+            chat_id=chat_id, 
+            text=f"🎮 **Dice Series**\n\n{bot_mention} vs {user_mention}\n\n{user_mention} your turn! Send 🎲",
+            parse_mode="Markdown"
+        )
 
     async def darts_vs_bot(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float):
         """Play darts against the bot (called from button)"""
         query = update.callback_query
         user_id = query.from_user.id
         user_data = self.db.get_user(user_id)
-        username = user_data.get('username', f'User{user_id}')
         chat_id = query.message.chat_id
         
         if wager > user_data['balance']:
-            await context.bot.send_message(chat_id=chat_id, text=f"❌ Balance: ${user_data['balance']:.2f}")
+            await query.answer(f"❌ Insufficient balance! Balance: ${user_data['balance']:.2f}", show_alert=True)
             return
         
-        # Deduct wager from player
         self.db.update_user(user_id, {'balance': user_data['balance'] - wager})
+        self.db.add_transaction(user_id, "game_bet", -wager, "Bet on Darts vs Bot")
         
-        # Bot sends its emoji
-        bot_dice_msg = await context.bot.send_dice(chat_id=chat_id, emoji="🎯")
-        await asyncio.sleep(3)
-        bot_roll = bot_dice_msg.dice.value
-        
-        # Store pending game and wait for player emoji
-        game_id = f"darts_bot_{user_id}_{int(datetime.now().timestamp())}"
-        self.pending_pvp[game_id] = {
-            "type": "darts_bot",
-            "player": user_id,
-            "bot_roll": bot_roll,
+        game_id = f"v2_bot_{user_id}_{int(datetime.now().timestamp())}"
+        game_state = {
+            "game": "darts",
+            "mode": "normal",
+            "rolls": 1,
+            "pts": 1,
+            "p_pts": 0,
+            "b_pts": 0,
+            "p_rolls": [],
+            "cur_rolls": 0,
             "wager": wager,
+            "wager_deducted": True,
             "emoji": "🎯",
+            "player": user_id,
             "chat_id": chat_id,
+            "emoji_wait": datetime.now().isoformat(),
             "waiting_for_emoji": True,
-            "emoji_wait_started": datetime.now().isoformat()
+            "created_at": datetime.now().isoformat()
         }
+        
+        self.pending_pvp[game_id] = game_state
         self.db.data['pending_pvp'] = self.pending_pvp
         self.db.save_data()
         
-        bot_mention = "[emojigamblebot](tg://user?id=8575155625)"
-        await context.bot.send_message(chat_id=chat_id, text=f"{bot_mention} vs @{username}\n\n@{username} your turn", parse_mode="Markdown")
+        bot_mention = f"[{context.bot.username or 'Bot'}](tg://user?id={context.bot.id})"
+        user_mention = f"@{update.effective_user.username}" if update.effective_user.username else update.effective_user.first_name
+        
+        await query.answer()
+        await context.bot.send_message(
+            chat_id=chat_id, 
+            text=f"🎮 **Darts Series**\n\n{bot_mention} vs {user_mention}\n\n{user_mention} your turn! Send 🎯",
+            parse_mode="Markdown"
+        )
 
     async def basketball_vs_bot(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float):
         """Play basketball against the bot (called from button)"""
         query = update.callback_query
         user_id = query.from_user.id
         user_data = self.db.get_user(user_id)
-        username = user_data.get('username', f'User{user_id}')
         chat_id = query.message.chat_id
         
         if wager > user_data['balance']:
-            await context.bot.send_message(chat_id=chat_id, text=f"❌ Balance: ${user_data['balance']:.2f}")
+            await query.answer(f"❌ Insufficient balance! Balance: ${user_data['balance']:.2f}", show_alert=True)
             return
         
-        # Deduct wager from player
         self.db.update_user(user_id, {'balance': user_data['balance'] - wager})
+        self.db.add_transaction(user_id, "game_bet", -wager, "Bet on Basketball vs Bot")
         
-        # Bot sends its emoji
-        bot_dice_msg = await context.bot.send_dice(chat_id=chat_id, emoji="🏀")
-        await asyncio.sleep(4)
-        bot_roll = bot_dice_msg.dice.value
-        
-        # Store pending game and wait for player emoji
-        game_id = f"basketball_bot_{user_id}_{int(datetime.now().timestamp())}"
-        self.pending_pvp[game_id] = {
-            "type": "basketball_bot",
-            "player": user_id,
-            "bot_roll": bot_roll,
+        game_id = f"v2_bot_{user_id}_{int(datetime.now().timestamp())}"
+        game_state = {
+            "game": "basketball",
+            "mode": "normal",
+            "rolls": 1,
+            "pts": 1,
+            "p_pts": 0,
+            "b_pts": 0,
+            "p_rolls": [],
+            "cur_rolls": 0,
             "wager": wager,
+            "wager_deducted": True,
             "emoji": "🏀",
+            "player": user_id,
             "chat_id": chat_id,
+            "emoji_wait": datetime.now().isoformat(),
             "waiting_for_emoji": True,
-            "emoji_wait_started": datetime.now().isoformat()
+            "created_at": datetime.now().isoformat()
         }
+        
+        self.pending_pvp[game_id] = game_state
         self.db.data['pending_pvp'] = self.pending_pvp
         self.db.save_data()
         
-        bot_mention = "[emojigamblebot](tg://user?id=8575155625)"
-        await context.bot.send_message(chat_id=chat_id, text=f"{bot_mention} vs @{username}\n\n@{username} your turn", parse_mode="Markdown")
+        bot_mention = f"[{context.bot.username or 'Bot'}](tg://user?id={context.bot.id})"
+        user_mention = f"@{update.effective_user.username}" if update.effective_user.username else update.effective_user.first_name
+        
+        await query.answer()
+        await context.bot.send_message(
+            chat_id=chat_id, 
+            text=f"🎮 **Basketball Series**\n\n{bot_mention} vs {user_mention}\n\n{user_mention} your turn! Send 🏀",
+            parse_mode="Markdown"
+        )
 
     async def soccer_vs_bot(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float):
         """Play soccer against the bot (called from button)"""
         query = update.callback_query
         user_id = query.from_user.id
         user_data = self.db.get_user(user_id)
-        username = user_data.get('username', f'User{user_id}')
         chat_id = query.message.chat_id
         
         if wager > user_data['balance']:
-            await context.bot.send_message(chat_id=chat_id, text=f"❌ Balance: ${user_data['balance']:.2f}")
+            await query.answer(f"❌ Insufficient balance! Balance: ${user_data['balance']:.2f}", show_alert=True)
             return
         
-        # Deduct wager from player
         self.db.update_user(user_id, {'balance': user_data['balance'] - wager})
+        self.db.add_transaction(user_id, "game_bet", -wager, "Bet on Soccer vs Bot")
         
-        # Bot sends its emoji
-        bot_dice_msg = await context.bot.send_dice(chat_id=chat_id, emoji="⚽")
-        await asyncio.sleep(4)
-        bot_roll = bot_dice_msg.dice.value
-        
-        # Store pending game and wait for player emoji
-        game_id = f"soccer_bot_{user_id}_{int(datetime.now().timestamp())}"
-        self.pending_pvp[game_id] = {
-            "type": "soccer_bot",
-            "player": user_id,
-            "bot_roll": bot_roll,
+        game_id = f"v2_bot_{user_id}_{int(datetime.now().timestamp())}"
+        game_state = {
+            "game": "soccer",
+            "mode": "normal",
+            "rolls": 1,
+            "pts": 1,
+            "p_pts": 0,
+            "b_pts": 0,
+            "p_rolls": [],
+            "cur_rolls": 0,
             "wager": wager,
+            "wager_deducted": True,
             "emoji": "⚽",
+            "player": user_id,
             "chat_id": chat_id,
+            "emoji_wait": datetime.now().isoformat(),
             "waiting_for_emoji": True,
-            "emoji_wait_started": datetime.now().isoformat()
+            "created_at": datetime.now().isoformat()
         }
+        
+        self.pending_pvp[game_id] = game_state
         self.db.data['pending_pvp'] = self.pending_pvp
         self.db.save_data()
         
-        bot_mention = "[emojigamblebot](tg://user?id=8575155625)"
-        await context.bot.send_message(chat_id=chat_id, text=f"{bot_mention} vs @{username}\n\n@{username} your turn", parse_mode="Markdown")
+        bot_mention = f"[{context.bot.username or 'Bot'}](tg://user?id={context.bot.id})"
+        user_mention = f"@{update.effective_user.username}" if update.effective_user.username else update.effective_user.first_name
+        
+        await query.answer()
+        await context.bot.send_message(
+            chat_id=chat_id, 
+            text=f"🎮 **Soccer Series**\n\n{bot_mention} vs {user_mention}\n\n{user_mention} your turn! Send ⚽",
+            parse_mode="Markdown"
+        )
 
     async def bowling_vs_bot(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float):
         """Play bowling against the bot (called from button)"""
         query = update.callback_query
         user_id = query.from_user.id
         user_data = self.db.get_user(user_id)
-        username = user_data.get('username', f'User{user_id}')
         chat_id = query.message.chat_id
         
         if wager > user_data['balance']:
-            await context.bot.send_message(chat_id=chat_id, text=f"❌ Balance: ${user_data['balance']:.2f}")
+            await query.answer(f"❌ Insufficient balance! Balance: ${user_data['balance']:.2f}", show_alert=True)
             return
         
-        # Deduct wager from player
         self.db.update_user(user_id, {'balance': user_data['balance'] - wager})
+        self.db.add_transaction(user_id, "game_bet", -wager, "Bet on Bowling vs Bot")
         
-        # Bot sends its emoji
-        bot_dice_msg = await context.bot.send_dice(chat_id=chat_id, emoji="🎳")
-        await asyncio.sleep(4)
-        bot_roll = bot_dice_msg.dice.value
-        
-        # Store pending game and wait for player emoji
-        game_id = f"bowling_bot_{user_id}_{int(datetime.now().timestamp())}"
-        self.pending_pvp[game_id] = {
-            "type": "bowling_bot",
-            "player": user_id,
-            "bot_roll": bot_roll,
+        game_id = f"v2_bot_{user_id}_{int(datetime.now().timestamp())}"
+        game_state = {
+            "game": "bowling",
+            "mode": "normal",
+            "rolls": 1,
+            "pts": 1,
+            "p_pts": 0,
+            "b_pts": 0,
+            "p_rolls": [],
+            "cur_rolls": 0,
             "wager": wager,
+            "wager_deducted": True,
             "emoji": "🎳",
+            "player": user_id,
             "chat_id": chat_id,
+            "emoji_wait": datetime.now().isoformat(),
             "waiting_for_emoji": True,
-            "emoji_wait_started": datetime.now().isoformat()
+            "created_at": datetime.now().isoformat()
         }
+        
+        self.pending_pvp[game_id] = game_state
         self.db.data['pending_pvp'] = self.pending_pvp
         self.db.save_data()
         
-        bot_mention = "[emojigamblebot](tg://user?id=8575155625)"
-        await context.bot.send_message(chat_id=chat_id, text=f"{bot_mention} vs @{username}\n\n@{username} your turn", parse_mode="Markdown")
+        bot_mention = f"[{context.bot.username or 'Bot'}](tg://user?id={context.bot.id})"
+        user_mention = f"@{update.effective_user.username}" if update.effective_user.username else update.effective_user.first_name
+        
+        await query.answer()
+        await context.bot.send_message(
+            chat_id=chat_id, 
+            text=f"🎮 **Bowling Series**\n\n{bot_mention} vs {user_mention}\n\n{user_mention} your turn! Send 🎳",
+            parse_mode="Markdown"
+        )
 
     async def create_open_dice_challenge(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float):
         """Create an open dice challenge for anyone to accept"""
