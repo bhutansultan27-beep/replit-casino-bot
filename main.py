@@ -3453,86 +3453,86 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 challenge['p_rolls'].append(score)
                 challenge['cur_rolls'] += 1
                 challenge['waiting_for_cashout'] = False
-                    
-                    if challenge['cur_rolls'] < challenge['rolls']:
-                        # Still need more rolls
-                        user_mention = f"@{update.effective_user.username}" if update.effective_user.username else update.effective_user.first_name
-                        await update.message.reply_text(f"{user_mention} roll again {emoji} ({challenge['cur_rolls']}/{challenge['rolls']})")
-                        self.db.update_pending_pvp(self.pending_pvp)
-                        return
-                    
-                    # Player finished rolls, now bot rolls
-                    challenge['waiting_for_emoji'] = False
-                    self.db.update_pending_pvp(self.pending_pvp)
-                    
-                    p_tot = sum(challenge['p_rolls'][-challenge['rolls']:])
-                    await context.bot.send_message(chat_id=chat_id, text=f"🤖 You rolled {p_tot}. Now it's my turn!")
-                    
-                    b_tot = 0
-                    for _ in range(challenge['rolls']):
-                        await asyncio.sleep(2)
-                        d = await context.bot.send_dice(chat_id=chat_id, emoji=emoji)
-                        bv = d.dice.value
-                        if emoji in ["⚽", "🏀"]:
-                            b_val = 1 if bv >= 4 else 0
-                        else:
-                            b_val = bv
-                        b_tot += b_val
-                        await asyncio.sleep(3.5)
-                    
-                    # Update challenge after bot rolls to ensure final score is captured
-                    challenge = self.pending_pvp.get(cid)
-                    if not challenge: return
-                    
-                    win = None
-                    if challenge['mode'] == "normal":
-                        if p_tot > b_tot: win = "p"
-                        elif b_tot > p_tot: win = "b"
-                    else: # crazy
-                        if p_tot < b_tot: win = "p"
-                        elif b_tot < p_tot: win = "b"
-                    
-                    if win == "p": challenge['p_pts'] += 1
-                    elif win == "b": challenge['b_pts'] += 1
-                    
-                    challenge['cur_rolls'] = 0
-                    challenge['emoji_wait'] = datetime.now().isoformat()
-                    
-                    if challenge['p_pts'] >= challenge['pts'] or challenge['b_pts'] >= challenge['pts']:
-                        # Series ended
-                        w = challenge['wager']
-                        if challenge['p_pts'] >= challenge['pts']:
-                            u = self.db.get_user(user_id)
-                            payout = w * 1.95
-                            u['balance'] += payout # Payout
-                            self.db.update_user(user_id, u)
-                            self.db.update_house_balance(-(w * 0.95))
-                            
-                            user_username = u.get('username', f'User{user_id}')
-                            win_text = f"🎉 <b>{user_username}</b> won <b>${payout:,.2f}</b>!"
-                            
-                            # Reply to the initial setup message if available
-                            msg_id = challenge.get('message_id')
-                            if msg_id:
-                                await context.bot.send_message(chat_id=chat_id, text=win_text, reply_to_message_id=msg_id, parse_mode="HTML")
-                            else:
-                                await context.bot.send_message(chat_id=chat_id, text=win_text, parse_mode="HTML")
-                            
-                            self._update_user_stats(user_id, w, w * 0.95, "win")
-                        else:
-                            self.db.update_house_balance(w)
-                            await context.bot.send_message(chat_id=chat_id, text=f"💀 **DEFEAT!** Bot won the series {challenge['b_pts']}-{challenge['p_pts']}. Lost ${w:.2f}")
-                            self._update_user_stats(user_id, w, -w, "loss")
-                        
-                        del self.pending_pvp[cid]
-                    else:
-                        # Next round
-                        challenge['waiting_for_emoji'] = True
-                        challenge['p_rolls'] = []
-                        await context.bot.send_message(chat_id=chat_id, text=f"Round Result: You {p_tot} vs Bot {b_tot}\nSeries Score: You {challenge['p_pts']} - {challenge['b_pts']} Bot\n\nYour turn! Send {emoji}")
-                    
+                
+                if challenge['cur_rolls'] < challenge['rolls']:
+                    # Still need more rolls
+                    user_mention = f"@{update.effective_user.username}" if update.effective_user.username else update.effective_user.first_name
+                    await update.message.reply_text(f"{user_mention} roll again {emoji} ({challenge['cur_rolls']}/{challenge['rolls']})")
                     self.db.update_pending_pvp(self.pending_pvp)
                     return
+                
+                # Player finished rolls, now bot rolls
+                challenge['waiting_for_emoji'] = False
+                self.db.update_pending_pvp(self.pending_pvp)
+                
+                p_tot = sum(challenge['p_rolls'][-challenge['rolls']:])
+                await context.bot.send_message(chat_id=chat_id, text=f"🤖 You rolled {p_tot}. Now it's my turn!")
+                
+                b_tot = 0
+                for _ in range(challenge['rolls']):
+                    await asyncio.sleep(2)
+                    d = await context.bot.send_dice(chat_id=chat_id, emoji=emoji)
+                    bv = d.dice.value
+                    if emoji in ["⚽", "🏀"]:
+                        b_val = 1 if bv >= 4 else 0
+                    else:
+                        b_val = bv
+                    b_tot += b_val
+                    await asyncio.sleep(3.5)
+                
+                # Update challenge after bot rolls to ensure final score is captured
+                challenge = self.pending_pvp.get(cid)
+                if not challenge: return
+                
+                win = None
+                if challenge['mode'] == "normal":
+                    if p_tot > b_tot: win = "p"
+                    elif b_tot > p_tot: win = "b"
+                else: # crazy
+                    if p_tot < b_tot: win = "p"
+                    elif b_tot < p_tot: win = "b"
+                
+                if win == "p": challenge['p_pts'] += 1
+                elif win == "b": challenge['b_pts'] += 1
+                
+                challenge['cur_rolls'] = 0
+                challenge['emoji_wait'] = datetime.now().isoformat()
+                
+                if challenge['p_pts'] >= challenge['pts'] or challenge['b_pts'] >= challenge['pts']:
+                    # Series ended
+                    w = challenge['wager']
+                    if challenge['p_pts'] >= challenge['pts']:
+                        u = self.db.get_user(user_id)
+                        payout = w * 1.95
+                        u['balance'] += payout # Payout
+                        self.db.update_user(user_id, u)
+                        self.db.update_house_balance(-(w * 0.95))
+                        
+                        user_username = u.get('username', f'User{user_id}')
+                        win_text = f"🎉 <b>{user_username}</b> won <b>${payout:,.2f}</b>!"
+                        
+                        # Reply to the initial setup message if available
+                        msg_id = challenge.get('message_id')
+                        if msg_id:
+                            await context.bot.send_message(chat_id=chat_id, text=win_text, reply_to_message_id=msg_id, parse_mode="HTML")
+                        else:
+                            await context.bot.send_message(chat_id=chat_id, text=win_text, parse_mode="HTML")
+                        
+                        self._update_user_stats(user_id, w, w * 0.95, "win")
+                    else:
+                        self.db.update_house_balance(w)
+                        await context.bot.send_message(chat_id=chat_id, text=f"💀 **DEFEAT!** Bot won the series {challenge['b_pts']}-{challenge['p_pts']}. Lost ${w:.2f}")
+                        self._update_user_stats(user_id, w, -w, "loss")
+                    
+                    del self.pending_pvp[cid]
+                else:
+                    # Next round
+                    challenge['waiting_for_emoji'] = True
+                    challenge['p_rolls'] = []
+                    await context.bot.send_message(chat_id=chat_id, text=f"Round Result: You {p_tot} vs Bot {b_tot}\nSeries Score: You {challenge['p_pts']} - {challenge['b_pts']} Bot\n\nYour turn! Send {emoji}")
+                
+                self.db.update_pending_pvp(self.pending_pvp)
+                return
 
             # Generic V2 PvP
             if cid.startswith("v2_pvp_") and challenge.get('emoji') == emoji:
