@@ -1015,23 +1015,44 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 InlineKeyboardButton("3 Pts", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_final_3_{rolls}_{mode}")
             ])
         
-        # VS Bot/Player buttons in game setup (Only in groups)
+        # Opponent selection row (Only in groups)
         is_private = update.effective_chat.type == "private"
         if not is_private and step == "final":
-            keyboard.insert(-1, [
-                InlineKeyboardButton("🤖 vs Bot ✅" if not params or not params.get('opponent') == 'bot' else "🤖 vs Bot", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_final_{pts}_{rolls}_{mode}_bot"),
-                InlineKeyboardButton("👥 vs Player ✅" if params and params.get('opponent') == 'player' else "👥 vs Player", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_final_{pts}_{rolls}_{mode}_player")
+            keyboard.append([
+                InlineKeyboardButton("🤖 vs Bot" + (" ✅" if not params or params.get('opponent') == 'bot' else ""), callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_final_{pts}_{rolls}_{mode}_bot"),
+                InlineKeyboardButton("👥 vs Player" + (" ✅" if params and params.get('opponent') == 'player' else ""), callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_final_{pts}_{rolls}_{mode}_player")
             ])
         
+        # Bet control row
+        half_wager = max(1.0, wager / 2)
+        keyboard.append([
+            InlineKeyboardButton("Half Bet", callback_data=f"emoji_setup_{game_mode}_{half_wager:.2f}_{step}"),
+            InlineKeyboardButton(f"Bet: ${wager:,.2f}", callback_data="none"),
+            InlineKeyboardButton("Double Bet", callback_data=f"emoji_setup_{game_mode}_{wager*2:.2f}_{step}")
+        ])
+        
+        # Ensure we don't have vs Bot/Player in DMs
+        if is_private:
+            # Re-filter keyboard to remove any opponent selection buttons that might have been added
+            keyboard = [row for row in keyboard if not any(btn.text and ("vs Bot" in btn.text or "vs Player" in btn.text) for btn in row)]
+            if params:
+                params['opponent'] = 'bot'
+
         if step in ["mode", "rolls", "points"]:
-            text += f"\n\nOpponent: {params.get('opponent', 'vs Bot') if params else 'vs Bot'}"
-            # Bet control row
-            half_wager = wager / 2
-            keyboard.append([
-                InlineKeyboardButton("Half Bet", callback_data=f"emoji_setup_{game_mode}_{half_wager:.2f}_{step}"),
-                InlineKeyboardButton(f"Bet: ${wager:,.0f}", callback_data="none"),
-                InlineKeyboardButton("Double Bet", callback_data=f"emoji_setup_{game_mode}_{wager*2:.2f}_{step}")
-            ])
+            # Custom title based on current step
+            step_titles = {"mode": "Game Mode", "rolls": "Rolls", "points": "Target Score"}
+            current_step_title = step_titles.get(step, step.capitalize())
+            
+            text = (
+                f"{current_emoji} <b>{game_mode.replace('_', ' ').capitalize()}</b>\n\n"
+                f"Your balance: <b>${user_data['balance']:,.2f}</b>\n"
+                f"Multiplier: <b>{multiplier:.2f}x</b>\n\n"
+                f"Choose your {current_step_title.lower()}:"
+            )
+            
+            # Opponent display (only in groups)
+            if not is_private:
+                text += f"\n\nOpponent: {params.get('opponent', 'vs Bot') if params else 'vs Bot'}"
             
             # Mode selection row (arrows and emoji)
             next_mode = self._get_next_game_mode(game_mode)
@@ -1045,14 +1066,6 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             # Back button
             back_callback = f"predict_menu_{wager:.2f}_{game_mode}" if step == "mode" else f"emoji_setup_{game_mode}_{wager:.2f}_{'mode' if step == 'rolls' else 'rolls'}"
             keyboard.append([InlineKeyboardButton("⬅️ Back", callback_data=back_callback)])
-            
-            # Remove Opponent selection row if private
-            is_private = update.effective_chat.type == "private"
-            if is_private and step == "final":
-                # Find and remove the row with vs Bot / vs Player
-                keyboard = [row for row in keyboard if not any(btn.text and ("vs Bot" in btn.text or "vs Player" in btn.text) for btn in row)]
-                # Ensure it's vs bot
-                if params: params['opponent'] = 'bot'
 
         elif step == "final":
             mode = params.get("mode")
@@ -1071,14 +1084,19 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 f"Mode: <b>{mode_display}</b>\n"
                 f"Rolls: <b>{rolls}</b>\n"
                 f"Points: <b>{pts}</b>\n"
-                f"Opponent: <b>{opponent_display}</b>\n\n"
-                f"Make your selection:"
             )
             
+            is_private = update.effective_chat.type == "private"
+            if not is_private:
+                text += f"Opponent: <b>{opponent_display}</b>\n"
+            
+            text += f"\nMake your selection:"
+            
             # Bet control row
+            half_wager = max(1.0, wager / 2)
             keyboard.append([
-                InlineKeyboardButton("Half Bet", callback_data=f"emoji_setup_{game_mode}_{max(1.0, wager/2):.2f}_final_{pts}_{rolls}_{mode}_{opponent}"),
-                InlineKeyboardButton(f"Bet: ${wager:,.0f}", callback_data="none"),
+                InlineKeyboardButton("Half Bet", callback_data=f"emoji_setup_{game_mode}_{half_wager:.2f}_final_{pts}_{rolls}_{mode}_{opponent}"),
+                InlineKeyboardButton(f"Bet: ${wager:,.2f}", callback_data="none"),
                 InlineKeyboardButton("Double Bet", callback_data=f"emoji_setup_{game_mode}_{wager*2:.2f}_final_{pts}_{rolls}_{mode}_{opponent}")
             ])
             
@@ -1091,14 +1109,15 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 InlineKeyboardButton("➡️", callback_data=f"emoji_setup_{next_mode}_{wager:.2f}_final_{pts}_{rolls}_{mode}_{opponent}")
             ])
             
-            # Opponent selection row
-            keyboard.append([
-                InlineKeyboardButton("🤖 vs Bot" + (" ✅" if opponent == "bot" else ""), callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_final_{pts}_{rolls}_{mode}_bot"),
-                InlineKeyboardButton("👥 vs Player" + (" ✅" if opponent == "player" else ""), callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_final_{pts}_{rolls}_{mode}_player")
-            ])
+            # Opponent selection row (Only in groups)
+            if not is_private:
+                keyboard.append([
+                    InlineKeyboardButton("🤖 vs Bot" + (" ✅" if opponent == "bot" else ""), callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_final_{pts}_{rolls}_{mode}_bot"),
+                    InlineKeyboardButton("👥 vs Player" + (" ✅" if opponent == "player" else ""), callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_final_{pts}_{rolls}_{mode}_player")
+                ])
             
             # Action row
-            start_callback = f"emoji_setup_{game_mode}_{wager:.2f}_start_{pts}_{rolls}_{mode}" if opponent == "bot" else f"v2_pvp_{game_mode}_{wager:.2f}_{rolls}_{mode}_{pts}"
+            start_callback = f"emoji_setup_{game_mode}_{wager:.2f}_start_{pts}_{rolls}_{mode}" if (opponent == "bot" or is_private) else f"v2_pvp_{game_mode}_{wager:.2f}_{rolls}_{mode}_{pts}"
             
             keyboard.append([
                 InlineKeyboardButton("⬅️ Back", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_points_{rolls}_{mode}"),
@@ -1115,12 +1134,18 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
     async def _show_game_prediction_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float, game_mode: str = "dice"):
         """Display the game prediction menu as shown in the screenshot"""
         # Route to multi-step setup for emoji games
-        if game_mode in ["dice", "basketball", "soccer", "darts", "bowling", "coinflip"]:
+        if game_mode in ["dice", "basketball", "soccer", "darts", "bowling"]:
             await self._show_emoji_game_setup(update, context, wager, game_mode)
             return
 
         user_id = update.effective_user.id
         user_data = self.db.get_user(user_id)
+        
+        # Ensure wager is at least 1.0
+        wager = max(1.0, wager)
+        
+        # Consistent multiplier for prediction games
+        multiplier = 1.95
         
         emoji_map = {
             "dice": "🎲",
@@ -1208,10 +1233,10 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             ])
         
         # Bet control row
-        half_wager = wager / 2
+        half_wager = max(1.0, wager / 2)
         keyboard.append([
             InlineKeyboardButton("Half Bet", callback_data=f"predict_menu_{half_wager:.2f}_{game_mode}"),
-            InlineKeyboardButton(f"Bet: ${wager:,.0f}", callback_data="none"),
+            InlineKeyboardButton(f"Bet: ${wager:,.2f}", callback_data="none"),
             InlineKeyboardButton("Double Bet", callback_data=f"predict_menu_{wager*2:.2f}_{game_mode}")
         ])
         
@@ -1233,7 +1258,13 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         if update.callback_query:
             await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode="HTML")
         else:
-            sent_msg = await update.message.reply_text(text, reply_markup=reply_markup, parse_mode="HTML", reply_to_message_id=update.effective_message.message_id)
+            # Always reply to the command message
+            sent_msg = await update.message.reply_text(
+                text, 
+                reply_markup=reply_markup, 
+                parse_mode="HTML",
+                reply_to_message_id=update.message.message_id
+            )
             self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
 
     async def dice_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -4416,11 +4447,16 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             if data.startswith("predict_menu_") or data.startswith("emoji_setup_"):
                 parts = data.split("_")
                 wager_idx = 2 if data.startswith("predict_menu_") else 3
-                wager = float(parts[wager_idx])
-                
-                if wager < 1.0:
-                    await query.answer("❌ Minimum bet is $1.00", show_alert=True)
-                    return
+                try:
+                    wager = float(parts[wager_idx])
+                    if wager < 1.0:
+                        # Auto-fix wager if it's below minimum
+                        new_parts = list(parts)
+                        new_parts[wager_idx] = "1.00"
+                        data = "_".join(new_parts)
+                        await query.answer("⚠️ Minimum bet is $1.00. Adjusted to $1.00.", show_alert=True)
+                except (ValueError, IndexError):
+                    pass
 
             if data.startswith("predict_menu_"):
                 parts = data.split("_")
