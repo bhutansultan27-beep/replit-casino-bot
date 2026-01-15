@@ -3415,7 +3415,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         else: score = val
 
         # Ensure pending_pvp is up to date
-        with self.app.app_context():
+        with self.db.app.app_context():
             pending_pvp_state = db.session.get(GlobalState, "pending_pvp")
             self.pending_pvp = pending_pvp_state.value if pending_pvp_state else {}
         
@@ -3445,7 +3445,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     if user_data['balance'] < (challenge['wager'] - 0.001):
                         await update.message.reply_text(f"❌ Insufficient balance to start the game! (Balance: ${user_data['balance']:.2f}, Wager: ${challenge['wager']:.2f})")
                         del self.pending_pvp[cid]
-                        with self.app.app_context():
+                        with self.db.app.app_context():
                             pending_pvp_state = db.session.get(GlobalState, "pending_pvp")
                             if pending_pvp_state:
                                 pending_pvp_state.value = self.pending_pvp
@@ -3464,7 +3464,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     # Still need more rolls
                     user_mention = f"@{update.effective_user.username}" if update.effective_user.username else update.effective_user.first_name
                     await update.message.reply_text(f"{user_mention} roll again {emoji} ({challenge['cur_rolls']}/{challenge['rolls']})")
-                    with self.app.app_context():
+                    with self.db.app.app_context():
                         pending_pvp_state = db.session.get(GlobalState, "pending_pvp")
                         if pending_pvp_state:
                             pending_pvp_state.value = self.pending_pvp
@@ -3474,7 +3474,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 # Player finished rolls, now bot rolls
                 challenge['waiting_for_emoji'] = False
                 
-                with self.app.app_context():
+                with self.db.app.app_context():
                     pending_pvp_state = db.session.get(GlobalState, "pending_pvp")
                     if pending_pvp_state:
                         pending_pvp_state.value = self.pending_pvp
@@ -3496,7 +3496,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     await asyncio.sleep(3.5)
                 
                 # Update challenge after bot rolls to ensure final score is captured
-                with self.app.app_context():
+                with self.db.app.app_context():
                     pending_pvp_state = db.session.get(GlobalState, "pending_pvp")
                     self.pending_pvp = pending_pvp_state.value if pending_pvp_state else {}
                 challenge = self.pending_pvp.get(cid)
@@ -3549,7 +3549,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     challenge['p_rolls'] = []
                     await context.bot.send_message(chat_id=chat_id, text=f"Round Result: You {p_tot} vs Bot {b_tot}\nSeries Score: You {challenge['p_pts']} - {challenge['b_pts']} Bot\n\nYour turn! Send {emoji}")
                 
-                with self.app.app_context():
+                with self.db.app.app_context():
                     pending_pvp_state = db.session.get(GlobalState, "pending_pvp")
                     if pending_pvp_state:
                         pending_pvp_state.value = self.pending_pvp
