@@ -4016,6 +4016,10 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             await query.answer("❌ Insufficient balance", show_alert=True)
             return
             
+        # Deduct balance immediately
+        self.db.update_user(user_id, {"balance": user_data['balance'] - wager})
+        self.db.add_transaction(user_id, "game_bet", -wager, f"{game.capitalize()} vs Bot")
+            
         cid = f"v2_bot_{game}_{user_id}_{int(datetime.now().timestamp())}"
         emoji_map = {"dice": "🎲", "darts": "🎯", "basketball": "🏀", "soccer": "⚽", "bowling": "🎳"}
         emoji = emoji_map.get(game, "🎲")
@@ -4024,7 +4028,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             "type": f"{game}_bot_v2", "player": user_id, "wager": wager, "game": game, "emoji": emoji,
             "rolls": rolls, "mode": mode, "pts": pts, "chat_id": query.message.chat_id,
             "p_pts": 0, "b_pts": 0, "p_rolls": [], "cur_rolls": 0, "emoji_wait": datetime.now().isoformat(),
-            "wager_deducted": False, "message_id": query.message.message_id
+            "wager_deducted": True, "message_id": query.message.message_id
         }
         self.db.save_data()
         
@@ -4044,6 +4048,10 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             await query.answer("❌ Insufficient balance", show_alert=True)
             return
             
+        # Deduct balance immediately for challenger
+        self.db.update_user(user_id, {"balance": user_data['balance'] - wager})
+        self.db.add_transaction(user_id, "game_bet", -wager, f"{game.capitalize()} PvP (Challenger)")
+            
         cid = f"v2_pvp_{game}_{user_id}_{int(datetime.now().timestamp())}"
         emoji_map = {"dice": "🎲", "darts": "🎯", "basketball": "🏀", "soccer": "⚽", "bowling": "🎳"}
         emoji = emoji_map.get(game, "🎲")
@@ -4053,7 +4061,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             "emoji": emoji, "rolls": rolls, "mode": mode, "pts": pts, "chat_id": query.message.chat_id,
             "p1_pts": 0, "p2_pts": 0, "p1_rolls": [], "p2_rolls": [], "waiting_p1": False, "waiting_p2": False,
             "emoji_wait": datetime.now().isoformat(),
-            "p1_deducted": False, "p2_deducted": False
+            "p1_deducted": True, "p2_deducted": False
         }
         self.db.save_data()
         keyboard = [[InlineKeyboardButton("Join Challenge", callback_data=f"v2_accept_{cid}")]]
@@ -4073,8 +4081,12 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             await query.answer("❌ Insufficient balance", show_alert=True)
             return
             
+        # Deduct balance for opponent
+        self.db.update_user(user_id, {"balance": user_data['balance'] - challenge['wager']})
+        self.db.add_transaction(user_id, "game_bet", -challenge['wager'], f"{challenge['game'].capitalize()} PvP (Opponent)")
+            
         challenge['opponent'] = user_id
-        challenge['p2_deducted'] = False
+        challenge['p2_deducted'] = True
         await context.bot.send_message(chat_id=query.message.chat_id, text="✅ Challenge Accepted! Starting...")
         asyncio.create_task(self.generic_v2_pvp_loop(context, cid))
 
