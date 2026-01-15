@@ -3334,31 +3334,6 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 
                 self.db.update_pending_pvp(self.pending_pvp)
                 return
-                                'type': f'{challenge["game"]}_bot',
-                                'player_id': user_id,
-                                'wager': w,
-                                'p_pts': challenge['p_pts'],
-                                'b_pts': challenge['b_pts'],
-                                'result': 'loss',
-                                'payout': 0,
-                                'timestamp': datetime.now().isoformat()
-                            })
-                        del self.pending_pvp[cid]
-                    else:
-                        cashout_val = self.calculate_cashout(challenge['p_pts'], challenge['b_pts'], challenge['pts'], challenge['wager'])
-                        # Calculate multiplier for parenthesis
-                        multiplier = round(cashout_val / challenge['wager'], 2) if challenge['wager'] > 0 else 0
-                        keyboard = [[InlineKeyboardButton(f"Cashout ${cashout_val:.2f} ({multiplier}x)", callback_data=f"v2_cashout_{cid}")]]
-                        reply_markup = InlineKeyboardMarkup(keyboard)
-                        score_text = f"User: {challenge['p_pts']}\nBot: {challenge['b_pts']}"
-                        challenge['waiting_for_cashout'] = True
-                        challenge['waiting_for_emoji'] = True
-                        challenge['emoji_wait'] = datetime.now().isoformat()
-                        await context.bot.send_message(chat_id=chat_id, text=f"{score_text}\n\nNext round! Send your emoji.", reply_markup=reply_markup)
-                
-                self.db.data['pending_pvp'] = self.pending_pvp
-                self.db.save_data()
-                return
 
             # Generic V2 PvP
             if cid.startswith("v2_pvp_") and challenge.get('emoji') == emoji:
