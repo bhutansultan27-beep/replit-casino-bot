@@ -339,9 +339,20 @@ class AntariaCasinoBot:
                 # Generic V2 Timeout
                 if challenge_id.startswith("v2_bot_") or challenge_id.startswith("v2_pvp_"):
                     emoji_wait = challenge.get('emoji_wait')
+                    wait_started = None
                     if emoji_wait:
                         wait_started = datetime.fromisoformat(emoji_wait)
-                        if (current_time - wait_started).total_seconds() > expiration_limit:
+                    else:
+                        created_at = challenge.get('created_at')
+                        if created_at:
+                            wait_started = datetime.fromisoformat(created_at)
+                    
+                    if wait_started:
+                        time_diff = (current_time - wait_started).total_seconds()
+                        # If the game has started (rolls > 0), give more time (15 mins)
+                        limit = 900 if challenge.get('cur_rolls', 0) > 0 or challenge.get('p_pts', 0) > 0 or challenge.get('b_pts', 0) > 0 else expiration_limit
+                        
+                        if time_diff > limit:
                             expired_challenges.append(challenge_id)
                             if challenge_id.startswith("v2_bot_"):
                                 pid = challenge['player']
