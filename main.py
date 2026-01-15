@@ -3329,10 +3329,21 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     w = challenge['wager']
                     if challenge['p_pts'] >= challenge['pts']:
                         u = self.db.get_user(user_id)
-                        u['balance'] += w * 1.95 # Payout
+                        payout = w * 1.95
+                        u['balance'] += payout # Payout
                         self.db.update_user(user_id, u)
                         self.db.update_house_balance(-(w * 0.95))
-                        await context.bot.send_message(chat_id=chat_id, text=f"🏆 **WINNER!** You won the series {challenge['p_pts']}-{challenge['b_pts']} and ${w*1.95:.2f}!")
+                        
+                        user_username = u.get('username', f'User{user_id}')
+                        win_text = f"🎉 <b>{user_username}</b> won <b>${payout:,.2f}</b>!"
+                        
+                        # Reply to the initial setup message if available
+                        msg_id = challenge.get('message_id')
+                        if msg_id:
+                            await context.bot.send_message(chat_id=chat_id, text=win_text, reply_to_message_id=msg_id, parse_mode="HTML")
+                        else:
+                            await context.bot.send_message(chat_id=chat_id, text=win_text, parse_mode="HTML")
+                        
                         self._update_user_stats(user_id, w, w * 0.95, "win")
                     else:
                         self.db.update_house_balance(w)
@@ -3874,7 +3885,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             "type": f"{game}_bot_v2", "player": user_id, "wager": wager, "game": game, "emoji": emoji,
             "rolls": rolls, "mode": mode, "pts": pts, "chat_id": query.message.chat_id,
             "p_pts": 0, "b_pts": 0, "p_rolls": [], "cur_rolls": 0, "emoji_wait": datetime.now().isoformat(),
-            "wager_deducted": False
+            "wager_deducted": False, "message_id": query.message.message_id
         }
         self.db.save_data()
         await query.edit_message_text(f"**{game.capitalize()} vs Bot**\nTarget: {pts}\nMode: {mode.capitalize()}\n\n👉 Send your {rolls} {emoji} now!", parse_mode="Markdown")
@@ -3951,8 +3962,10 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             if win == "p1": challenge['p1_pts'] += 1
             elif win == "p2": challenge['p2_pts'] += 1
             
-            score_text = f"@{p1_data['username']}: {challenge['p1_pts']}\n@{p2_data['username']}: {challenge['p2_pts']}"
-            await context.bot.send_message(chat_id=chat_id, text=f"Round Result: {p1_tot} vs {p2_tot}. Point to {'you' if win else 'Draw'}!\n\n{score_text}")
+            p1_username = p1_data.get('username', f'User{p1_id}')
+            p2_username = p2_data.get('username', f'User{p2_id}')
+            score_text = f"<b>{p1_username}</b>: {challenge['p1_pts']}\n<b>{p2_username}</b>: {challenge['p2_pts']}"
+            await context.bot.send_message(chat_id=chat_id, text=f"Round Result: {p1_tot} vs {p2_tot}. Point to {'you' if win else 'Draw'}!\n\n{score_text}", parse_mode="HTML")
             await asyncio.sleep(1)
 
         wager = challenge['wager']
@@ -3964,7 +3977,14 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         self._update_user_stats(winner_id, wager, wager, "win")
         # Fix: Don't subtract the wager again in _update_user_stats since it was already deducted at start
         self._update_user_stats(loser_id, wager, 0, "loss")
-        await context.bot.send_message(chat_id=chat_id, text=f"🏆 @{self.db.get_user(winner_id)['username']} won the series and ${wager:.2f}!")
+        
+        winner_data = self.db.get_user(winner_id)
+        winner_username = winner_data.get('username', f'User{winner_id}')
+        payout = wager * 1.95 # Adjusted for house edge if needed, or wager*2 for pvp.
+        # User requested bolded name without @ and bolded amount
+        win_msg = f"🏆 <b>{winner_username}</b> won <b>${wager*2:.2f}</b>!"
+        
+        await context.bot.send_message(chat_id=chat_id, text=win_msg, parse_mode="HTML")
         del self.pending_pvp[cid]
         self.db.save_data()
 
