@@ -4045,6 +4045,13 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
     async def start_generic_v2_bot(self, update: Update, context: ContextTypes.DEFAULT_TYPE, game: str, wager: float, rolls: int, mode: str, pts: int):
         query = update.callback_query
         user_id = query.from_user.id
+
+        # Check for active game
+        for active_cid, active_challenge in self.pending_pvp.items():
+            if active_cid.startswith("v2_bot_") and active_challenge.get('player') == user_id:
+                await query.answer("❌ You already have an active game! Finish it first.", show_alert=True)
+                return
+
         user_data = self.db.get_user(user_id)
         
         if wager > user_data['balance']:
@@ -4063,7 +4070,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             "type": f"{game}_bot_v2", "player": user_id, "wager": wager, "game": game, "emoji": emoji,
             "rolls": rolls, "mode": mode, "pts": pts, "chat_id": query.message.chat_id,
             "p_pts": 0, "b_pts": 0, "p_rolls": [], "cur_rolls": 0, "emoji_wait": datetime.now().isoformat(),
-            "wager_deducted": True, "message_id": query.message.message_id
+            "wager_deducted": True, "message_id": query.message.message_id,
+            "waiting_for_emoji": True
         }
         self.db.save_data()
         
