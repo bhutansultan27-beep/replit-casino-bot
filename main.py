@@ -179,6 +179,7 @@ class AntariaCasinoBot:
         # Initialize bot application
         token = os.environ.get("TELEGRAM_TOKEN")
         self.app = Application.builder().token(token).build()
+        self.app.bot_data['casino_bot'] = self # Store reference for access from handlers if needed
         # Add job queue check
         if not self.app.job_queue:
             logger.warning("Job queue is not available. Some features like challenge expiration may not work.")
@@ -4355,13 +4356,17 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                         self.db.data['pending_pvp'] = self.pending_pvp
                         self.db.save_data()
                     
-                    bot_mention = f"[{context.bot.username or 'Bot'}](tg://user?id={context.bot.id})"
+                    bot_username = (await context.bot.get_me()).username
+                    bot_mention = f"[@{bot_username}](tg://user?id={context.bot.id})"
                     user_mention = f"@{update.effective_user.username}" if update.effective_user.username else update.effective_user.first_name
                     await context.bot.send_message(
                         chat_id=chat_id, 
                         text=f"🎮 **{g_mode.capitalize()} Series**\n\n{bot_mention} vs {user_mention}\n\n{user_mention} your turn! Send {game_state['emoji']}",
                         parse_mode="Markdown"
                     )
+                    
+                    # Log to confirm message was sent
+                    logger.info(f"Sent start message for {game_id}")
                 return
 
             # Custom menu switching
