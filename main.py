@@ -3244,20 +3244,9 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
 
         # Ensure pending_pvp is up to date
         self.pending_pvp = self.db.data.get('pending_pvp', {})
-        # If empty, check if we need to sync from the persistent house balance/state
-        if not self.pending_pvp:
-             logger.info("pending_pvp is empty in memory, check database persistence")
         
-        # Fallback for bot games that might not be in pending_pvp but the user is sending an emoji
-        # This often happens if the session was restarted or state wasn't saved correctly
-        logger.info(f"Current pending_pvp keys: {list(self.pending_pvp.keys())}")
-        
-        # Determine the roll value for legacy pvp logic
-        roll_value = val
-
         found_game = False
         for cid, challenge in list(self.pending_pvp.items()):
-            # Check if this challenge is in the same chat
             if challenge.get('chat_id') != chat_id:
                 continue
 
@@ -3270,88 +3259,81 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 # Check balance if wager not yet deducted
                 if not challenge.get('wager_deducted'):
                     user_data = self.db.get_user(user_id)
-                    # Use a small epsilon to avoid floating point issues with "all" bets
                     if user_data['balance'] < (challenge['wager'] - 0.001):
                         await update.message.reply_text(f"❌ Insufficient balance to start the game! (Balance: ${user_data['balance']:.2f}, Wager: ${challenge['wager']:.2f})")
-                        # Clean up failed game
-                        if cid in self.pending_pvp:
-                            del self.pending_pvp[cid]
-                            self.db.data['pending_pvp'] = self.pending_pvp
-                            self.db.save_data()
+                        del self.pending_pvp[cid]
+                        self.db.update_pending_pvp(self.pending_pvp)
                         return
                     self.db.update_user(user_id, {'balance': max(0, user_data['balance'] - challenge['wager'])})
                     self.db.add_transaction(user_id, "game_bet", -challenge['wager'], f"Bet on {challenge.get('game', 'game')} vs Bot")
                     challenge['wager_deducted'] = True
                 
+                # Add roll to state
+                if 'p_rolls' not in challenge: challenge['p_rolls'] = []
                 challenge['p_rolls'].append(score)
                 challenge['cur_rolls'] += 1
                 challenge['waiting_for_cashout'] = False
+                
                 if challenge['cur_rolls'] < challenge['rolls']:
-                    # Get user mention
+                    # Still need more rolls
                     user_mention = f"@{update.effective_user.username}" if update.effective_user.username else update.effective_user.first_name
-                    
-                    async def delayed_roll_again(c_id, mention, chat):
-                        await asyncio.sleep(5)
-                        # Re-fetch challenge to see if they already rolled again
-                        latest_data = self.db.data.get('pending_pvp', {}).get(c_id)
-                        if latest_data and latest_data.get('cur_rolls', 0) < latest_data.get('rolls', 0):
-                            await context.bot.send_message(chat_id=chat, text=f"{mention} roll again")
-                    
-                    asyncio.create_task(delayed_roll_again(cid, user_mention, chat_id))
-                else:
-                    # Player finished their rolls, now bot rolls
-                    challenge['waiting_for_emoji'] = False
-                    p_tot = sum(challenge['p_rolls'][-challenge['rolls']:])
-                    b_tot = 0
-                    for _ in range(challenge['rolls']):
-                        d = await context.bot.send_dice(chat_id=chat_id, emoji=emoji)
-                        bv = d.dice.value
-                        b_tot += (1 if bv >= 4 else 0) if emoji in ["⚽", "🏀"] else bv
-                        await asyncio.sleep(3.5)
-                    
-                    win = None
-                    if challenge['mode'] == "normal":
-                        if p_tot > b_tot: win = "p"
-                        elif b_tot > p_tot: win = "b"
+                    await update.message.reply_text(f"{user_mention} roll again {emoji} ({challenge['cur_rolls']}/{challenge['rolls']})")
+                    self.db.update_pending_pvp(self.pending_pvp)
+                    return
+                
+                # Player finished rolls, now bot rolls
+                challenge['waiting_for_emoji'] = False
+                self.db.update_pending_pvp(self.pending_pvp)
+                
+                p_tot = sum(challenge['p_rolls'][-challenge['rolls']:])
+                await context.bot.send_message(chat_id=chat_id, text=f"🤖 You rolled {p_tot}. Now it's my turn!")
+                
+                b_tot = 0
+                for _ in range(challenge['rolls']):
+                    await asyncio.sleep(2)
+                    d = await context.bot.send_dice(chat_id=chat_id, emoji=emoji)
+                    bv = d.dice.value
+                    b_tot += (1 if bv >= 4 else 0) if emoji in ["⚽", "🏀"] else bv
+                    await asyncio.sleep(3.5)
+                
+                win = None
+                if challenge['mode'] == "normal":
+                    if p_tot > b_tot: win = "p"
+                    elif b_tot > p_tot: win = "b"
+                else: # crazy
+                    if p_tot < b_tot: win = "p"
+                    elif b_tot < p_tot: win = "b"
+                
+                if win == "p": challenge['p_pts'] += 1
+                elif win == "b": challenge['b_pts'] += 1
+                
+                challenge['cur_rolls'] = 0
+                challenge['emoji_wait'] = datetime.now().isoformat()
+                
+                if challenge['p_pts'] >= challenge['pts'] or challenge['b_pts'] >= challenge['pts']:
+                    # Series ended
+                    w = challenge['wager']
+                    if challenge['p_pts'] >= challenge['pts']:
+                        u = self.db.get_user(user_id)
+                        u['balance'] += w * 1.95 # Payout
+                        self.db.update_user(user_id, u)
+                        self.db.update_house_balance(-(w * 0.95))
+                        await context.bot.send_message(chat_id=chat_id, text=f"🏆 **WINNER!** You won the series {challenge['p_pts']}-{challenge['b_pts']} and ${w*1.95:.2f}!")
+                        self._update_user_stats(user_id, w, w * 0.95, "win")
                     else:
-                        if p_tot < b_tot: win = "p"
-                        elif b_tot < p_tot: win = "b"
+                        self.db.update_house_balance(w)
+                        await context.bot.send_message(chat_id=chat_id, text=f"💀 **DEFEAT!** Bot won the series {challenge['b_pts']}-{challenge['p_pts']}. Lost ${w:.2f}")
+                        self._update_user_stats(user_id, w, -w, "loss")
                     
-                    if win == "p": challenge['p_pts'] += 1
-                    elif win == "b": challenge['b_pts'] += 1
-                    
-                    challenge['cur_rolls'] = 0
-                    challenge['emoji_wait'] = datetime.now().isoformat()
-                    
-                    if challenge['p_pts'] >= challenge['pts'] or challenge['b_pts'] >= challenge['pts']:
-                        w = challenge['wager']
-                        if challenge['p_pts'] >= challenge['pts']:
-                            u = self.db.get_user(user_id)
-                            # w (the wager) was already deducted when starting the game
-                            # We only add (w * 2) for the total payout (initial bet + winnings)
-                            u['balance'] += w * 2
-                            self.db.update_user(user_id, u)
-                            self.db.update_house_balance(-w)
-                            await context.bot.send_message(chat_id=chat_id, text=f"🏆 **WINNER!** You won the series and ${w:.2f}!")
-                            self._update_user_stats(user_id, w, w, "win")
-                            self.db.record_game({
-                                'type': f'{challenge["game"]}_bot',
-                                'player_id': user_id,
-                                'wager': w,
-                                'p_pts': challenge['p_pts'],
-                                'b_pts': challenge['b_pts'],
-                                'result': 'win',
-                                'payout': w * 2,
-                                'timestamp': datetime.now().isoformat()
-                            })
-                        else:
-                            # w (the wager) was already deducted when starting the game
-                            # We just add it to the house balance (the user's balance is already correct)
-                            self.db.update_house_balance(w)
-                            await context.bot.send_message(chat_id=chat_id, text=f"💀 **DEFEAT!** Bot won the series. Lost ${w:.2f}")
-                            # Fix: Don't subtract the wager again in _update_user_stats since it was already deducted at start
-                            self._update_user_stats(user_id, w, 0, "loss")
-                            self.db.record_game({
+                    del self.pending_pvp[cid]
+                else:
+                    # Next round
+                    challenge['waiting_for_emoji'] = True
+                    challenge['p_rolls'] = []
+                    await context.bot.send_message(chat_id=chat_id, text=f"Round Result: You {p_tot} vs Bot {b_tot}\nSeries Score: You {challenge['p_pts']} - {challenge['b_pts']} Bot\n\nYour turn! Send {emoji}")
+                
+                self.db.update_pending_pvp(self.pending_pvp)
+                return
                                 'type': f'{challenge["game"]}_bot',
                                 'player_id': user_id,
                                 'wager': w,
