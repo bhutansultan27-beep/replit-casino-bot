@@ -4301,7 +4301,17 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 msg = await context.bot.send_dice(chat_id=chat_id, emoji=emoji)
                 val = msg.dice.value
                 score = (1 if val >= 4 else 0) if emoji in ["⚽", "🏀"] else val
-                challenge['p_rolls'].append(score)
+                
+                # Re-load challenge from db for each iteration to avoid stale data
+                with self.db.app.app_context():
+                    current_pending = db.session.get(GlobalState, "pending_pvp").value
+                    if cid in current_pending:
+                        current_pending[cid]['p_rolls'].append(score)
+                        # Force SQLAlchemy to detect change
+                        db.session.get(GlobalState, "pending_pvp").value = dict(current_pending)
+                        db.session.commit()
+                        challenge = current_pending[cid]
+                
                 await asyncio.sleep(4)
             
             p_tot = sum(challenge['p_rolls'])
