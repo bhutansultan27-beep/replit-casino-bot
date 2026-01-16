@@ -1136,10 +1136,6 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             if not is_private:
                 text += f"\n\nOpponent: {params.get('opponent', 'vs Bot') if params else 'vs Bot'}"
             
-        # Navigation row
-        next_game = self._get_next_game_mode(game_mode)
-        prev_game = self._get_prev_game_mode(game_mode)
-        
         # Consistent emoji mapping
         emoji_map = {
             "dice": "🎲",
@@ -1150,6 +1146,13 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             "coinflip": "🪙"
         }
         current_emoji = emoji_map.get(game_mode, "🎲")
+        
+        # Determine multiplier
+        multiplier = self._calculate_emoji_multiplier(params.get("rolls", 1), params.get("pts", 1))
+        
+        # Navigation row
+        next_game = self._get_next_game_mode(game_mode)
+        prev_game = self._get_prev_game_mode(game_mode)
         
         keyboard.append([
             InlineKeyboardButton("⬅️", callback_data=f"emoji_setup_{prev_game}_{wager:.2f}_{step}{suffix}"),
