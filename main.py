@@ -1092,10 +1092,27 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         keyboard = []
         
         if step == "mode":
+            # Preparing summary of selected settings
+            mode_val = params.get('mode', 'normal')
+            mode_display = "Normal" if mode_val == 'normal' else "Crazy"
+            rolls_val = params.get('rolls')
+            pts_val = params.get('pts')
+            
+            # Conditionally build the setup summary
+            setup_details = ""
+            if rolls_val is not None:
+                setup_details += f"• Rolls: {rolls_val}\n"
+            if pts_val is not None:
+                setup_details += f"• Target Score: {pts_val}\n"
+            
+            setup_details += f"• Bet: ${wager:,.2f}\n\n"
+
             text = (
-                f"{current_emoji} <b>{game_mode.replace('_', ' ').capitalize()}</b>\n\n"
+                f"{current_emoji} <b>{game_mode.replace('_', ' ').title()}</b>\n\n"
                 f"Your balance: <b>${user_data['balance']:,.2f}</b>\n"
                 f"Multiplier: <b>{multiplier:.2f}x</b>\n\n"
+                f"<b>Current Setup:</b>\n"
+                f"{setup_details}"
                 f"Choose your game mode:"
             )
             keyboard.append([
@@ -1104,10 +1121,25 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             ])
         elif step == "rolls":
             mode = params.get("mode")
+            # Preparing summary of selected settings
+            mode_val = params.get('mode', 'normal')
+            mode_display = "Normal" if mode_val == 'normal' else "Crazy"
+            rolls_val = params.get('rolls')
+            pts_val = params.get('pts')
+            
+            # Conditionally build the setup summary
+            setup_details = f"• Mode: {mode_display}\n"
+            if pts_val is not None:
+                setup_details += f"• Target Score: {pts_val}\n"
+            
+            setup_details += f"• Bet: ${wager:,.2f}\n\n"
+
             text = (
-                f"{current_emoji} <b>{game_mode.replace('_', ' ').capitalize()}</b>\n\n"
+                f"{current_emoji} <b>{game_mode.replace('_', ' ').title()}</b>\n\n"
                 f"Your balance: <b>${user_data['balance']:,.2f}</b>\n"
                 f"Multiplier: <b>{multiplier:.2f}x</b>\n\n"
+                f"<b>Current Setup:</b>\n"
+                f"{setup_details}"
                 f"Choose the amount of rolls:"
             )
             keyboard.append([
@@ -1117,10 +1149,24 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         elif step == "points":
             mode = params.get("mode")
             rolls = params.get("rolls")
+            # Preparing summary of selected settings
+            mode_val = params.get('mode', 'normal')
+            mode_display = "Normal" if mode_val == 'normal' else "Crazy"
+            rolls_val = params.get('rolls')
+            pts_val = params.get('pts')
+            
+            # Conditionally build the setup summary
+            setup_details = f"• Mode: {mode_display}\n"
+            setup_details += f"• Rolls: {rolls_val}\n"
+            
+            setup_details += f"• Bet: ${wager:,.2f}\n\n"
+
             text = (
-                f"{current_emoji} <b>{game_mode.replace('_', ' ').capitalize()}</b>\n\n"
+                f"{current_emoji} <b>{game_mode.replace('_', ' ').title()}</b>\n\n"
                 f"Your balance: <b>${user_data['balance']:,.2f}</b>\n"
                 f"Multiplier: <b>{multiplier:.2f}x</b>\n\n"
+                f"<b>Current Setup:</b>\n"
+                f"{setup_details}"
                 f"Choose the amount of points:"
             )
             keyboard.append([
