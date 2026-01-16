@@ -1144,11 +1144,6 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             InlineKeyboardButton(f"Mode: {current_emoji}", callback_data=f"setup_mode_normal_{game_mode}_{wager:.2f}"),
             InlineKeyboardButton("➡️", callback_data=f"emoji_setup_{next_game}_{wager:.2f}_{step}{suffix}")
         ])
-        
-        # Navigation between Prediction and Regular modes
-        keyboard.append([
-            InlineKeyboardButton("✨ Predict Mode", callback_data=f"predict_menu_{wager:.2f}_{game_mode}")
-        ])
             
         # Back button
         back_button = None
@@ -1195,11 +1190,6 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 InlineKeyboardButton("⬅️", callback_data=f"emoji_setup_{prev_game}_{wager:.2f}_{step}{suffix}"),
                 InlineKeyboardButton(f"Mode: {current_emoji}", callback_data=f"setup_mode_normal_{game_mode}_{wager:.2f}"),
                 InlineKeyboardButton("➡️", callback_data=f"emoji_setup_{next_game}_{wager:.2f}_{step}{suffix}")
-            ])
-            
-            # Navigation between Prediction and Regular modes
-            keyboard.append([
-                InlineKeyboardButton("✨ Predict Mode", callback_data=f"predict_menu_{wager:.2f}_{game_mode}")
             ])
 
         # Action row
@@ -1351,11 +1341,6 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             InlineKeyboardButton("⬅️", callback_data=f"predict_menu_{wager:.2f}_{prev_mode}"),
             InlineKeyboardButton(f"Mode: {current_emoji}", callback_data=f"setup_mode_predict_{wager:.2f}_{game_mode}"),
             InlineKeyboardButton("➡️", callback_data=f"predict_menu_{wager:.2f}_{next_mode}")
-        ])
-        
-        # Navigation between Prediction and Regular modes
-        keyboard.append([
-            InlineKeyboardButton("🎮 Regular Mode", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_mode")
         ])
         
         # Action row
@@ -4650,6 +4635,13 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 if user_id != owner_id:
                     await query.answer("❌ This is not your game/menu!", show_alert=True)
                     return
+
+            if data.startswith("predict_menu_"):
+                parts = data.split("_")
+                wager = float(parts[2])
+                game_mode = parts[3]
+                await self._show_game_prediction_menu(update, context, wager, game_mode)
+                return
 
             if data.startswith("setup_bet_"):
                 parts = data.split("_")
