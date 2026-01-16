@@ -4927,11 +4927,10 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                         
                         # After starting, disable the buttons on the setup message to prevent double-starts or confusion
                         try:
-                            await query.edit_message_text(
-                                query.message.text + "\n\n✅ **Game Started!**",
-                                reply_markup=None,
-                                parse_mode="Markdown"
-                            )
+                            # Instead of deleting and sending new, we just keep the message but remove the keyboard
+                            await query.edit_message_reply_markup(reply_markup=None)
+                            # Optional: append a status to the text if desired, but user wants message to "stay"
+                            # We'll just remove the buttons so they are unusable.
                         except Exception:
                             pass
                         return
