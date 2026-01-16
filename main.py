@@ -1188,8 +1188,15 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 InlineKeyboardButton("➡️", callback_data=f"emoji_setup_{next_mode}_{wager:.2f}_final_{pts}_{rolls}_{mode}_{opponent}")
             ])
 
-            # Action row
-            start_callback = f"emoji_setup_{game_mode}_{wager:.2f}_start_{pts}_{rolls}_{mode}" if (opponent == "bot" or is_private) else f"v2_pvp_{game_mode}_{wager:.2f}_{rolls}_{mode}_{pts}"
+        # Action row
+        pts_val = params.get("pts") if params else None
+        rolls_val = params.get("rolls") if params else None
+        mode_val = params.get("mode") if params else "normal"
+        opponent_val = params.get("opponent", "bot") if params else "bot"
+        
+        start_callback = f"emoji_setup_{game_mode}_{wager:.2f}_start_{pts_val}_{rolls_val}_{mode_val}" if (opponent_val == "bot" or is_private) else f"v2_pvp_{game_mode}_{wager:.2f}_{rolls_val}_{mode_val}_{pts_val}"
+        
+        if step == "final":
             keyboard.append([
                 InlineKeyboardButton("✅ Start", callback_data=start_callback)
             ])
@@ -1199,7 +1206,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         if update.callback_query:
             sent_msg = await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode="HTML")
             # Store message ID if this is a bot game so we can track replies
-            if opponent == "bot":
+            if opponent_val == "bot":
                 # Find the challenge and update it
                 for cid, challenge in self.pending_pvp.items():
                     if cid.startswith("v2_bot_") and challenge.get('player') == update.effective_user.id:
@@ -1207,7 +1214,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                          break
         else:
             sent_msg = await update.message.reply_text(text, reply_markup=reply_markup, parse_mode="HTML")
-            if opponent == "bot":
+            if opponent_val == "bot":
                 for cid, challenge in self.pending_pvp.items():
                     if cid.startswith("v2_bot_") and challenge.get('player') == update.effective_user.id:
                          challenge['msg_id'] = sent_msg.message_id
