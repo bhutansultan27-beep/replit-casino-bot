@@ -4886,6 +4886,10 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 self.db.update_pending_pvp(self.pending_pvp)
                 return
 
+            if data == "button_unavailable":
+                await query.answer("❌ This button is no longer available as the game has started!", show_alert=True)
+                return
+
             if data.startswith("emoji_setup_"):
                 parts = data.split("_")
                 if len(parts) < 5:
@@ -4925,14 +4929,30 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                         # Start the game
                         await self.start_generic_v2_bot(update, context, g_mode, wager, rolls, mode, pts)
                         
-                        # After starting, disable the buttons on the setup message to prevent double-starts or confusion
+                        # Mark the message as "started" in the context of button interaction
+                        # We'll use the callback_data itself or message text to determine if it's already started
+                        # However, user wants to keep the buttons but make them show "button unavailable"
+                        
                         try:
-                            # Instead of deleting and sending new, we just keep the message but remove the keyboard
-                            await query.edit_message_reply_markup(reply_markup=None)
-                            # Optional: append a status to the text if desired, but user wants message to "stay"
-                            # We'll just remove the buttons so they are unusable.
-                        except Exception:
-                            pass
+                            # We can't easily change the behavior of existing buttons without changing their callback_data
+                            # So we update the message with buttons that all point to an "unavailable" callback
+                            current_markup = query.message.reply_markup
+                            if current_markup:
+                                new_keyboard = []
+                                for row in current_markup.inline_keyboard:
+                                    new_row = []
+                                    for button in row:
+                                        new_row.append(InlineKeyboardButton(
+                                            text=button.text,
+                                            callback_data="button_unavailable"
+                                        ))
+                                    new_keyboard.append(new_row)
+                                
+                                await query.edit_message_reply_markup(
+                                    reply_markup=InlineKeyboardMarkup(new_keyboard)
+                                )
+                        except Exception as e:
+                            logger.error(f"Error updating buttons to unavailable: {e}")
                         return
                 
                 await self._show_emoji_game_setup(update, context, wager, g_mode, next_step, params)
