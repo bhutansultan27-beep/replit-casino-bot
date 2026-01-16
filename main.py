@@ -1141,7 +1141,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         prev_game = self._get_prev_game_mode(game_mode)
         keyboard.append([
             InlineKeyboardButton("⬅️", callback_data=f"emoji_setup_{prev_game}_{wager:.2f}_{step}{suffix}"),
-            InlineKeyboardButton(f"Mode: {current_emoji}", callback_data=f"setup_mode_normal_{game_mode}_{wager:.2f}"),
+            InlineKeyboardButton(f"Mode: {current_emoji}", callback_data="none"),
             InlineKeyboardButton("➡️", callback_data=f"emoji_setup_{next_game}_{wager:.2f}_{step}{suffix}")
         ])
             
@@ -4626,6 +4626,14 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             return
             
         try:
+            # First handle "none" to avoid any other processing
+            if data == "none":
+                try:
+                    await query.answer()
+                except:
+                    pass
+                return
+
             # Custom menu switching
             if data.startswith("predict_menu_") or data.startswith("emoji_setup_") or data.startswith("setup_bet_"):
                 # Always allow bet adjustments regardless of ownership for better UX
@@ -4635,6 +4643,13 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 if user_id != owner_id:
                     await query.answer("❌ This is not your game/menu!", show_alert=True)
                     return
+
+            if data == "none":
+                try:
+                    await query.answer()
+                except:
+                    pass
+                return
 
             if data.startswith("emoji_setup_"):
                 parts = data.split("_")
@@ -4907,7 +4922,10 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         
         try:
             if data == "none":
-                await query.answer()
+                try:
+                    await query.answer()
+                except:
+                    pass
                 return
 
             if data.startswith("match_page_"):
@@ -5033,6 +5051,13 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 await query.answer("❌ This button is no longer available as the game has started!", show_alert=True)
                 return
 
+            if data == "none":
+                try:
+                    await query.answer()
+                except:
+                    pass
+                return
+
             if data.startswith("emoji_setup_"):
                 parts = data.split("_")
                 # Parts: emoji_setup, game_mode, wager, step, [pts, rolls, mode, opponent]
@@ -5113,6 +5138,13 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                         await query.answer("⚠️ Minimum bet is $1.00. Adjusted to $1.00.", show_alert=True)
                 except (ValueError, IndexError):
                     pass
+
+            if data == "none":
+                try:
+                    await query.answer()
+                except:
+                    pass
+                return
 
             if data.startswith("emoji_setup_"):
                 parts = data.split("_")
