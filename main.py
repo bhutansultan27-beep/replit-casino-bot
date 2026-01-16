@@ -4969,9 +4969,11 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                         f"Rukia: {challenge['b_pts']}\n\n"
                         f"<b>{p1_name}</b>, your turn! To start, click the button below! {emoji}"
                     )
+                    cashout_val = self.calculate_cashout(challenge['p_pts'], challenge['b_pts'], challenge['pts'], challenge['wager'])
+                    cashout_multiplier = round(cashout_val / challenge['wager'], 2) if challenge['wager'] > 0 else 0
                     kb = [
                         [InlineKeyboardButton("✅ Send emoji", callback_data=f"v2_send_emoji_{cid}")],
-                        [InlineKeyboardButton("💰 Cashout", callback_data=f"cashout_{cid}")]
+                        [InlineKeyboardButton(f"💰 Cashout ${cashout_val:.2f} ({cashout_multiplier}x)", callback_data=f"v2_cashout_{cid}")]
                     ]
                     await context.bot.send_message(chat_id=chat_id, text=text, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
                 
