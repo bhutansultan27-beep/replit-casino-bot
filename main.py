@@ -5044,6 +5044,11 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                             logger.error(f"Error updating buttons to unavailable: {e}")
                         return
                 
+                elif next_step == "mode":
+                    # Cycle emoji modes
+                    await self._show_emoji_game_setup(update, context, wager, g_mode, "mode", params)
+                    return
+                
                 await self._show_emoji_game_setup(update, context, wager, g_mode, next_step, params)
                 return
 
