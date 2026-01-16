@@ -4296,13 +4296,13 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             await query.edit_message_reply_markup(reply_markup=None)
             
             emoji = challenge['emoji']
-            # Send emoji for user
-            msg = await context.bot.send_dice(chat_id=chat_id, emoji=emoji)
-            val = msg.dice.value
-            score = (1 if val >= 4 else 0) if emoji in ["⚽", "🏀"] else val
-            challenge['p_rolls'].append(score)
-            
-            await asyncio.sleep(4)
+            # Send emojis for user based on challenge['rolls']
+            for _ in range(challenge['rolls']):
+                msg = await context.bot.send_dice(chat_id=chat_id, emoji=emoji)
+                val = msg.dice.value
+                score = (1 if val >= 4 else 0) if emoji in ["⚽", "🏀"] else val
+                challenge['p_rolls'].append(score)
+                await asyncio.sleep(4)
             
             p_tot = sum(challenge['p_rolls'])
             await context.bot.send_message(
