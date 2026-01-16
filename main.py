@@ -3534,14 +3534,28 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                         self.db.update_house_balance(-(w * 0.95))
                         
                         user_username = u.get('username', f'User{user_id}')
-                        win_text = f"🎉 <b>{user_username}</b> won <b>${payout:,.2f}</b>!"
+                        win_text = (
+                            f"🏆 <b>Game over!</b>\n\n"
+                            f"<b>Score:</b>\n"
+                            f"{user_username} • {challenge['p_pts']}\n"
+                            f"Bot • {challenge['b_pts']}\n\n"
+                            f"🎉 Congratulations, <b>{user_username}</b>! You won <b>${payout:,.2f}</b>!"
+                        )
+                        
+                        keyboard = [
+                            [
+                                InlineKeyboardButton("🔄 Play Again", callback_data=f"{challenge['game']}_bot_{wager:.2f}"),
+                                InlineKeyboardButton("🔄 Double", callback_data=f"{challenge['game']}_bot_{wager*2:.2f}")
+                            ]
+                        ]
+                        reply_markup = InlineKeyboardMarkup(keyboard)
                         
                         # Reply to the initial setup message if available
                         msg_id = challenge.get('message_id')
                         if msg_id:
-                            await context.bot.send_message(chat_id=chat_id, text=win_text, reply_to_message_id=msg_id, parse_mode="HTML")
+                            await context.bot.send_message(chat_id=chat_id, text=win_text, reply_to_message_id=msg_id, reply_markup=reply_markup, parse_mode="HTML")
                         else:
-                            await context.bot.send_message(chat_id=chat_id, text=win_text, parse_mode="HTML")
+                            await context.bot.send_message(chat_id=chat_id, text=win_text, reply_markup=reply_markup, parse_mode="HTML")
                         
                         self._update_user_stats(user_id, w, w * 0.95, "win")
                     else:
@@ -3732,11 +3746,16 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         self.db.record_game({"type": f"{game_type}_pvp", "challenger": challenger_id, "opponent": user_id, "wager": wager, "result": "win"})
         
         winner_username = winner_user.get('username', f'User{winner_id}')
-        final_text = f"🎉 <b>{winner_username}</b> won <b>${wager:,.2f}</b>"
+        final_text = (
+            f"🏆 <b>Game over!</b>\n\n"
+            f"🎉 Congratulations, <b>{winner_username}</b>! You won <b>${wager:,.2f}</b>!"
+        )
         
         keyboard = [
-            [InlineKeyboardButton("🤖 Play vs Bot", callback_data=f"{game_type}_bot_{wager:.2f}")],
-            [InlineKeyboardButton("👥 Create PvP Challenge", callback_data=f"{game_type}_player_open_{wager:.2f}")]
+            [
+                InlineKeyboardButton("🔄 Play Again", callback_data=f"{game_type.replace('_pvp', '_bot')}_{wager:.2f}"),
+                InlineKeyboardButton("🔄 Double", callback_data=f"{game_type.replace('_pvp', '_bot')}_{wager*2:.2f}")
+            ]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
@@ -3785,20 +3804,23 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             
             # Winner display name bold without @
             user_display = f"<b>{user_data.get('username', f'User{user_id}')}</b>"
-            result_text = f"🎉 {user_display} won <b>${profit:,.2f}</b>!"
+            result_text = (
+                f"🏆 <b>Game over!</b>\n\n"
+                f"🎉 Congratulations, {user_display}! You won <b>${profit:,.2f}</b>!"
+            )
             self.db.update_house_balance(-wager)
         elif p_val < b_val:
             # LOSS: Already deducted, house keeps it
             profit = -wager
             result = "loss"
-            result_text = f"❌ <a href=\"tg://user?id=8575155625\">emojigamblebot</a> won <b>${wager:,.2f}</b>"
+            result_text = f"💀 <b>Game over!</b>\n\n❌ <a href=\"tg://user?id=8575155625\">emojigamblebot</a> won <b>${wager:,.2f}</b>"
             self.db.update_house_balance(wager)
         else:
             # Draw - refund wager
             user_data['balance'] += wager
             self.db.update_user(user_id, user_data)
             username_display = user_data.get('username', f'User{user_id}')
-            result_text = f"<b>{username_display}</b> - Draw, bet refunded"
+            result_text = f"🤝 <b>Game over!</b>\n\n<b>{username_display}</b> - Draw, bet refunded"
         
         # Update stats (unless draw, which already refunded)
         if result != "draw":
@@ -3814,7 +3836,12 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             "result": result
         })
         
-        keyboard = [[InlineKeyboardButton("Play Again", callback_data=f"{game_type.replace('_bot', '_bot')}_{wager:.2f}")]]
+        keyboard = [
+            [
+                InlineKeyboardButton("🔄 Play Again", callback_data=f"{game_type.replace('_bot', '_bot')}_{wager:.2f}"),
+                InlineKeyboardButton("🔄 Double", callback_data=f"{game_type.replace('_bot', '_bot')}_{wager*2:.2f}")
+            ]
+        ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         await context.bot.send_message(
