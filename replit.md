@@ -22,8 +22,18 @@ The bot uses PostgreSQL for data persistence. Key tables:
 - `ADMIN_IDS` - Comma-separated list of Telegram user IDs for admin access
 - `DATABASE_URL` - PostgreSQL connection string (auto-configured by Replit)
 
+## Rapid Setup
+To get the bot running instantly, run:
+```bash
+python setup.py
+```
+This will:
+1. Fix dependency conflicts automatically.
+2. Sync all required packages.
+3. Verify your environment variables.
+
 ## Running the Bot
-The bot runs in polling mode via the "Telegram Bot" workflow which executes `python main.py`.
+The bot runs via the "Telegram Bot" workflow (`python main.py`).
 
 ## Features
 - Multiple casino games: Dice, Darts, Basketball, Soccer, Bowling, Coinflip, Roulette, Blackjack
