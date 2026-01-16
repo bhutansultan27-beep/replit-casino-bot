@@ -257,39 +257,6 @@ class DatabaseManager:
 # --- 2. Antaria Casino Bot Class ---
 class AntariaCasinoBot:
     def __init__(self, token: str):
-        self.token = token
-        # Initialize the internal database manager
-        self.db = DatabaseManager()
-        
-        self.emoji_map = {
-            "dice": "🎲",
-            "basketball": "🏀",
-            "soccer": "⚽",
-            "darts": "🎯",
-            "bowling": "🎳",
-            "coinflip": "🪙"
-        }
-        
-        # Admin user IDs from environment variable (permanent admins)
-        admin_ids_str = os.getenv("ADMIN_IDS", "")
-        self.env_admin_ids = set()
-        if admin_ids_str:
-            try:
-                self.env_admin_ids = set(int(id.strip()) for id in admin_ids_str.split(",") if id.strip())
-                logger.info(f"Loaded {len(self.env_admin_ids)} permanent admin(s) from environment")
-            except ValueError:
-                logger.error("Invalid ADMIN_IDS format. Use comma-separated numbers.")
-        
-        # Load dynamic admins from database
-        if 'dynamic_admins' not in self.db.data:
-            self.db.data['dynamic_admins'] = []
-            self.db.save_data()
-        
-        self.dynamic_admin_ids = set(self.db.data.get('dynamic_admins', []))
-        if self.dynamic_admin_ids:
-            logger.info(f"Loaded {len(self.dynamic_admin_ids)} dynamic admin(s) from database")
-        
-    def __init__(self, token: str):
         # Database
         self.db = DatabaseManager()
         
@@ -307,7 +274,8 @@ class AntariaCasinoBot:
         self.pending_pvp: Dict[str, Any] = self.db.data.get('pending_pvp', {})
         
         # Configuration
-        self.env_admin_ids = [int(id_str.strip()) for id_str in os.getenv("ADMIN_IDS", "").split(",") if id_str.strip()]
+        admin_ids_str = os.getenv("ADMIN_IDS", "")
+        self.env_admin_ids = [int(id_str.strip()) for id_str in admin_ids_str.split(",") if id_str.strip()]
         self.dynamic_admin_ids = self.db.data.get('dynamic_admins', [])
         
         # Track button ownership: (chat_id, message_id) -> user_id mapping
@@ -366,6 +334,76 @@ class AntariaCasinoBot:
         # Add handler
         self.app.add_handler(MessageHandler(filters.ALL, self.handle_update))
         self.app.add_handler(CallbackQueryHandler(self.handle_update))
+
+    async def handle_update(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Process updates to ensure only one bot instance handles them."""
+        if not update.update_id:
+            return
+            
+        # Try to claim the update. If already claimed, skip.
+        if not self.db.claim_update(update.update_id):
+            logger.debug(f"Update {update.update_id} already claimed by another instance.")
+            return
+
+        # Bot instance identification
+        BOT_TOKEN_2 = os.getenv("TELEGRAM_BOT_TOKEN_2")
+        is_second_bot = context.bot.token == BOT_TOKEN_2
+
+        # Map command name to handler method
+        if update.message and update.message.text:
+            text = update.message.text
+            if text.startswith('/'):
+                command_parts = text.split()
+                command = command_parts[0][1:].split('@')[0].lower()
+                
+                # List of commands that only the 2nd bot should answer
+                second_bot_commands = ['bal', 'balance', 'leaderboard', 'stats', 'bonus', 'global', 'top']
+                
+                if command in second_bot_commands:
+                    if not is_second_bot:
+                        return # Only 2nd bot handles these
+                else:
+                    if is_second_bot:
+                        return # 2nd bot only handles specific commands
+                
+                handler_map = {
+                    'start': self.start_command,
+                    'balance': self.balance_command,
+                    'bal': self.balance_command,
+                    'deposit': self.deposit_command,
+                    'withdraw': self.withdraw_command,
+                    'games': self.games_command,
+                    'stats': self.stats_command,
+                    'help': self.help_command,
+                    'blackjack': self.blackjack_command,
+                    'bj': self.blackjack_command,
+                    'roulette': self.roulette_command,
+                    'slots': self.slots_command,
+                    'dice': self.dice_command,
+                    'darts': self.darts_command,
+                    'basketball': self.basketball_command,
+                    'soccer': self.soccer_command,
+                    'bowling': self.bowling_command,
+                    'coinflip': self.coinflip_command,
+                    'refer': self.refer_command,
+                    'referral': self.referral_command,
+                    'ref': self.referral_command,
+                    'top': self.top_command,
+                    'leaderboard': self.leaderboard_command,
+                    'global': self.leaderboard_command,
+                    'predict': self.predict_command,
+                    'admin': self.admin_command,
+                    'bonus': self.bonus_command,
+                }
+                if command in handler_map:
+                    # Capture the message we are replying to
+                    context.user_data['reply_to_message_id'] = update.message.message_id
+                    await handler_map[command](update, context)
+        elif update.callback_query:
+            # For callback queries, we let either bot handle it based on update claiming
+            if update.callback_query.message:
+                context.user_data['reply_to_message_id'] = update.callback_query.message.message_id
+            await self.button_callback(update, context)
 
     def setup_handlers(self):
         """Setup all command and callback handlers"""
