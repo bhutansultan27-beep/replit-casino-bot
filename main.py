@@ -4486,7 +4486,13 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     f"<b>{p1_name}</b>, your turn! To start, click the button below! {emoji}"
                 )
                 kb = [[InlineKeyboardButton("✅ Send emoji", callback_data=f"v2_send_emoji_{cid}")]]
-                await context.bot.send_message(chat_id=chat_id, text=text, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+                await context.bot.send_message(
+                    chat_id=chat_id, 
+                    text=text, 
+                    reply_markup=InlineKeyboardMarkup(kb), 
+                    parse_mode="HTML",
+                    reply_to_message_id=query.message.message_id
+                )
             
             self.db.update_pending_pvp(self.pending_pvp)
             return
@@ -4718,7 +4724,13 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     f"<b>{p1_name}</b>, your turn! To start, click the button below! {emoji}"
                 )
                 kb = [[InlineKeyboardButton("✅ Send emoji", callback_data=f"v2_send_emoji_{cid}")]]
-                await context.bot.send_message(chat_id=chat_id, text=text, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+                await context.bot.send_message(
+                    chat_id=chat_id, 
+                    text=text, 
+                    reply_markup=InlineKeyboardMarkup(kb), 
+                    parse_mode="HTML",
+                    reply_to_message_id=query.message.message_id
+                )
             
             self.db.update_pending_pvp(self.pending_pvp)
             return
@@ -5079,7 +5091,12 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 await asyncio.sleep(4)
                 
                 p_tot = sum(challenge['p_rolls'])
-                await context.bot.send_message(chat_id=chat_id, text=f"<b>Rukia</b>, your turn!", parse_mode="HTML")
+                await context.bot.send_message(
+                    chat_id=chat_id, 
+                    text=f"<b>Rukia</b>, your turn!", 
+                    parse_mode="HTML",
+                    reply_to_message_id=query.message.message_id
+                )
                 
                 # Bot rolls
                 b_tot = 0
