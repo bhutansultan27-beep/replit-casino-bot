@@ -224,17 +224,26 @@ class AntariaCasinoBot:
         if self.dynamic_admin_ids:
             logger.info(f"Loaded {len(self.dynamic_admin_ids)} dynamic admin(s) from database")
         
+    def __init__(self, token: str):
+        # Database
+        self.db = DatabaseManager()
+        
         # Initialize bot application
-        token = os.environ.get("TELEGRAM_TOKEN")
         self.app = Application.builder().token(token).build()
         self.app.bot_data['casino_bot'] = self # Store reference for access from handlers if needed
         # Add job queue check
         if not self.app.job_queue:
             logger.warning("Job queue is not available. Some features like challenge expiration may not work.")
-        self.setup_handlers()
         
-        # Dictionary to store ongoing PvP challenges
+        # In-memory state (partially synchronized via DB, partially local)
+        self.blackjack_sessions: Dict[int, Any] = {}
+        self.predict_sessions: Dict[int, Any] = {}
+        self.button_ownership: Dict[tuple, int] = {}
         self.pending_pvp: Dict[str, Any] = self.db.data.get('pending_pvp', {})
+        
+        # Configuration
+        self.env_admin_ids = [int(id_str.strip()) for id_str in os.getenv("ADMIN_IDS", "").split(",") if id_str.strip()]
+        self.dynamic_admin_ids = self.db.data.get('dynamic_admins', [])
         
         # Track button ownership: (chat_id, message_id) -> user_id mapping
         self.button_ownership: Dict[tuple, int] = {}
@@ -289,8 +298,9 @@ class AntariaCasinoBot:
         
         self.stickers = self.db.data['stickers']
         
-        # Dictionary to store active Blackjack games: user_id -> BlackjackGame instance
-        self.blackjack_sessions: Dict[int, BlackjackGame] = {}
+        # Add handler
+        self.app.add_handler(MessageHandler(filters.ALL, self.handle_update))
+        self.app.add_handler(CallbackQueryHandler(self.handle_update))
 
     def setup_handlers(self):
         """Setup all command and callback handlers"""
