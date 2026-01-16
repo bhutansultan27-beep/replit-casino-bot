@@ -38,7 +38,6 @@ run = ["gunicorn", "--bind", "0.0.0.0:5000", "main:app"]
 [userenv.shared]
 ADMIN_IDS = "7748988189"
 TELEGRAM_TOKEN = "8575155625:AAFd40dO3bjJ6b6P74QcjH3mHUzuN7MilEA"
-TELEGRAM_BOT_TOKEN_2 = "8517924853:AAElCi7X-GRmqTqTNkTQYFoLm_B9WCKBbqs"
 
 [[ports]]
 localPort = 5000

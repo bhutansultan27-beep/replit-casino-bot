@@ -37,140 +37,27 @@ class DatabaseManager:
         db.init_app(self.app)
         with self.app.app_context():
             db.create_all()
-            # Initialize state
-            for key, default in [
-                ("house_balance", {"amount": 10000.00}),
-                ("dynamic_admins", {"ids": []}),
-                ("stickers", {"roulette": {}}),
-                ("processed_updates", {"ids": []})
-            ]:
-                if not db.session.get(GlobalState, key):
-                    db.session.add(GlobalState(key=key, value=default))
+            # Initialize house balance if not exists
+            house_balance_state = db.session.get(GlobalState, "house_balance")
+            if not house_balance_state:
+                db.session.add(GlobalState(key="house_balance", value={"amount": 10000.00}))
+            
+            dynamic_admins_state = db.session.get(GlobalState, "dynamic_admins")
+            if not dynamic_admins_state:
+                db.session.add(GlobalState(key="dynamic_admins", value={"ids": []}))
+            
+            stickers_state = db.session.get(GlobalState, "stickers")
+            if not stickers_state:
+                db.session.add(GlobalState(key="stickers", value={"roulette": {}}))
             db.session.commit()
 
     @property
     def data(self):
         # Compatibility layer for existing code that accesses self.db.data
-        class DataProxy:
-            def __init__(self, db_manager):
-                self.db_manager = db_manager
-            def __getitem__(self, key):
-                with self.db_manager.app.app_context():
-                    state = db.session.get(GlobalState, key)
-                    return state.value if state else {}
-            def __setitem__(self, key, value):
-                with self.db_manager.app.app_context():
-                    state = db.session.get(GlobalState, key)
-                    if state:
-                        state.value = value
-                    else:
-                        state = GlobalState(key=key, value=value)
-                        db.session.add(state)
-                    db.session.commit()
-            def __contains__(self, key):
-                with self.db_manager.app.app_context():
-                    return db.session.get(GlobalState, key) is not None
-            def get(self, key, default=None):
-                with self.db_manager.app.app_context():
-                    state = db.session.get(GlobalState, key)
-                    return state.value if state else default
-        return DataProxy(self)
-
-    def save_data(self):
-        # Compatibility layer - commit is handled in __setitem__
-        pass
-
-    def claim_update(self, update_id: int) -> bool:
-        """Atomically claim an update to ensure only one bot processes it."""
         with self.app.app_context():
-            # Use a simpler locking mechanism for now, or use GlobalState as a registry
-            state = db.session.get(GlobalState, "processed_updates")
-            if not state:
-                return False
-                
-            processed_ids = state.value.get("ids", [])
-            if update_id in processed_ids:
-                return False
+            house_balance_state = db.session.get(GlobalState, "house_balance")
+            house_balance = house_balance_state.value["amount"] if house_balance_state else 10000.00
             
-            # Add to processed and keep last 1000 to manage size
-            new_ids = (processed_ids + [update_id])[-1000:]
-            state.value = {"ids": new_ids}
-            try:
-                db.session.commit()
-                return True
-            except:
-                db.session.rollback()
-                return False
-
-    async def handle_update(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Process updates to ensure only one bot instance handles them."""
-        if not update.update_id:
-            return
-            
-        # Try to claim the update. If already claimed, skip.
-        if not self.db.claim_update(update.update_id):
-            logger.debug(f"Update {update.update_id} already claimed by another instance.")
-            return
-
-        # Bot instance identification
-        BOT_TOKEN_2 = os.getenv("TELEGRAM_BOT_TOKEN_2")
-        is_second_bot = context.bot.token == BOT_TOKEN_2
-
-        # Map command name to handler method
-        if update.message and update.message.text:
-            text = update.message.text
-            if text.startswith('/'):
-                command_parts = text.split()
-                command = command_parts[0][1:].split('@')[0].lower()
-                
-                # List of commands that only the 2nd bot should answer
-                second_bot_commands = ['bal', 'balance', 'leaderboard', 'stats', 'bonus', 'global', 'top']
-                
-                if command in second_bot_commands:
-                    if not is_second_bot:
-                        return # Only 2nd bot handles these
-                else:
-                    if is_second_bot:
-                        return # 2nd bot only handles specific commands
-                
-                handler_map = {
-                    'start': self.start_command,
-                    'balance': self.balance_command,
-                    'bal': self.balance_command,
-                    'deposit': self.deposit_command,
-                    'withdraw': self.withdraw_command,
-                    'games': self.games_command,
-                    'stats': self.stats_command,
-                    'help': self.help_command,
-                    'blackjack': self.blackjack_command,
-                    'bj': self.blackjack_command,
-                    'roulette': self.roulette_command,
-                    'slots': self.slots_command,
-                    'dice': self.dice_command,
-                    'darts': self.darts_command,
-                    'basketball': self.basketball_command,
-                    'soccer': self.soccer_command,
-                    'bowling': self.bowling_command,
-                    'coinflip': self.coinflip_command,
-                    'refer': self.refer_command,
-                    'referral': self.referral_command,
-                    'ref': self.referral_command,
-                    'top': self.top_command,
-                    'leaderboard': self.leaderboard_command,
-                    'global': self.leaderboard_command,
-                    'predict': self.predict_command,
-                    'admin': self.admin_command,
-                    'bonus': self.bonus_command,
-                }
-                if command in handler_map:
-                    # Capture the message we are replying to
-                    context.user_data['reply_to_message_id'] = update.message.message_id
-                    await handler_map[command](update, context)
-        elif update.callback_query:
-            # Capture the message we are replying to for callbacks (the original message)
-            if update.callback_query.message:
-                context.user_data['reply_to_message_id'] = update.callback_query.message.message_id
-            await self.button_callback(update, context)
             dynamic_admins_state = db.session.get(GlobalState, "dynamic_admins")
             dynamic_admins = dynamic_admins_state.value["ids"] if dynamic_admins_state else []
             
@@ -257,26 +144,49 @@ class DatabaseManager:
 # --- 2. Antaria Casino Bot Class ---
 class AntariaCasinoBot:
     def __init__(self, token: str):
-        # Database
+        self.token = token
+        # Initialize the internal database manager
         self.db = DatabaseManager()
         
+        self.emoji_map = {
+            "dice": "🎲",
+            "basketball": "🏀",
+            "soccer": "⚽",
+            "darts": "🎯",
+            "bowling": "🎳",
+            "coinflip": "🪙"
+        }
+        
+        # Admin user IDs from environment variable (permanent admins)
+        admin_ids_str = os.getenv("ADMIN_IDS", "")
+        self.env_admin_ids = set()
+        if admin_ids_str:
+            try:
+                self.env_admin_ids = set(int(id.strip()) for id in admin_ids_str.split(",") if id.strip())
+                logger.info(f"Loaded {len(self.env_admin_ids)} permanent admin(s) from environment")
+            except ValueError:
+                logger.error("Invalid ADMIN_IDS format. Use comma-separated numbers.")
+        
+        # Load dynamic admins from database
+        if 'dynamic_admins' not in self.db.data:
+            self.db.data['dynamic_admins'] = []
+            self.db.save_data()
+        
+        self.dynamic_admin_ids = set(self.db.data.get('dynamic_admins', []))
+        if self.dynamic_admin_ids:
+            logger.info(f"Loaded {len(self.dynamic_admin_ids)} dynamic admin(s) from database")
+        
         # Initialize bot application
+        token = os.environ.get("TELEGRAM_TOKEN")
         self.app = Application.builder().token(token).build()
         self.app.bot_data['casino_bot'] = self # Store reference for access from handlers if needed
         # Add job queue check
         if not self.app.job_queue:
             logger.warning("Job queue is not available. Some features like challenge expiration may not work.")
+        self.setup_handlers()
         
-        # In-memory state (partially synchronized via DB, partially local)
-        self.blackjack_sessions: Dict[int, Any] = {}
-        self.predict_sessions: Dict[int, Any] = {}
-        self.button_ownership: Dict[tuple, int] = {}
+        # Dictionary to store ongoing PvP challenges
         self.pending_pvp: Dict[str, Any] = self.db.data.get('pending_pvp', {})
-        
-        # Configuration
-        admin_ids_str = os.getenv("ADMIN_IDS", "")
-        self.env_admin_ids = [int(id_str.strip()) for id_str in admin_ids_str.split(",") if id_str.strip()]
-        self.dynamic_admin_ids = self.db.data.get('dynamic_admins', [])
         
         # Track button ownership: (chat_id, message_id) -> user_id mapping
         self.button_ownership: Dict[tuple, int] = {}
@@ -331,8 +241,8 @@ class AntariaCasinoBot:
         
         self.stickers = self.db.data['stickers']
         
-        # Add handlers
-        self.setup_handlers()
+        # Dictionary to store active Blackjack games: user_id -> BlackjackGame instance
+        self.blackjack_sessions: Dict[int, BlackjackGame] = {}
 
     def setup_handlers(self):
         """Setup all command and callback handlers"""
@@ -635,14 +545,13 @@ class AntariaCasinoBot:
         
         return user_data
     
-    async def send_with_buttons(self, chat_id: int, text: str, keyboard: InlineKeyboardMarkup, user_id: int, parse_mode: str = "Markdown", reply_to_message_id: int = None):
+    async def send_with_buttons(self, chat_id: int, text: str, keyboard: InlineKeyboardMarkup, user_id: int, parse_mode: str = "Markdown"):
         """Send a message with buttons and register ownership"""
         sent_message = await self.app.bot.send_message(
             chat_id=chat_id,
             text=text,
             reply_markup=keyboard,
-            parse_mode=parse_mode,
-            reply_to_message_id=reply_to_message_id
+            parse_mode=parse_mode
         )
         self.button_ownership[(chat_id, sent_message.message_id)] = user_id
         return sent_message
@@ -669,47 +578,6 @@ class AntariaCasinoBot:
             except ValueError:
                 return None
     
-    async def games_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Display game selection menu"""
-        user_id = update.effective_user.id
-        user_data = self.db.get_user(user_id)
-        
-        text = (
-            "🎮 **Antaria Casino Games**\n\n"
-            f"Your balance: **${user_data['balance']:,.2f}**\n\n"
-            "Select a game to play:"
-        )
-        
-        keyboard = [
-            [InlineKeyboardButton("🃏 Blackjack", callback_data="setup_mode_blackjack"),
-             InlineKeyboardButton("🎡 Roulette", callback_data="setup_mode_roulette")],
-            [InlineKeyboardButton("🎰 Slots", callback_data="setup_mode_slots"),
-             InlineKeyboardButton("🪙 CoinFlip", callback_data="setup_mode_coinflip")],
-            [InlineKeyboardButton("🎲 Emoji Games", callback_data="setup_mode_dice")],
-            [InlineKeyboardButton("🔮 Predict", callback_data="setup_mode_predict_1.00")]
-        ]
-        
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        if update.callback_query:
-            await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode="Markdown")
-        else:
-            sent_msg = await update.message.reply_text(
-                text, 
-                reply_markup=reply_markup, 
-                parse_mode="Markdown",
-                reply_to_message_id=update.message.message_id
-            )
-            self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
-
-    async def housebal_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Show house balance (Admin only)"""
-        if not self.is_admin(update.effective_user.id):
-            return
-            
-        house_balance = self.db.get_house_balance()
-        await update.message.reply_text(f"🏠 **House Balance: ${house_balance:,.2f}**", parse_mode="Markdown")
-
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Welcome message and initial user setup."""
         user = update.effective_user
@@ -721,55 +589,6 @@ class AntariaCasinoBot:
             if user.username:
                 self.db.update_user(user.id, {"username": user.username})
             user_data = self.db.get_user(user.id) # Reload data if updated
-        
-        # Check for referral link in /start arguments
-        if context.args and context.args[0].startswith('ref_'):
-            ref_code = context.args[0].split('_', 1)[1]
-            if user_data.get('referred_by') is None:
-                # Find the referrer by code
-                all_users = self.db.app.app_context().push() # This is a hack, proper way is db methods
-                # Real implementation should be in DatabaseManager
-                referrer_data = self.find_user_by_referral_code(ref_code)
-                
-                if referrer_data and referrer_data['user_id'] != user.id:
-                    self.db.update_user(user.id, {'referred_by': referrer_data['user_id']})
-                    # Increment referrer's count
-                    self.db.update_user(referrer_data['user_id'], {
-                        'referral_count': referrer_data.get('referral_count', 0) + 1
-                    })
-                    await update.message.reply_text(f"✅ You were referred by @{referrer_data['username']}!")
-
-        welcome_text = (
-            "🎰 **Welcome to Antaria Casino!** 🎰\n\n"
-            "Play games and win real prizes. Use the buttons below to navigate."
-        )
-        
-        keyboard = [
-            [InlineKeyboardButton("🎮 Games", callback_data="main_menu"),
-             InlineKeyboardButton("💰 Balance", callback_data="balance_mock")],
-            [InlineKeyboardButton("👥 Referral", callback_data="referral_mock"),
-             InlineKeyboardButton("📊 Stats", callback_data="stats_mock")]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await update.message.reply_text(
-            welcome_text, 
-            reply_markup=reply_markup, 
-            parse_mode="Markdown",
-            reply_to_message_id=update.message.message_id
-        )
-
-    def find_user_by_referral_code(self, code: str) -> Optional[Dict[str, Any]]:
-        with self.db.app.app_context():
-            from sqlalchemy import select
-            user = db.session.execute(select(User).filter_by(referral_code=code)).scalar_one_or_none()
-            return self.db._user_to_dict(user) if user else None
-
-    async def history_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Show transaction history"""
-        user_id = update.effective_user.id
-        # Use existing logic from button_callback or transaction query
-        await self.button_callback(update, context, "transactions_history")
         
         # Check for referral link in /start arguments
         if context.args and context.args[0].startswith('ref_'):
@@ -1524,6 +1343,13 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         ])
         
         # Navigation row
+        keyboard.append([
+            InlineKeyboardButton("⬅️", callback_data=f"predict_menu_{wager:.2f}_{prev_mode}"),
+            InlineKeyboardButton(f"Mode: {current_emoji}", callback_data=f"setup_mode_predict_{wager:.2f}_{game_mode}"),
+            InlineKeyboardButton("➡️", callback_data=f"predict_menu_{wager:.2f}_{next_mode}")
+        ])
+        
+        # Action row
         keyboard.append([
             InlineKeyboardButton("⬅️ Back", callback_data="main_menu"),
             InlineKeyboardButton("✅ Start", callback_data=f"predict_start_{wager:.2f}_{game_mode}")
