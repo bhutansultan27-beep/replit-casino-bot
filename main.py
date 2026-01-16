@@ -37,19 +37,37 @@ class DatabaseManager:
         db.init_app(self.app)
         with self.app.app_context():
             db.create_all()
-            # Initialize house balance if not exists
-            house_balance_state = db.session.get(GlobalState, "house_balance")
-            if not house_balance_state:
-                db.session.add(GlobalState(key="house_balance", value={"amount": 10000.00}))
-            
-            dynamic_admins_state = db.session.get(GlobalState, "dynamic_admins")
-            if not dynamic_admins_state:
-                db.session.add(GlobalState(key="dynamic_admins", value={"ids": []}))
-            
-            stickers_state = db.session.get(GlobalState, "stickers")
-            if not stickers_state:
-                db.session.add(GlobalState(key="stickers", value={"roulette": {}}))
+            # Initialize state
+            for key, default in [
+                ("house_balance", {"amount": 10000.00}),
+                ("dynamic_admins", {"ids": []}),
+                ("stickers", {"roulette": {}}),
+                ("active_users", {})
+            ]:
+                if not db.session.get(GlobalState, key):
+                    db.session.add(GlobalState(key=key, value=default))
             db.session.commit()
+
+    def set_user_busy(self, user_id: int, busy: bool):
+        with self.app.app_context():
+            state = db.session.get(GlobalState, "active_users")
+            val = state.value.copy()
+            if busy:
+                val[str(user_id)] = datetime.utcnow().isoformat()
+            else:
+                val.pop(str(user_id), None)
+            state.value = val
+            db.session.commit()
+
+    def is_user_busy(self, user_id: int) -> bool:
+        with self.app.app_context():
+            state = db.session.get(GlobalState, "active_users")
+            if str(user_id) in state.value:
+                # Check for 30s timeout to prevent stuck locks
+                last_active = datetime.fromisoformat(state.value[str(user_id)])
+                if datetime.utcnow() - last_active < timedelta(seconds=30):
+                    return True
+            return False
 
     @property
     def data(self):
