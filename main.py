@@ -4638,26 +4638,33 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
 
             if data.startswith("emoji_setup_"):
                 parts = data.split("_")
-                game_mode = parts[2]
-                wager = float(parts[3])
-                step = parts[4]
-                
-                # Parse params from suffix
-                params = {}
-                if step == "rolls":
-                    params["mode"] = parts[5] if len(parts) > 5 else "normal"
-                elif step == "points":
-                    params["rolls"] = int(parts[5]) if len(parts) > 5 else 1
-                    params["mode"] = parts[6] if len(parts) > 6 else "normal"
-                elif step == "final":
-                    params["pts"] = int(parts[5]) if len(parts) > 5 else 1
-                    params["rolls"] = int(parts[6]) if len(parts) > 6 else 1
-                    params["mode"] = parts[7] if len(parts) > 7 else "normal"
-                    if len(parts) > 8:
-                        params["opponent"] = parts[8]
+                if len(parts) >= 5:
+                    game_mode = parts[2]
+                    wager = float(parts[3])
+                    step = parts[4]
+                    
+                    # Parse params from suffix
+                    params = {}
+                    if step == "mode":
+                        # emoji_setup_{game_mode}_{wager}_mode
+                        pass
+                    elif step == "rolls":
+                        # emoji_setup_{game_mode}_{wager}_rolls_{mode}
+                        params["mode"] = parts[5] if len(parts) > 5 else "normal"
+                    elif step == "points":
+                        # emoji_setup_{game_mode}_{wager}_points_{rolls}_{mode}
+                        params["rolls"] = int(parts[5]) if len(parts) > 5 else 1
+                        params["mode"] = parts[6] if len(parts) > 6 else "normal"
+                    elif step == "final":
+                        # emoji_setup_{game_mode}_{wager}_final_{pts}_{rolls}_{mode}_{opt_opponent}
+                        params["pts"] = int(parts[5]) if len(parts) > 5 else 1
+                        params["rolls"] = int(parts[6]) if len(parts) > 6 else 1
+                        params["mode"] = parts[7] if len(parts) > 7 else "normal"
+                        if len(parts) > 8:
+                            params["opponent"] = parts[8]
 
-                await self._show_emoji_game_setup(update, context, wager, game_mode, step, params)
-                return
+                    await self._show_emoji_game_setup(update, context, wager, game_mode, step, params)
+                    return
 
             if data.startswith("predict_menu_"):
                 parts = data.split("_")
@@ -5105,26 +5112,33 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
 
             if data.startswith("emoji_setup_"):
                 parts = data.split("_")
-                game_mode = parts[2]
-                wager = float(parts[3])
-                step = parts[4]
-                
-                # Parse params from suffix
-                params = {}
-                if step == "rolls":
-                    params["mode"] = parts[5] if len(parts) > 5 else "normal"
-                elif step == "points":
-                    params["rolls"] = int(parts[5]) if len(parts) > 5 else 1
-                    params["mode"] = parts[6] if len(parts) > 6 else "normal"
-                elif step == "final":
-                    params["pts"] = int(parts[5]) if len(parts) > 5 else 1
-                    params["rolls"] = int(parts[6]) if len(parts) > 6 else 1
-                    params["mode"] = parts[7] if len(parts) > 7 else "normal"
-                    if len(parts) > 8:
-                        params["opponent"] = parts[8]
+                if len(parts) >= 5:
+                    game_mode = parts[2]
+                    wager = float(parts[3])
+                    step = parts[4]
+                    
+                    # Parse params from suffix
+                    params = {}
+                    if step == "mode":
+                        # emoji_setup_{game_mode}_{wager}_mode
+                        pass
+                    elif step == "rolls":
+                        # emoji_setup_{game_mode}_{wager}_rolls_{mode}
+                        params["mode"] = parts[5] if len(parts) > 5 else "normal"
+                    elif step == "points":
+                        # emoji_setup_{game_mode}_{wager}_points_{rolls}_{mode}
+                        params["rolls"] = int(parts[5]) if len(parts) > 5 else 1
+                        params["mode"] = parts[6] if len(parts) > 6 else "normal"
+                    elif step == "final":
+                        # emoji_setup_{game_mode}_{wager}_final_{pts}_{rolls}_{mode}_{opt_opponent}
+                        params["pts"] = int(parts[5]) if len(parts) > 5 else 1
+                        params["rolls"] = int(parts[6]) if len(parts) > 6 else 1
+                        params["mode"] = parts[7] if len(parts) > 7 else "normal"
+                        if len(parts) > 8:
+                            params["opponent"] = parts[8]
 
-                await self._show_emoji_game_setup(update, context, wager, game_mode, step, params)
-                return
+                    await self._show_emoji_game_setup(update, context, wager, game_mode, step, params)
+                    return
 
             if data.startswith("predict_menu_"):
                 parts = data.split("_")
