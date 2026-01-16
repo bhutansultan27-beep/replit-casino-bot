@@ -1084,7 +1084,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
 
         keyboard.append([
             InlineKeyboardButton("Half Bet", callback_data=f"emoji_setup_{game_mode}_{half_wager:.2f}_{step}{suffix}"),
-            InlineKeyboardButton(f"Bet: ${wager:,.2f}", callback_data="none"),
+            InlineKeyboardButton(f"Bet: ${wager:,.2f}", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_{step}{suffix}"),
             InlineKeyboardButton("Double Bet", callback_data=f"emoji_setup_{game_mode}_{double_wager:.2f}_{step}{suffix}")
         ])
         
@@ -1134,9 +1134,9 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             next_mode = self._get_next_game_mode(game_mode)
             prev_mode = self._get_prev_game_mode(game_mode)
             keyboard.append([
-                InlineKeyboardButton("⬅️", callback_data=f"emoji_setup_{prev_mode}_{wager:.2f}_mode"),
-                InlineKeyboardButton(f"Mode: {current_emoji}", callback_data="none"),
-                InlineKeyboardButton("➡️", callback_data=f"emoji_setup_{next_mode}_{wager:.2f}_mode")
+                InlineKeyboardButton("⬅️", callback_data=f"emoji_setup_{prev_mode}_{wager:.2f}_{step}{suffix}"),
+                InlineKeyboardButton(f"Mode: {current_emoji}", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_{step}{suffix}"),
+                InlineKeyboardButton("➡️", callback_data=f"emoji_setup_{next_mode}_{wager:.2f}_{step}{suffix}")
             ])
             
         # Back button
@@ -1181,9 +1181,9 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             next_mode = self._get_next_game_mode(game_mode)
             prev_mode = self._get_prev_game_mode(game_mode)
             keyboard.append([
-                InlineKeyboardButton("⬅️", callback_data=f"emoji_setup_{prev_mode}_{wager:.2f}_final_{pts}_{rolls}_{mode}_{opponent}"),
-                InlineKeyboardButton(f"Mode: {current_emoji}", callback_data="none"),
-                InlineKeyboardButton("➡️", callback_data=f"emoji_setup_{next_mode}_{wager:.2f}_final_{pts}_{rolls}_{mode}_{opponent}")
+                InlineKeyboardButton("⬅️", callback_data=f"emoji_setup_{prev_mode}_{wager:.2f}_{step}{suffix}"),
+                InlineKeyboardButton(f"Mode: {current_emoji}", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_{step}{suffix}"),
+                InlineKeyboardButton("➡️", callback_data=f"emoji_setup_{next_mode}_{wager:.2f}_{step}{suffix}")
             ])
 
         # Action row
