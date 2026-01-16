@@ -3568,7 +3568,21 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     # Next round
                     challenge['waiting_for_emoji'] = True
                     challenge['p_rolls'] = []
-                    await context.bot.send_message(chat_id=chat_id, text=f"Round Result: You {p_tot} vs Bot {b_tot}\nSeries Score: You {challenge['p_pts']} - {challenge['b_pts']} Bot\n\nYour turn! Send {emoji}")
+                    
+                    user_data = self.db.get_user(user_id)
+                    user_username = user_data.get('username', f'User{user_id}')
+                    
+                    round_text = (
+                        f"<b>Score</b>\n\n"
+                        f"{user_username}: {challenge['p_pts']}\n"
+                        f"Bot: {challenge['b_pts']}\n\n"
+                        f"{user_username}, your turn!"
+                    )
+                    
+                    keyboard = [[InlineKeyboardButton("💰 Cashout", callback_data=f"cashout_{cid}")]]
+                    reply_markup = InlineKeyboardMarkup(keyboard)
+                    
+                    await context.bot.send_message(chat_id=chat_id, text=round_text, reply_markup=reply_markup, parse_mode="HTML")
                 
                 with self.db.app.app_context():
                     pending_pvp_state = db.session.get(GlobalState, "pending_pvp")
