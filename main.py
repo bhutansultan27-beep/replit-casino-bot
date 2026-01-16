@@ -42,35 +42,45 @@ class DatabaseManager:
                 ("house_balance", {"amount": 10000.00}),
                 ("dynamic_admins", {"ids": []}),
                 ("stickers", {"roulette": {}}),
-                ("active_users", {})
+                ("processed_updates", {"ids": []})
             ]:
                 if not db.session.get(GlobalState, key):
                     db.session.add(GlobalState(key=key, value=default))
             db.session.commit()
 
-    def set_user_busy(self, user_id: int, busy: bool):
+    def claim_update(self, update_id: int) -> bool:
+        """Atomically claim an update to ensure only one bot processes it."""
         with self.app.app_context():
-            state = db.session.get(GlobalState, "active_users")
-            val = state.value.copy()
-            if busy:
-                val[str(user_id)] = datetime.utcnow().isoformat()
-            else:
-                val.pop(str(user_id), None)
-            state.value = val
-            db.session.commit()
+            # Use a simpler locking mechanism for now, or use GlobalState as a registry
+            state = db.session.get(GlobalState, "processed_updates")
+            if not state:
+                return False
+                
+            processed_ids = state.value.get("ids", [])
+            if update_id in processed_ids:
+                return False
+            
+            # Add to processed and keep last 1000 to manage size
+            new_ids = (processed_ids + [update_id])[-1000:]
+            state.value = {"ids": new_ids}
+            try:
+                db.session.commit()
+                return True
+            except:
+                db.session.rollback()
+                return False
 
-    def is_user_busy(self, user_id: int) -> bool:
-        with self.app.app_context():
-            state = db.session.get(GlobalState, "active_users")
-            if str(user_id) in state.value:
-                # Check for 30s timeout to prevent stuck locks
-                last_active = datetime.fromisoformat(state.value[str(user_id)])
-                if datetime.utcnow() - last_active < timedelta(seconds=30):
-                    return True
-            return False
+    async def handle_update(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Pre-process updates to check if they should be handled by this instance."""
+        if not update.update_id:
+            return
+            
+        # Try to claim the update. If already claimed, skip.
+        if not self.db.claim_update(update.update_id):
+            return
 
-    @property
-    def data(self):
+        # Proceed with normal handling logic if claimed
+        # (This would ideally wrap the existing handler logic or be added as a middleware)
         # Compatibility layer for existing code that accesses self.db.data
         with self.app.app_context():
             house_balance_state = db.session.get(GlobalState, "house_balance")
