@@ -267,6 +267,7 @@ class AntariaCasinoBot:
         self.app.add_handler(CommandHandler("soccer", self.soccer_command))
         self.app.add_handler(CommandHandler("football", self.soccer_command))
         self.app.add_handler(CommandHandler("bowling", self.bowling_command))
+        self.app.add_handler(CommandHandler("roll", self.roll_command))
         self.app.add_handler(CommandHandler("predict", self.predict_command))
         self.app.add_handler(CommandHandler("coinflip", self.coinflip_command))
         self.app.add_handler(CommandHandler("flip", self.coinflip_command))
@@ -962,6 +963,28 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         the multiplier is set to a constant 1.95x.
         """
         return 1.95
+
+    async def roll_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Play roll game setup (alias for dice but with switcher)"""
+        amount = 1.0
+        if context.args:
+            try:
+                arg = context.args[0].lower().replace('$', '').replace(',', '')
+                if arg == 'all':
+                    user_id = update.effective_user.id
+                    user_data = self.db.get_user(user_id)
+                    amount = user_data['balance']
+                else:
+                    amount = float(arg)
+            except ValueError:
+                pass
+        
+        # Ensure minimum bet
+        if amount < 1.0:
+            await update.effective_message.reply_text("❌ Minimum bet is $1.00", reply_to_message_id=update.effective_message.message_id)
+            return
+
+        await self._show_emoji_game_setup(update, context, amount, "dice")
 
     async def _show_emoji_game_setup(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float, game_mode: str, step: str = "mode", params: Dict = None):
         """Display the setup menu for emoji games (mode, rolls, points)"""
