@@ -4948,6 +4948,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                                         ))
                                     new_keyboard.append(new_row)
                                 
+                                # Use edit_message_reply_markup to keep the text exactly as it is
                                 await query.edit_message_reply_markup(
                                     reply_markup=InlineKeyboardMarkup(new_keyboard)
                                 )
