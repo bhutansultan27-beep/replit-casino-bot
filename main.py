@@ -944,7 +944,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         try:
             idx = modes.index(current)
             return modes[(idx + 1) % len(modes)]
-        except ValueError:
+        except:
             return "dice"
 
     def _get_prev_game_mode(self, current: str) -> str:
@@ -952,7 +952,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         try:
             idx = modes.index(current)
             return modes[(idx - 1) % len(modes)]
-        except ValueError:
+        except:
             return "dice"
 
     def _calculate_emoji_multiplier(self, rolls: int, pts: int) -> float:
@@ -969,7 +969,13 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         user_data = self.db.get_user(user_id)
         params = params or {}
         
-        emoji_map = self.emoji_map
+        emoji_map = {
+            "dice": "🎲",
+            "darts": "🎯",
+            "basketball": "🏀",
+            "soccer": "⚽",
+            "bowling": "🎳"
+        }
         current_emoji = emoji_map.get(game_mode, "🎲")
         
         # Consistent multiplier for PvP/Bot series
