@@ -966,7 +966,11 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
 
     async def is_user_in_game(self, user_id: int) -> bool:
         """Check if user has any active game (V2 bot, V2 pvp, or Blackjack)"""
-        # 1. Check V2 games in pending_pvp
+        # Use task queue for check
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, self._check_game_sync, user_id)
+
+    def _check_game_sync(self, user_id: int) -> bool:
         with self.db.app.app_context():
             pending_pvp_state = db.session.get(GlobalState, "pending_pvp")
             pending_pvp = pending_pvp_state.value if pending_pvp_state else {}
@@ -977,10 +981,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 if cid.startswith("v2_pvp_") and (challenge.get('challenger') == user_id or challenge.get('opponent') == user_id):
                     return True
         
-        # 2. Check Blackjack sessions
         if user_id in self.blackjack_sessions:
             return True
-            
         return False
 
     async def check_active_game_and_delete(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
@@ -1014,8 +1016,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 pass
         
         # Ensure minimum bet
-        if amount < 1.0:
-            await update.effective_message.reply_text("❌ Minimum bet is $1.00", reply_to_message_id=update.effective_message.message_id)
+        if amount < 0.01:
+            await update.effective_message.reply_text("❌ Minimum bet is $0.01", reply_to_message_id=update.effective_message.message_id)
             return
 
         await self._show_emoji_game_setup(update, context, amount, "dice")
@@ -1437,8 +1439,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 pass
         
         # Ensure minimum bet
-        if amount < 1.0:
-            await update.effective_message.reply_text("❌ Minimum bet is $1.00", reply_to_message_id=update.effective_message.message_id)
+        if amount < 0.01:
+            await update.effective_message.reply_text("❌ Minimum bet is $0.01", reply_to_message_id=update.effective_message.message_id)
             return
 
         await self._show_game_prediction_menu(update, context, amount, "dice")
@@ -1800,8 +1802,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 pass
         
         # Ensure minimum bet
-        if amount < 1.0:
-            await update.effective_message.reply_text("❌ Minimum bet is $1.00", reply_to_message_id=update.effective_message.message_id)
+        if amount < 0.01:
+            await update.effective_message.reply_text("❌ Minimum bet is $0.01", reply_to_message_id=update.effective_message.message_id)
             return
 
         await self._show_game_prediction_menu(update, context, amount, "dice")
@@ -4420,7 +4422,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 # Series End
                 w = challenge['wager']
                 if challenge['p_pts'] >= target_pts:
-                    payout = w * 1.95
+                    payout = round(w * 1.95, 2)
                     u = self.db.get_user(user_id)
                     u['balance'] += payout
                     self.db.update_user(user_id, {'balance': u['balance']})
@@ -4435,7 +4437,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                         f"🎉 Congratulations, <b>{p1_name}</b>! You won <b>${payout:,.2f}</b>!"
                     )
                     kb = [[InlineKeyboardButton("🔄 Play Again", callback_data=f"{challenge['game']}_bot_{w:.2f}"),
-                           InlineKeyboardButton("🔄 Double", callback_data=f"{challenge['game']}_bot_{w*2:.2f}")]]
+                           InlineKeyboardButton("🔄 Double", callback_data=f"{challenge['game']}_bot_{round(w*2, 2):.2f}")]]
                     await context.bot.send_message(
                         chat_id=chat_id, 
                         text=win_text, 
@@ -4652,7 +4654,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 # Series End
                 w = challenge['wager']
                 if challenge['p_pts'] >= target_pts:
-                    payout = w * 1.95
+                    payout = round(w * 1.95, 2)
                     u = self.db.get_user(user_id)
                     u['balance'] += payout
                     self.db.update_user(user_id, {'balance': u['balance']})
@@ -4667,7 +4669,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                         f"🎉 Congratulations, <b>{p1_name}</b>! You won <b>${payout:,.2f}</b>!"
                     )
                     kb = [[InlineKeyboardButton("🔄 Play Again", callback_data=f"{challenge['game']}_bot_{w:.2f}"),
-                           InlineKeyboardButton("🔄 Double", callback_data=f"{challenge['game']}_bot_{w*2:.2f}")]]
+                           InlineKeyboardButton("🔄 Double", callback_data=f"{challenge['game']}_bot_{round(w*2, 2):.2f}")]]
                     await context.bot.send_message(
                         chat_id=chat_id, 
                         text=win_text, 
