@@ -1188,7 +1188,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             prev_game = self._get_prev_game_mode(game_mode)
             keyboard.append([
                 InlineKeyboardButton("⬅️", callback_data=f"emoji_setup_{prev_game}_{wager:.2f}_{step}{suffix}"),
-                InlineKeyboardButton(f"Mode: {current_emoji}", callback_data=f"setup_mode_normal_{game_mode}_{wager:.2f}"),
+                InlineKeyboardButton(f"Mode: {current_emoji}", callback_data="none"),
                 InlineKeyboardButton("➡️", callback_data=f"emoji_setup_{next_game}_{wager:.2f}_{step}{suffix}")
             ])
 
