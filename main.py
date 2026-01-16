@@ -2984,7 +2984,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         await query.answer()
         await context.bot.send_message(
             chat_id=chat_id, 
-            text=f"🎮 **Dice Series**\n\n{bot_mention} vs {user_mention}\n\n{user_mention} your turn! Send 🎲",
+            text=f"🎲 **Match accepted!**\n\nPlayer 1: {user_mention}\nPlayer 2: Bot\n\n**{user_mention}**, your turn! To start, click the button below! 🎲",
+            reply_to_message_id=query.message.message_id,
             parse_mode="Markdown"
         )
 
@@ -3032,7 +3033,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         await query.answer()
         await context.bot.send_message(
             chat_id=chat_id, 
-            text=f"🎮 **Darts Series**\n\n{bot_mention} vs {user_mention}\n\n{user_mention} your turn! Send 🎯",
+            text=f"🎯 **Match accepted!**\n\nPlayer 1: {user_mention}\nPlayer 2: Bot\n\n**{user_mention}**, your turn! To start, click the button below! 🎯",
+            reply_to_message_id=query.message.message_id,
             parse_mode="Markdown"
         )
 
@@ -3080,7 +3082,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         await query.answer()
         await context.bot.send_message(
             chat_id=chat_id, 
-            text=f"🎮 **Basketball Series**\n\n{bot_mention} vs {user_mention}\n\n{user_mention} your turn! Send 🏀",
+            text=f"🏀 **Match accepted!**\n\nPlayer 1: {user_mention}\nPlayer 2: Bot\n\n**{user_mention}**, your turn! To start, click the button below! 🏀",
+            reply_to_message_id=query.message.message_id,
             parse_mode="Markdown"
         )
 
