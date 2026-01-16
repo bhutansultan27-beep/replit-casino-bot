@@ -3423,173 +3423,166 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             self.pending_pvp = pending_pvp_state.value if pending_pvp_state else {}
         
         logger.info(f"Checking for matching game in {len(self.pending_pvp)} pending challenges")
-        found_game = False
+        
+        # Priority check for V2 bot games
         for cid, challenge in list(self.pending_pvp.items()):
-            logger.debug(f"Checking challenge {cid}: player={challenge.get('player')}, emoji={challenge.get('emoji')}, waiting={challenge.get('waiting_for_emoji')}")
-            if challenge.get('chat_id') != chat_id:
-                continue
-
-            # Generic V2 Bot
             if cid.startswith("v2_bot_") and challenge.get('player') == user_id and challenge.get('emoji') == emoji:
-                found_game = True
-                logger.info(f"Match found: {cid}")
-                if not challenge.get('waiting_for_emoji'):
-                    logger.warning(f"Game found but not waiting for emoji: {cid}")
-                    continue
-                
-                # Ensure state keys exist
-                if 'cur_rolls' not in challenge: challenge['cur_rolls'] = 0
-                if 'p_pts' not in challenge: challenge['p_pts'] = 0
-                if 'b_pts' not in challenge: challenge['b_pts'] = 0
-                if 'p_rolls' not in challenge: challenge['p_rolls'] = []
-                if 'rolls' not in challenge: challenge['rolls'] = 1
-                if 'pts' not in challenge: challenge['pts'] = 3
-                if 'mode' not in challenge: challenge['mode'] = 'normal'
-                
-                # Check balance if wager not yet deducted
-                if not challenge.get('wager_deducted'):
-                    user_data = self.db.get_user(user_id)
-                    if user_data['balance'] < (challenge['wager'] - 0.001):
-                        await update.message.reply_text(f"❌ Insufficient balance to start the game! (Balance: ${user_data['balance']:.2f}, Wager: ${challenge['wager']:.2f})")
-                        del self.pending_pvp[cid]
+                if challenge.get('chat_id') == chat_id and challenge.get('waiting_for_emoji'):
+                    logger.info(f"Match found for V2 Bot game: {cid}")
+                    
+                    # Ensure state keys exist
+                    if 'cur_rolls' not in challenge: challenge['cur_rolls'] = 0
+                    if 'p_pts' not in challenge: challenge['p_pts'] = 0
+                    if 'b_pts' not in challenge: challenge['b_pts'] = 0
+                    if 'p_rolls' not in challenge: challenge['p_rolls'] = []
+                    if 'rolls' not in challenge: challenge['rolls'] = 1
+                    if 'pts' not in challenge: challenge['pts'] = 3
+                    if 'mode' not in challenge: challenge['mode'] = 'normal'
+                    
+                    # Check balance if wager not yet deducted
+                    if not challenge.get('wager_deducted'):
+                        user_data = self.db.get_user(user_id)
+                        if user_data['balance'] < (challenge['wager'] - 0.001):
+                            await update.message.reply_text(f"❌ Insufficient balance to start the game! (Balance: ${user_data['balance']:.2f}, Wager: ${challenge['wager']:.2f})")
+                            del self.pending_pvp[cid]
+                            with self.db.app.app_context():
+                                pending_pvp_state = db.session.get(GlobalState, "pending_pvp")
+                                if pending_pvp_state:
+                                    pending_pvp_state.value = self.pending_pvp
+                                    db.session.commit()
+                            return
+                        self.db.update_user(user_id, {'balance': max(0, user_data['balance'] - challenge['wager'])})
+                        self.db.add_transaction(user_id, "game_bet", -challenge['wager'], f"Bet on {challenge.get('game_mode', 'game')} vs Bot")
+                        challenge['wager_deducted'] = True
+                    
+                    # Add roll to state
+                    challenge['p_rolls'].append(score)
+                    challenge['cur_rolls'] += 1
+                    challenge['waiting_for_cashout'] = False
+                    
+                    if challenge['cur_rolls'] < challenge['rolls']:
+                        # Still need more rolls
+                        user_mention = f"@{update.effective_user.username}" if update.effective_user.username else update.effective_user.first_name
+                        await update.message.reply_text(f"{user_mention} roll again {emoji} ({challenge['cur_rolls']}/{challenge['rolls']})")
                         with self.db.app.app_context():
                             pending_pvp_state = db.session.get(GlobalState, "pending_pvp")
                             if pending_pvp_state:
                                 pending_pvp_state.value = self.pending_pvp
                                 db.session.commit()
                         return
-                    self.db.update_user(user_id, {'balance': max(0, user_data['balance'] - challenge['wager'])})
-                    self.db.add_transaction(user_id, "game_bet", -challenge['wager'], f"Bet on {challenge.get('game_mode', 'game')} vs Bot")
-                    challenge['wager_deducted'] = True
-                
-                # Add roll to state
-                challenge['p_rolls'].append(score)
-                challenge['cur_rolls'] += 1
-                challenge['waiting_for_cashout'] = False
-                
-                if challenge['cur_rolls'] < challenge['rolls']:
-                    # Still need more rolls
-                    user_mention = f"@{update.effective_user.username}" if update.effective_user.username else update.effective_user.first_name
-                    await update.message.reply_text(f"{user_mention} roll again {emoji} ({challenge['cur_rolls']}/{challenge['rolls']})")
+                    
+                    # Player finished rolls, now bot rolls
+                    challenge['waiting_for_emoji'] = False
+                    
+                    with self.db.app.app_context():
+                        pending_pvp_state = db.session.get(GlobalState, "pending_pvp")
+                        if pending_pvp_state:
+                            pending_pvp_state.value = self.pending_pvp
+                            db.session.commit()
+                    
+                    p_tot = sum(challenge['p_rolls'][-challenge['rolls']:])
+                    await context.bot.send_message(chat_id=chat_id, text=f"🤖 You rolled {p_tot}. Now it's my turn!")
+                    
+                    b_tot = 0
+                    for _ in range(challenge['rolls']):
+                        await asyncio.sleep(2)
+                        d = await context.bot.send_dice(chat_id=chat_id, emoji=emoji)
+                        bv = d.dice.value
+                        if emoji in ["⚽", "🏀"]:
+                            b_val = 1 if bv >= 4 else 0
+                        else:
+                            b_val = bv
+                        b_tot += b_val
+                        await asyncio.sleep(3.5)
+                    
+                    # Update challenge after bot rolls to ensure final score is captured
+                    with self.db.app.app_context():
+                        pending_pvp_state = db.session.get(GlobalState, "pending_pvp")
+                        self.pending_pvp = pending_pvp_state.value if pending_pvp_state else {}
+                    challenge = self.pending_pvp.get(cid)
+                    if not challenge: return
+                    
+                    win = None
+                    if challenge['mode'] == "normal":
+                        if p_tot > b_tot: win = "p"
+                        elif b_tot > p_tot: win = "b"
+                    else: # crazy
+                        if p_tot < b_tot: win = "p"
+                        elif b_tot < p_tot: win = "b"
+                    
+                    if win == "p": challenge['p_pts'] += 1
+                    elif win == "b": challenge['b_pts'] += 1
+                    
+                    challenge['cur_rolls'] = 0
+                    challenge['emoji_wait'] = datetime.now().isoformat()
+                    
+                    if challenge['p_pts'] >= challenge['pts'] or challenge['b_pts'] >= challenge['pts']:
+                        # Series ended
+                        w = challenge['wager']
+                        if challenge['p_pts'] >= challenge['pts']:
+                            u = self.db.get_user(user_id)
+                            payout = w * 1.95
+                            u['balance'] += payout # Payout
+                            self.db.update_user(user_id, u)
+                            self.db.update_house_balance(-(w * 0.95))
+                            
+                            user_username = u.get('username', f'User{user_id}')
+                            win_text = (
+                                f"🏆 <b>Game over!</b>\n\n"
+                                f"<b>Score:</b>\n"
+                                f"{user_username} • {challenge['p_pts']}\n"
+                                f"Bot • {challenge['b_pts']}\n\n"
+                                f"🎉 Congratulations, <b>{user_username}</b>! You won <b>${payout:,.2f}</b>!"
+                            )
+                            
+                            keyboard = [
+                                [
+                                    InlineKeyboardButton("🔄 Play Again", callback_data=f"{challenge['game']}_bot_{wager:.2f}"),
+                                    InlineKeyboardButton("🔄 Double", callback_data=f"{challenge['game']}_bot_{wager*2:.2f}")
+                                ]
+                            ]
+                            reply_markup = InlineKeyboardMarkup(keyboard)
+                            
+                            # Reply to the initial setup message if available
+                            msg_id = challenge.get('message_id')
+                            if msg_id:
+                                await context.bot.send_message(chat_id=chat_id, text=win_text, reply_to_message_id=msg_id, reply_markup=reply_markup, parse_mode="HTML")
+                            else:
+                                await context.bot.send_message(chat_id=chat_id, text=win_text, reply_markup=reply_markup, parse_mode="HTML")
+                            
+                            self._update_user_stats(user_id, w, w * 0.95, "win")
+                        else:
+                            self.db.update_house_balance(w)
+                            await context.bot.send_message(chat_id=chat_id, text=f"💀 **DEFEAT!** Bot won the series {challenge['b_pts']}-{challenge['p_pts']}. Lost ${w:.2f}")
+                            self._update_user_stats(user_id, w, -w, "loss")
+                        
+                        del self.pending_pvp[cid]
+                    else:
+                        # Next round
+                        challenge['waiting_for_emoji'] = True
+                        challenge['p_rolls'] = []
+                        
+                        user_data = self.db.get_user(user_id)
+                        user_username = user_data.get('username', f'User{user_id}')
+                        
+                        round_text = (
+                            f"<b>Score</b>\n\n"
+                            f"{user_username}: {challenge['p_pts']}\n"
+                            f"Bot: {challenge['b_pts']}\n\n"
+                            f"{user_username}, your turn!"
+                        )
+                        
+                        keyboard = [[InlineKeyboardButton("💰 Cashout", callback_data=f"cashout_{cid}")]]
+                        reply_markup = InlineKeyboardMarkup(keyboard)
+                        
+                        await context.bot.send_message(chat_id=chat_id, text=round_text, reply_markup=reply_markup, parse_mode="HTML")
+                    
                     with self.db.app.app_context():
                         pending_pvp_state = db.session.get(GlobalState, "pending_pvp")
                         if pending_pvp_state:
                             pending_pvp_state.value = self.pending_pvp
                             db.session.commit()
                     return
-                
-                # Player finished rolls, now bot rolls
-                challenge['waiting_for_emoji'] = False
-                
-                with self.db.app.app_context():
-                    pending_pvp_state = db.session.get(GlobalState, "pending_pvp")
-                    if pending_pvp_state:
-                        pending_pvp_state.value = self.pending_pvp
-                        db.session.commit()
-                
-                p_tot = sum(challenge['p_rolls'][-challenge['rolls']:])
-                await context.bot.send_message(chat_id=chat_id, text=f"🤖 You rolled {p_tot}. Now it's my turn!")
-                
-                b_tot = 0
-                for _ in range(challenge['rolls']):
-                    await asyncio.sleep(2)
-                    d = await context.bot.send_dice(chat_id=chat_id, emoji=emoji)
-                    bv = d.dice.value
-                    if emoji in ["⚽", "🏀"]:
-                        b_val = 1 if bv >= 4 else 0
-                    else:
-                        b_val = bv
-                    b_tot += b_val
-                    await asyncio.sleep(3.5)
-                
-                # Update challenge after bot rolls to ensure final score is captured
-                with self.db.app.app_context():
-                    pending_pvp_state = db.session.get(GlobalState, "pending_pvp")
-                    self.pending_pvp = pending_pvp_state.value if pending_pvp_state else {}
-                challenge = self.pending_pvp.get(cid)
-                if not challenge: return
-                
-                win = None
-                if challenge['mode'] == "normal":
-                    if p_tot > b_tot: win = "p"
-                    elif b_tot > p_tot: win = "b"
-                else: # crazy
-                    if p_tot < b_tot: win = "p"
-                    elif b_tot < p_tot: win = "b"
-                
-                if win == "p": challenge['p_pts'] += 1
-                elif win == "b": challenge['b_pts'] += 1
-                
-                challenge['cur_rolls'] = 0
-                challenge['emoji_wait'] = datetime.now().isoformat()
-                
-                if challenge['p_pts'] >= challenge['pts'] or challenge['b_pts'] >= challenge['pts']:
-                    # Series ended
-                    w = challenge['wager']
-                    if challenge['p_pts'] >= challenge['pts']:
-                        u = self.db.get_user(user_id)
-                        payout = w * 1.95
-                        u['balance'] += payout # Payout
-                        self.db.update_user(user_id, u)
-                        self.db.update_house_balance(-(w * 0.95))
-                        
-                        user_username = u.get('username', f'User{user_id}')
-                        win_text = (
-                            f"🏆 <b>Game over!</b>\n\n"
-                            f"<b>Score:</b>\n"
-                            f"{user_username} • {challenge['p_pts']}\n"
-                            f"Bot • {challenge['b_pts']}\n\n"
-                            f"🎉 Congratulations, <b>{user_username}</b>! You won <b>${payout:,.2f}</b>!"
-                        )
-                        
-                        keyboard = [
-                            [
-                                InlineKeyboardButton("🔄 Play Again", callback_data=f"{challenge['game']}_bot_{wager:.2f}"),
-                                InlineKeyboardButton("🔄 Double", callback_data=f"{challenge['game']}_bot_{wager*2:.2f}")
-                            ]
-                        ]
-                        reply_markup = InlineKeyboardMarkup(keyboard)
-                        
-                        # Reply to the initial setup message if available
-                        msg_id = challenge.get('message_id')
-                        if msg_id:
-                            await context.bot.send_message(chat_id=chat_id, text=win_text, reply_to_message_id=msg_id, reply_markup=reply_markup, parse_mode="HTML")
-                        else:
-                            await context.bot.send_message(chat_id=chat_id, text=win_text, reply_markup=reply_markup, parse_mode="HTML")
-                        
-                        self._update_user_stats(user_id, w, w * 0.95, "win")
-                    else:
-                        self.db.update_house_balance(w)
-                        await context.bot.send_message(chat_id=chat_id, text=f"💀 **DEFEAT!** Bot won the series {challenge['b_pts']}-{challenge['p_pts']}. Lost ${w:.2f}")
-                        self._update_user_stats(user_id, w, -w, "loss")
-                    
-                    del self.pending_pvp[cid]
-                else:
-                    # Next round
-                    challenge['waiting_for_emoji'] = True
-                    challenge['p_rolls'] = []
-                    
-                    user_data = self.db.get_user(user_id)
-                    user_username = user_data.get('username', f'User{user_id}')
-                    
-                    round_text = (
-                        f"<b>Score</b>\n\n"
-                        f"{user_username}: {challenge['p_pts']}\n"
-                        f"Bot: {challenge['b_pts']}\n\n"
-                        f"{user_username}, your turn!"
-                    )
-                    
-                    keyboard = [[InlineKeyboardButton("💰 Cashout", callback_data=f"cashout_{cid}")]]
-                    reply_markup = InlineKeyboardMarkup(keyboard)
-                    
-                    await context.bot.send_message(chat_id=chat_id, text=round_text, reply_markup=reply_markup, parse_mode="HTML")
-                
-                with self.db.app.app_context():
-                    pending_pvp_state = db.session.get(GlobalState, "pending_pvp")
-                    if pending_pvp_state:
-                        pending_pvp_state.value = self.pending_pvp
-                        db.session.commit()
-                return
 
             # Generic V2 PvP
             if cid.startswith("v2_pvp_") and challenge.get('emoji') == emoji:
