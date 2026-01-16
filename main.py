@@ -1461,7 +1461,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             await update.effective_message.reply_text("❌ Minimum bet is $0.01", reply_to_message_id=update.effective_message.message_id)
             return
 
-        await self._show_game_prediction_menu(update, context, amount, "dice")
+        await self._show_emoji_game_setup(update, context, amount, "dice")
 
     async def darts_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play darts game setup"""
@@ -1824,7 +1824,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             await update.effective_message.reply_text("❌ Minimum bet is $0.01", reply_to_message_id=update.effective_message.message_id)
             return
 
-        await self._show_game_prediction_menu(update, context, amount, "dice")
+        await self._show_emoji_game_setup(update, context, amount, "dice")
 
     async def darts_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play darts game setup"""
