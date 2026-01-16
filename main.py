@@ -1100,10 +1100,21 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             step_titles = {"mode": "Game Mode", "rolls": "Rolls", "points": "Target Score"}
             current_step_title = step_titles.get(step, step.capitalize())
             
+            # Prepare summary of selected settings
+            mode_val = params.get('mode', 'normal')
+            mode_display = "Normal" if mode_val == 'normal' else "Crazy"
+            rolls_val = params.get('rolls', 1)
+            pts_val = params.get('pts', 1)
+            
             text = (
                 f"{current_emoji} <b>{game_mode.replace('_', ' ').capitalize()}</b>\n\n"
                 f"Your balance: <b>${user_data['balance']:,.2f}</b>\n"
                 f"Multiplier: <b>{multiplier:.2f}x</b>\n\n"
+                f"<b>Current Setup:</b>\n"
+                f"• Mode: {mode_display}\n"
+                f"• Rolls: {rolls_val}\n"
+                f"• Target Score: {pts_val}\n"
+                f"• Bet: ${wager:,.2f}\n\n"
                 f"Choose your {current_step_title.lower()}:"
             )
             
