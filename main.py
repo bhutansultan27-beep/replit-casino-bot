@@ -4906,6 +4906,10 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             self.clicked_buttons.add(button_key)
         
         try:
+            if data == "none":
+                await query.answer()
+                return
+
             if data.startswith("match_page_"):
                 parts = data.split('_')
                 if len(parts) < 4:
