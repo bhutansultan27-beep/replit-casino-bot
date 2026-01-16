@@ -4949,10 +4949,11 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
 
             if data.startswith("emoji_setup_"):
                 parts = data.split("_")
+                # Parts: emoji_setup, game_mode, wager, step, [pts, rolls, mode, opponent]
                 if len(parts) < 5:
                     await query.answer("❌ Invalid setup data!", show_alert=True)
                     return
-                g_mode = parts[2]
+                g_mode = parts[1] # Fix index: data.split("_") -> ["emoji", "setup", game_mode, wager, step, ...]
                 wager = float(parts[3])
                 next_step = parts[4]
 
@@ -4968,9 +4969,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     if len(parts) > 5:
                         params["mode"] = parts[5]
                 elif next_step == "points":
-                    if len(parts) > 6:
-                        params["rolls"] = int(parts[5])
-                        params["mode"] = parts[6]
+                    if len(parts) > 5:
+                        params["mode"] = parts[5]
                 elif next_step == "final":
                     if len(parts) >= 8:
                         params["pts"] = int(parts[5])
