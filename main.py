@@ -4267,6 +4267,27 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         message_id = query.message.message_id
         ownership_key = (chat_id, message_id)
 
+        if data.startswith("cashout_"):
+            cid = data.split("_", 1)[1]
+            challenge = self.pending_pvp.get(cid)
+            if not challenge or challenge.get('player') != user_id:
+                await query.answer("❌ Game no longer valid.", show_alert=True)
+                return
+            
+            # Cashout logic: Refund wager (since game is in progress)
+            wager = challenge['wager']
+            user_data = self.db.get_user(user_id)
+            user_data['balance'] += wager
+            self.db.update_user(user_id, user_data)
+            self.db.add_transaction(user_id, "cashout", wager, f"Cashout from {challenge['game']}")
+            
+            del self.pending_pvp[cid]
+            self.db.save_data()
+            
+            await query.answer("💰 Cashed out successfully!", show_alert=True)
+            await query.edit_message_text(f"💰 <b>Cashed Out!</b>\n\nRefunded ${wager:,.2f} to your balance.", parse_mode="HTML")
+            return
+            
         try:
             # Custom menu switching
             if data.startswith("predict_menu_") or data.startswith("emoji_setup_") or data.startswith("setup_bet_"):
