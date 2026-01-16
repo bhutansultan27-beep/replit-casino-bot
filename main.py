@@ -4108,6 +4108,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
     async def start_generic_v2_bot(self, update: Update, context: ContextTypes.DEFAULT_TYPE, game: str, wager: float, rolls: int, mode: str, pts: int):
         query = update.callback_query
         user_id = query.from_user.id
+        chat_id = query.message.chat_id
 
         # Check for active game
         for active_cid, active_challenge in self.pending_pvp.items():
@@ -4116,7 +4117,6 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 return
 
         user_data = self.db.get_user(user_id)
-        
         if wager > user_data['balance']:
             await query.answer("❌ Insufficient balance", show_alert=True)
             return
@@ -4131,21 +4131,123 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         
         self.pending_pvp[cid] = {
             "type": f"{game}_bot_v2", "player": user_id, "wager": wager, "game": game, "emoji": emoji,
-            "rolls": rolls, "mode": mode, "pts": pts, "chat_id": query.message.chat_id,
+            "rolls": rolls, "mode": mode, "pts": pts, "chat_id": chat_id,
             "p_pts": 0, "b_pts": 0, "p_rolls": [], "cur_rolls": 0, "emoji_wait": datetime.now().isoformat(),
             "wager_deducted": True, "message_id": query.message.message_id,
-            "waiting_for_emoji": True
+            "waiting_for_emoji": False # Not waiting for manual user roll anymore
         }
-        self.db.save_data()
+        self.db.update_pending_pvp(self.pending_pvp)
         
-        # In DMs, we just inform the user to send their emoji.
-        # In groups, we could still edit if desired, but user wants a new message.
-        msg_text = f"**{game.capitalize()} vs Bot**\nTarget: {pts}\nMode: {mode.capitalize()}\n\n👉 Send your {rolls} {emoji} now!"
-        await context.bot.send_message(chat_id=query.message.chat_id, text=msg_text, parse_mode="Markdown")
-        # Keep the menu alive or delete? User says "dont want it to edit the message that has all the game details and start button"
-        # So we leave the original message as is (it still has the start buttons though, but button_callback handles single-use)
+        p1_name = user_data.get('username', f'User{user_id}')
+        msg_text = (
+            f"{emoji} <b>Match accepted!</b>\n\n"
+            f"Player 1: <b>{p1_name}</b>\n"
+            f"Player 2: <b>Bot</b>\n\n"
+            f"<b>{p1_name}</b>, your turn! To start, click the button below! {emoji}"
+        )
+        kb = [[InlineKeyboardButton("✅ Send emoji", callback_data=f"v2_send_emoji_{cid}")]]
+        await context.bot.send_message(chat_id=chat_id, text=msg_text, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
 
-    async def start_generic_v2_pvp(self, update: Update, context: ContextTypes.DEFAULT_TYPE, game: str, wager: float, rolls: int, mode: str, pts: int):
+    async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        query = update.callback_query
+        user_id = update.effective_user.id
+        chat_id = update.effective_chat.id
+        data = query.data
+        message_id = query.message.message_id
+        
+        if data.startswith("v2_send_emoji_"):
+            cid = data.replace("v2_send_emoji_", "")
+            challenge = self.pending_pvp.get(cid)
+            if not challenge or challenge.get('player') != user_id:
+                await query.answer("❌ Game no longer valid.", show_alert=True)
+                return
+            
+            await query.answer()
+            # Remove the button
+            await query.edit_message_reply_markup(reply_markup=None)
+            
+            emoji = challenge['emoji']
+            # Send emoji for user
+            msg = await context.bot.send_dice(chat_id=chat_id, emoji=emoji)
+            val = msg.dice.value
+            score = (1 if val >= 4 else 0) if emoji in ["⚽", "🏀"] else val
+            challenge['p_rolls'].append(score)
+            
+            await asyncio.sleep(4)
+            
+            p_tot = sum(challenge['p_rolls'])
+            await context.bot.send_message(chat_id=chat_id, text=f"🤖 You rolled {p_tot}. My turn!")
+            
+            # Bot rolls
+            b_tot = 0
+            for _ in range(challenge['rolls']):
+                await asyncio.sleep(2)
+                d = await context.bot.send_dice(chat_id=chat_id, emoji=emoji)
+                b_tot += (1 if d.dice.value >= 4 else 0) if emoji in ["⚽", "🏀"] else d.dice.value
+                await asyncio.sleep(4)
+            
+            # Re-load challenge for safety
+            self.pending_pvp = self.db.data.get('pending_pvp', {})
+            challenge = self.pending_pvp.get(cid)
+            if not challenge: return
+            
+            # Resolve Round/Series
+            # Determing Round winner
+            round_win = None
+            if challenge.get('mode', 'normal') == "normal":
+                if p_tot > b_tot: round_win = "p"
+                elif b_tot > p_tot: round_win = "b"
+            else:
+                if p_tot < b_tot: round_win = "p"
+                elif b_tot < p_tot: round_win = "b"
+            
+            if round_win == "p": challenge['p_pts'] += 1
+            elif round_win == "b": challenge['b_pts'] += 1
+            
+            target_pts = challenge.get('pts', 1)
+            if challenge['p_pts'] >= target_pts or challenge['b_pts'] >= target_pts:
+                # Series End
+                w = challenge['wager']
+                if challenge['p_pts'] >= target_pts:
+                    payout = w * 1.95
+                    u = self.db.get_user(user_id)
+                    u['balance'] += payout
+                    self.db.update_user(user_id, {'balance': u['balance']})
+                    self.db.update_house_balance(-(payout - w))
+                    
+                    p1_name = u.get('username', f'User{user_id}')
+                    win_text = (
+                        f"🏆 <b>Game over!</b>\n\n"
+                        f"<b>Score:</b>\n"
+                        f"{p1_name} • {challenge['p_pts']}\n"
+                        f"Bot • {challenge['b_pts']}\n\n"
+                        f"🎉 Congratulations! You won <b>${payout:,.2f}</b>!"
+                    )
+                    kb = [[InlineKeyboardButton("🔄 Play Again", callback_data=f"{challenge['game']}_bot_{w:.2f}"),
+                           InlineKeyboardButton("🔄 Double", callback_data=f"{challenge['game']}_bot_{w*2:.2f}")]]
+                    await context.bot.send_message(chat_id=chat_id, text=win_text, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+                else:
+                    self.db.update_house_balance(w)
+                    await context.bot.send_message(chat_id=chat_id, text=f"💀 <b>DEFEAT!</b> Bot won {challenge['b_pts']}-{challenge['p_pts']}. Lost ${w:.2f}", parse_mode="HTML")
+                
+                del self.pending_pvp[cid]
+            else:
+                # Next Round
+                challenge['p_rolls'] = []
+                u = self.db.get_user(user_id)
+                p1_name = u.get('username', f'User{user_id}')
+                text = (
+                    f"{emoji} <b>Match accepted!</b>\n\n"
+                    f"Player 1: <b>{p1_name}</b>\n"
+                    f"Player 2: <b>Bot</b>\n\n"
+                    f"<b>Score:</b>\n{p1_name}: {challenge['p_pts']}\nBot: {challenge['b_pts']}\n\n"
+                    f"<b>{p1_name}</b>, your turn! To start, click the button below! {emoji}"
+                )
+                kb = [[InlineKeyboardButton("✅ Send emoji", callback_data=f"v2_send_emoji_{cid}")]]
+                await context.bot.send_message(chat_id=chat_id, text=text, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+            
+            self.db.update_pending_pvp(self.pending_pvp)
+            return
         query = update.callback_query
         user_id = query.from_user.id
         user_data = self.db.get_user(user_id)
