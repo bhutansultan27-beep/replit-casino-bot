@@ -4359,9 +4359,16 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             
             emoji = challenge['emoji']
             # Send emojis for user based on challenge['rolls']
+            user_msg_dice = []
             for _ in range(challenge['rolls']):
-                msg = await context.bot.send_dice(chat_id=chat_id, emoji=emoji)
-                val = msg.dice.value
+                d_msg = await context.bot.send_dice(chat_id=chat_id, emoji=emoji)
+                user_msg_dice.append(d_msg)
+            
+            # Wait for all animations to complete (roughly) and collect scores
+            await asyncio.sleep(4)
+            
+            for d_msg in user_msg_dice:
+                val = d_msg.dice.value
                 score = (1 if val >= 4 else 0) if emoji in ["⚽", "🏀"] else val
                 
                 # Re-load challenge from db for each iteration to avoid stale data
@@ -4373,8 +4380,6 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                         db.session.get(GlobalState, "pending_pvp").value = dict(current_pending)
                         db.session.commit()
                         challenge = current_pending[cid]
-                
-                await asyncio.sleep(4)
             
             p_tot = sum(challenge['p_rolls'])
             await context.bot.send_message(
