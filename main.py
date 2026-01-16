@@ -1150,6 +1150,16 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         # Determine multiplier
         multiplier = self._calculate_emoji_multiplier(params.get("rolls", 1), params.get("pts", 1))
         
+        # Navigation row
+        next_game = self._get_next_game_mode(game_mode)
+        prev_game = self._get_prev_game_mode(game_mode)
+        
+        keyboard.append([
+            InlineKeyboardButton("⬅️", callback_data=f"emoji_setup_{prev_game}_{wager:.2f}_{step}{suffix}"),
+            InlineKeyboardButton(f"Mode: {current_emoji}", callback_data="none"),
+            InlineKeyboardButton("➡️", callback_data=f"emoji_setup_{next_game}_{wager:.2f}_{step}{suffix}")
+        ])
+            
         # Back button
         back_button = None
         if step == "mode":
