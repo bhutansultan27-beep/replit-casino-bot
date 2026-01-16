@@ -1139,14 +1139,16 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 InlineKeyboardButton("➡️", callback_data=f"emoji_setup_{next_mode}_{wager:.2f}_mode")
             ])
             
-            # Back button
-            if step == "mode":
-                back_button = InlineKeyboardButton("⬅️ Cancel", callback_data="setup_cancel")
-            elif step == "rolls":
-                back_button = InlineKeyboardButton("⬅️ Back", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_mode")
-            else: # points
-                back_button = InlineKeyboardButton("⬅️ Back", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_rolls_{params.get('mode', 'normal')}")
-            
+        # Back button
+        back_button = None
+        if step == "mode":
+            back_button = InlineKeyboardButton("⬅️ Cancel", callback_data="setup_cancel")
+        elif step == "rolls":
+            back_button = InlineKeyboardButton("⬅️ Back", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_mode")
+        elif step == "points":
+            back_button = InlineKeyboardButton("⬅️ Back", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_rolls_{params.get('mode', 'normal')}")
+        
+        if back_button:
             keyboard.append([back_button])
 
         elif step == "final":
@@ -1185,6 +1187,11 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             ])
             
         # Action row
+        pts = params.get("pts") if params else None
+        rolls = params.get("rolls") if params else None
+        mode = params.get("mode") if params else "normal"
+        opponent = params.get("opponent", "bot") if params else "bot"
+        
         start_callback = f"emoji_setup_{game_mode}_{wager:.2f}_start_{pts}_{rolls}_{mode}" if (opponent == "bot" or is_private) else f"v2_pvp_{game_mode}_{wager:.2f}_{rolls}_{mode}_{pts}"
         
         keyboard.append([
