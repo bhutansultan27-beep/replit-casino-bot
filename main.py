@@ -1184,20 +1184,34 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 InlineKeyboardButton("➡️", callback_data=f"emoji_setup_{next_mode}_{wager:.2f}_final_{pts}_{rolls}_{mode}_{opponent}")
             ])
             
-            # Action row
-            start_callback = f"emoji_setup_{game_mode}_{wager:.2f}_start_{pts}_{rolls}_{mode}" if (opponent == "bot" or is_private) else f"v2_pvp_{game_mode}_{wager:.2f}_{rolls}_{mode}_{pts}"
-            
-            keyboard.append([
-                InlineKeyboardButton("⬅️ Back", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_points_{rolls}_{mode}"),
-                InlineKeyboardButton("✅ Start", callback_data=start_callback)
-            ])
-            
+        # Action row
+        start_callback = f"emoji_setup_{game_mode}_{wager:.2f}_start_{pts}_{rolls}_{mode}" if (opponent == "bot" or is_private) else f"v2_pvp_{game_mode}_{wager:.2f}_{rolls}_{mode}_{pts}"
+        
+        keyboard.append([
+            InlineKeyboardButton("⬅️ Back", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_points_{rolls}_{mode}"),
+            InlineKeyboardButton("✅ Start", callback_data=start_callback)
+        ])
+        
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         if update.callback_query:
-            await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode="HTML")
+            sent_msg = await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode="HTML")
+            # Store message ID if this is a bot game so we can track replies
+            if opponent == "bot":
+                # Find the challenge and update it
+                for cid, challenge in self.pending_pvp.items():
+                    if cid.startswith("v2_bot_") and challenge.get('player') == update.effective_user.id:
+                         challenge['msg_id'] = sent_msg.message_id
+                         break
         else:
-            await update.message.reply_text(text, reply_markup=reply_markup, parse_mode="HTML")
+            sent_msg = await update.message.reply_text(text, reply_markup=reply_markup, parse_mode="HTML")
+            if opponent == "bot":
+                for cid, challenge in self.pending_pvp.items():
+                    if cid.startswith("v2_bot_") and challenge.get('player') == update.effective_user.id:
+                         challenge['msg_id'] = sent_msg.message_id
+                         break
+        
+        self.db.update_pending_pvp(self.pending_pvp)
 
     async def _show_game_prediction_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float, game_mode: str = "dice"):
         """Display the game prediction menu as shown in the screenshot"""
@@ -3451,7 +3465,13 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         val = update.message.dice.value
         chat_id = update.message.chat_id
         
-        logger.info(f"Received dice roll: user={user_id}, emoji={emoji}, value={val}")
+        # Determine if this message is a reply to a bot message
+        is_reply = False
+        if update.message.reply_to_message and update.message.reply_to_message.from_user.id == context.bot.id:
+            is_reply = True
+            replied_to_id = update.message.reply_to_message.message_id
+        
+        logger.info(f"Received dice roll: user={user_id}, emoji={emoji}, value={val}, is_reply={is_reply}")
 
         # Scoring logic
         if emoji in ["⚽", "🏀"]: score = 1 if val >= 4 else 0
@@ -3467,7 +3487,14 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         # Priority check for V2 bot games
         for cid, challenge in list(self.pending_pvp.items()):
             if cid.startswith("v2_bot_") and challenge.get('player') == user_id and challenge.get('emoji') == emoji:
-                if challenge.get('chat_id') == chat_id and challenge.get('waiting_for_emoji'):
+                # If it's a reply, it MUST be to the correct message. 
+                # If it's NOT a reply, we'll still accept it if it's in the same chat (convenience)
+                msg_id_match = True
+                if is_reply:
+                    if challenge.get('msg_id') and replied_to_id != challenge.get('msg_id'):
+                        msg_id_match = False
+                
+                if challenge.get('chat_id') == chat_id and challenge.get('waiting_for_emoji') and msg_id_match:
                     logger.info(f"Match found for V2 Bot game: {cid}")
                     
                     # Ensure state keys exist
