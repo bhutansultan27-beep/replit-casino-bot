@@ -1147,8 +1147,6 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             back_button = InlineKeyboardButton("⬅️ Back", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_mode")
         elif step == "points":
             back_button = InlineKeyboardButton("⬅️ Back", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_rolls_{params.get('mode', 'normal')}")
-        elif step == "final":
-            back_button = InlineKeyboardButton("⬅️ Back", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_points_{params.get('rolls', 1)}_{params.get('mode', 'normal')}")
         
         if back_button:
             keyboard.append([back_button])
@@ -1197,7 +1195,9 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         start_callback = f"emoji_setup_{game_mode}_{wager:.2f}_start_{pts_val}_{rolls_val}_{mode_val}" if (opponent_val == "bot" or is_private) else f"v2_pvp_{game_mode}_{wager:.2f}_{rolls_val}_{mode_val}_{pts_val}"
         
         if step == "final":
+            back_btn = InlineKeyboardButton("⬅️ Back", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_points_{params.get('rolls', 1)}_{params.get('mode', 'normal')}")
             keyboard.append([
+                back_btn,
                 InlineKeyboardButton("✅ Start", callback_data=start_callback)
             ])
         
