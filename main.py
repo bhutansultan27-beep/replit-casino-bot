@@ -1163,9 +1163,10 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 f"Your balance: <b>${user_data['balance']:,.2f}</b>\n"
                 f"Multiplier: <b>{self._calculate_emoji_multiplier(rolls, pts):.2f}x</b>\n\n"
                 f"<b>Game Details:</b>\n"
-                f"Mode: <b>{mode_display}</b>\n"
-                f"Rolls: <b>{rolls}</b>\n"
-                f"Points: <b>{pts}</b>\n"
+                f"• Mode: <b>{mode_display}</b>\n"
+                f"• Rolls: <b>{rolls}</b>\n"
+                f"• Target Score: <b>{pts}</b>\n"
+                f"• Bet: <b>${wager:,.2f}</b>\n"
             )
             
             is_private = update.effective_chat.type == "private"
