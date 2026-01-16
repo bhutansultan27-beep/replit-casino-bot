@@ -1342,13 +1342,6 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             InlineKeyboardButton("2x", callback_data=f"setup_bet_double_{wager:.2f}_{game_mode}")
         ])
         
-        # Navigation row
-        keyboard.append([
-            InlineKeyboardButton("⬅️", callback_data=f"predict_menu_{wager:.2f}_{prev_mode}"),
-            InlineKeyboardButton(f"Mode: {current_emoji}", callback_data=f"setup_mode_predict_{wager:.2f}_{game_mode}"),
-            InlineKeyboardButton("➡️", callback_data=f"predict_menu_{wager:.2f}_{next_mode}")
-        ])
-        
         # Action row
         keyboard.append([
             InlineKeyboardButton("⬅️ Back", callback_data="main_menu"),
