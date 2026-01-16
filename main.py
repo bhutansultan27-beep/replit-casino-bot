@@ -1141,17 +1141,17 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             
         # Back button
         back_button = None
-        if step == "mode":
-            back_button = InlineKeyboardButton("⬅️ Cancel", callback_data="setup_cancel")
-        elif step == "rolls":
+        if step == "rolls":
             back_button = InlineKeyboardButton("⬅️ Back", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_mode")
         elif step == "points":
             back_button = InlineKeyboardButton("⬅️ Back", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_rolls_{params.get('mode', 'normal')}")
+        elif step == "final":
+            back_button = InlineKeyboardButton("⬅️ Back", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_points_{params.get('rolls', 1)}_{params.get('mode', 'normal')}")
         
         if back_button:
             keyboard.append([back_button])
 
-        elif step == "final":
+        if step == "final":
             mode = params.get("mode")
             rolls = params.get("rolls")
             pts = params.get("pts")
@@ -1185,19 +1185,12 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 InlineKeyboardButton(f"Mode: {current_emoji}", callback_data="none"),
                 InlineKeyboardButton("➡️", callback_data=f"emoji_setup_{next_mode}_{wager:.2f}_final_{pts}_{rolls}_{mode}_{opponent}")
             ])
-            
-        # Action row
-        pts = params.get("pts") if params else None
-        rolls = params.get("rolls") if params else None
-        mode = params.get("mode") if params else "normal"
-        opponent = params.get("opponent", "bot") if params else "bot"
-        
-        start_callback = f"emoji_setup_{game_mode}_{wager:.2f}_start_{pts}_{rolls}_{mode}" if (opponent == "bot" or is_private) else f"v2_pvp_{game_mode}_{wager:.2f}_{rolls}_{mode}_{pts}"
-        
-        keyboard.append([
-            InlineKeyboardButton("⬅️ Back", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_points_{rolls}_{mode}"),
-            InlineKeyboardButton("✅ Start", callback_data=start_callback)
-        ])
+
+            # Action row
+            start_callback = f"emoji_setup_{game_mode}_{wager:.2f}_start_{pts}_{rolls}_{mode}" if (opponent == "bot" or is_private) else f"v2_pvp_{game_mode}_{wager:.2f}_{rolls}_{mode}_{pts}"
+            keyboard.append([
+                InlineKeyboardButton("✅ Start", callback_data=start_callback)
+            ])
         
         reply_markup = InlineKeyboardMarkup(keyboard)
         
