@@ -1124,7 +1124,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             setup_details += f"• Bet: ${wager:,.2f}\n\n"
 
             text = (
-                f"{current_emoji} <b>{game_mode.replace('_', ' ').capitalize()}</b>\n\n"
+                f"{current_emoji} <b>{game_mode.replace('_', ' ').title()}</b>\n\n"
                 f"Your balance: <b>${user_data['balance']:,.2f}</b>\n"
                 f"Multiplier: <b>{multiplier:.2f}x</b>\n\n"
                 f"<b>Current Setup:</b>\n"
@@ -1167,7 +1167,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             opponent_display = "vs Bot" if opponent == "bot" else "vs Player"
             
             text = (
-                f"{current_emoji} <b>{game_mode.replace('_', ' ').capitalize()}</b>\n\n"
+                f"{current_emoji} <b>{game_mode.replace('_', ' ').title()}</b>\n\n"
                 f"Your balance: <b>${user_data['balance']:,.2f}</b>\n"
                 f"Multiplier: <b>{self._calculate_emoji_multiplier(rolls, pts):.2f}x</b>\n\n"
                 f"<b>Game Details:</b>\n"
