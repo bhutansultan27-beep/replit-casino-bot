@@ -905,8 +905,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                     return
         
         user_data = self.db.get_user(user_id)
-        if amount < 1.0:
-            await update.effective_message.reply_text("❌ Minimum bet is $1.00")
+        if amount < 0.01:
+            await update.effective_message.reply_text("❌ Minimum bet is $0.01")
             return
             
         if amount > user_data['balance']:
@@ -933,11 +933,11 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 parse_mode="Markdown"
             )
         else:
-            await self.send_with_buttons(
-                update.effective_chat.id,
+            await update.message.reply_text(
                 f"💰 **Bet: ${amount:.2f}**\nSelect a game to play:",
-                reply_markup,
-                user_id
+                reply_markup=reply_markup,
+                parse_mode="Markdown",
+                reply_to_message_id=update.message.message_id
             )
 
     def _get_next_game_mode(self, current: str) -> str:
@@ -1025,6 +1025,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
     async def _show_emoji_game_setup(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float, game_mode: str, step: str = "mode", params: Dict = None):
         """Display the setup menu for emoji games (mode, rolls, points)"""
         user_id = update.effective_user.id
+        chat_id = update.effective_chat.id
         user_data = self.db.get_user(user_id)
         params = params or {}
         
@@ -1078,7 +1079,12 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                     f"👉 Send your {rolls} {current_emoji} now!"
                 )
                 
-                await context.bot.send_message(chat_id=chat_id, text=text, parse_mode="HTML")
+                await context.bot.send_message(
+                    chat_id=chat_id, 
+                    text=text, 
+                    parse_mode="HTML",
+                    reply_to_message_id=update.message.message_id if update.message else None
+                )
                 return
             # Add other games as needed
             return
@@ -1142,7 +1148,19 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             suffix = f"_{params.get('mode', 'normal')}"
         elif step == "points":
             suffix = f"_{params.get('rolls', 1)}_{params.get('mode', 'normal')}"
-        elif step == "final":
+
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        if update.callback_query:
+            await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode="HTML")
+        else:
+            await update.message.reply_text(
+                text, 
+                reply_markup=reply_markup, 
+                parse_mode="HTML",
+                reply_to_message_id=update.message.message_id
+            )
+        
+        if step == "final":
             suffix = f"_{params.get('pts', 3)}_{params.get('rolls', 1)}_{params.get('mode', 'normal')}"
             if params.get('opponent'):
                 suffix += f"_{params['opponent']}"
@@ -1463,8 +1481,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 pass
 
         # Ensure minimum bet
-        if amount < 1.0:
-            await update.effective_message.reply_text("❌ Minimum bet is $1.00", reply_to_message_id=update.effective_message.message_id)
+        if amount < 0.01:
+            await update.effective_message.reply_text("❌ Minimum bet is $0.01", reply_to_message_id=update.effective_message.message_id)
             return
 
         await self._show_game_prediction_menu(update, context, amount, "darts")
@@ -1487,8 +1505,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 pass
 
         # Ensure minimum bet
-        if amount < 1.0:
-            await update.effective_message.reply_text("❌ Minimum bet is $1.00", reply_to_message_id=update.effective_message.message_id)
+        if amount < 0.01:
+            await update.effective_message.reply_text("❌ Minimum bet is $0.01", reply_to_message_id=update.effective_message.message_id)
             return
 
         await self._show_game_prediction_menu(update, context, amount, "basketball")
@@ -1511,8 +1529,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 pass
 
         # Ensure minimum bet
-        if amount < 1.0:
-            await update.effective_message.reply_text("❌ Minimum bet is $1.00", reply_to_message_id=update.effective_message.message_id)
+        if amount < 0.01:
+            await update.effective_message.reply_text("❌ Minimum bet is $0.01", reply_to_message_id=update.effective_message.message_id)
             return
 
         await self._show_game_prediction_menu(update, context, amount, "soccer")
@@ -1535,8 +1553,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 pass
 
         # Ensure minimum bet
-        if amount < 1.0:
-            await update.effective_message.reply_text("❌ Minimum bet is $1.00", reply_to_message_id=update.effective_message.message_id)
+        if amount < 0.01:
+            await update.effective_message.reply_text("❌ Minimum bet is $0.01", reply_to_message_id=update.effective_message.message_id)
             return
 
         await self._show_game_prediction_menu(update, context, amount, "bowling")
@@ -1749,8 +1767,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                     return
         
         user_data = self.db.get_user(user_id)
-        if amount < 1.0:
-            await update.effective_message.reply_text("❌ Minimum bet is $1.00")
+        if amount < 0.01:
+            await update.effective_message.reply_text("❌ Minimum bet is $0.01")
             return
             
         if amount > user_data['balance']:
@@ -1777,11 +1795,11 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 parse_mode="Markdown"
             )
         else:
-            await self.send_with_buttons(
-                update.effective_chat.id,
+            await update.message.reply_text(
                 f"💰 **Bet: ${amount:.2f}**\nSelect a game to play:",
-                reply_markup,
-                user_id
+                reply_markup=reply_markup,
+                parse_mode="Markdown",
+                reply_to_message_id=update.message.message_id
             )
 
     async def dice_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1826,8 +1844,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 pass
 
         # Ensure minimum bet
-        if amount < 1.0:
-            await update.effective_message.reply_text("❌ Minimum bet is $1.00", reply_to_message_id=update.effective_message.message_id)
+        if amount < 0.01:
+            await update.effective_message.reply_text("❌ Minimum bet is $0.01", reply_to_message_id=update.effective_message.message_id)
             return
 
         await self._show_game_prediction_menu(update, context, amount, "darts")
@@ -1850,8 +1868,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 pass
 
         # Ensure minimum bet
-        if amount < 1.0:
-            await update.effective_message.reply_text("❌ Minimum bet is $1.00", reply_to_message_id=update.effective_message.message_id)
+        if amount < 0.01:
+            await update.effective_message.reply_text("❌ Minimum bet is $0.01", reply_to_message_id=update.effective_message.message_id)
             return
 
         await self._show_game_prediction_menu(update, context, amount, "basketball")
@@ -1874,8 +1892,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 pass
 
         # Ensure minimum bet
-        if amount < 1.0:
-            await update.effective_message.reply_text("❌ Minimum bet is $1.00", reply_to_message_id=update.effective_message.message_id)
+        if amount < 0.01:
+            await update.effective_message.reply_text("❌ Minimum bet is $0.01", reply_to_message_id=update.effective_message.message_id)
             return
 
         await self._show_game_prediction_menu(update, context, amount, "soccer")
@@ -1898,8 +1916,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 pass
 
         # Ensure minimum bet
-        if amount < 1.0:
-            await update.effective_message.reply_text("❌ Minimum bet is $1.00", reply_to_message_id=update.effective_message.message_id)
+        if amount < 0.01:
+            await update.effective_message.reply_text("❌ Minimum bet is $0.01", reply_to_message_id=update.effective_message.message_id)
             return
 
         await self._show_game_prediction_menu(update, context, amount, "bowling")
@@ -1925,8 +1943,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             except ValueError:
                 return
         
-        if wager < 1.0:
-            await update.message.reply_text("❌ Minimum bet is $1.00")
+        if wager < 0.01:
+            await update.message.reply_text("❌ Minimum bet is $0.01")
             return
         if wager > user_data['balance']:
             await update.message.reply_text(f"❌ Balance: ${user_data['balance']:.2f}")
