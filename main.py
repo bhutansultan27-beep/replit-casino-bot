@@ -1131,12 +1131,12 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 text += f"\n\nOpponent: {params.get('opponent', 'vs Bot') if params else 'vs Bot'}"
             
             # Mode selection row (arrows and emoji)
-            next_mode = self._get_next_game_mode(game_mode)
-            prev_mode = self._get_prev_game_mode(game_mode)
+            next_game = self._get_next_game_mode(game_mode)
+            prev_game = self._get_prev_game_mode(game_mode)
             keyboard.append([
-                InlineKeyboardButton("⬅️", callback_data=f"emoji_setup_{prev_mode}_{wager:.2f}_{step}{suffix}"),
+                InlineKeyboardButton("⬅️", callback_data=f"emoji_setup_{prev_game}_{wager:.2f}_{step}{suffix}"),
                 InlineKeyboardButton(f"Mode: {current_emoji}", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_{step}{suffix}"),
-                InlineKeyboardButton("➡️", callback_data=f"emoji_setup_{next_mode}_{wager:.2f}_{step}{suffix}")
+                InlineKeyboardButton("➡️", callback_data=f"emoji_setup_{next_game}_{wager:.2f}_{step}{suffix}")
             ])
             
         # Back button
@@ -1178,12 +1178,12 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             text += f"\nReady to start?"
             
             # Mode selection row
-            next_mode = self._get_next_game_mode(game_mode)
-            prev_mode = self._get_prev_game_mode(game_mode)
+            next_game = self._get_next_game_mode(game_mode)
+            prev_game = self._get_prev_game_mode(game_mode)
             keyboard.append([
-                InlineKeyboardButton("⬅️", callback_data=f"emoji_setup_{prev_mode}_{wager:.2f}_{step}{suffix}"),
+                InlineKeyboardButton("⬅️", callback_data=f"emoji_setup_{prev_game}_{wager:.2f}_{step}{suffix}"),
                 InlineKeyboardButton(f"Mode: {current_emoji}", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_{step}{suffix}"),
-                InlineKeyboardButton("➡️", callback_data=f"emoji_setup_{next_mode}_{wager:.2f}_{step}{suffix}")
+                InlineKeyboardButton("➡️", callback_data=f"emoji_setup_{next_game}_{wager:.2f}_{step}{suffix}")
             ])
 
         # Action row
