@@ -4956,13 +4956,6 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 g_mode = parts[1] # Fix index: data.split("_") -> ["emoji", "setup", game_mode, wager, step, ...]
                 wager = float(parts[3])
                 next_step = parts[4]
-
-                if wager < 1.0:
-                    try:
-                        await query.answer("⚠️ Minimum bet is $1.00", show_alert=False)
-                    except:
-                        pass
-                    return
                 
                 params = {}
                 if next_step == "rolls":
@@ -4974,27 +4967,25 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     if len(parts) > 6:
                         params["mode"] = parts[6]
                 elif next_step == "final":
-                    if len(parts) >= 8:
+                    if len(parts) > 5:
                         params["pts"] = int(parts[5])
+                    if len(parts) > 6:
                         params["rolls"] = int(parts[6])
+                    if len(parts) > 7:
                         params["mode"] = parts[7]
-                        if len(parts) > 8:
-                            params["opponent"] = parts[8]
-                        
-                        pts = params["pts"]
-                        rolls = params["rolls"]
-                        mode = params["mode"]
+                    if len(parts) > 8:
+                        params["opponent"] = parts[8]
+                elif next_step == "start":
+                    if len(parts) >= 8:
+                        pts = int(parts[5])
+                        rolls = int(parts[6])
+                        mode = parts[7]
                         
                         # Start the game
                         await self.start_generic_v2_bot(update, context, g_mode, wager, rolls, mode, pts)
                         
                         # Mark the message as "started" in the context of button interaction
-                        # We'll use the callback_data itself or message text to determine if it's already started
-                        # However, user wants to keep the buttons but make them show "button unavailable"
-                        
                         try:
-                            # We can't easily change the behavior of existing buttons without changing their callback_data
-                            # So we update the message with buttons that all point to an "unavailable" callback
                             current_markup = query.message.reply_markup
                             if current_markup:
                                 new_keyboard = []
@@ -5007,7 +4998,6 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                                         ))
                                     new_keyboard.append(new_row)
                                 
-                                # Use edit_message_reply_markup to keep the text exactly as it is
                                 await query.edit_message_reply_markup(
                                     reply_markup=InlineKeyboardMarkup(new_keyboard)
                                 )
