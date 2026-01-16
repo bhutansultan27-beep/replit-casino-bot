@@ -1139,6 +1139,18 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         # Navigation row
         next_game = self._get_next_game_mode(game_mode)
         prev_game = self._get_prev_game_mode(game_mode)
+        
+        # Consistent emoji mapping
+        emoji_map = {
+            "dice": "🎲",
+            "basketball": "🏀",
+            "soccer": "⚽",
+            "darts": "🎯",
+            "bowling": "🎳",
+            "coinflip": "🪙"
+        }
+        current_emoji = emoji_map.get(game_mode, "🎲")
+        
         keyboard.append([
             InlineKeyboardButton("⬅️", callback_data=f"emoji_setup_{prev_game}_{wager:.2f}_{step}{suffix}"),
             InlineKeyboardButton(f"Mode: {current_emoji}", callback_data="none"),
