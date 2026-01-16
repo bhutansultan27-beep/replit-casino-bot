@@ -48,6 +48,38 @@ class DatabaseManager:
                     db.session.add(GlobalState(key=key, value=default))
             db.session.commit()
 
+    @property
+    def data(self):
+        # Compatibility layer for existing code that accesses self.db.data
+        class DataProxy:
+            def __init__(self, db_manager):
+                self.db_manager = db_manager
+            def __getitem__(self, key):
+                with self.db_manager.app.app_context():
+                    state = db.session.get(GlobalState, key)
+                    return state.value if state else {}
+            def __setitem__(self, key, value):
+                with self.db_manager.app.app_context():
+                    state = db.session.get(GlobalState, key)
+                    if state:
+                        state.value = value
+                    else:
+                        state = GlobalState(key=key, value=value)
+                        db.session.add(state)
+                    db.session.commit()
+            def __contains__(self, key):
+                with self.db_manager.app.app_context():
+                    return db.session.get(GlobalState, key) is not None
+            def get(self, key, default=None):
+                with self.db_manager.app.app_context():
+                    state = db.session.get(GlobalState, key)
+                    return state.value if state else default
+        return DataProxy(self)
+
+    def save_data(self):
+        # Compatibility layer - commit is handled in __setitem__
+        pass
+
     def claim_update(self, update_id: int) -> bool:
         """Atomically claim an update to ensure only one bot processes it."""
         with self.app.app_context():
@@ -80,31 +112,55 @@ class DatabaseManager:
             logger.debug(f"Update {update.update_id} already claimed by another instance.")
             return
 
+        # Bot instance identification
+        BOT_TOKEN_2 = os.getenv("TELEGRAM_BOT_TOKEN_2")
+        is_second_bot = context.bot.token == BOT_TOKEN_2
+
         # Map command name to handler method
         if update.message and update.message.text:
             text = update.message.text
             if text.startswith('/'):
-                command = text.split()[0][1:].split('@')[0].lower()
+                command_parts = text.split()
+                command = command_parts[0][1:].split('@')[0].lower()
+                
+                # List of commands that only the 2nd bot should answer
+                second_bot_commands = ['bal', 'balance', 'leaderboard', 'stats', 'bonus', 'global', 'top']
+                
+                if command in second_bot_commands:
+                    if not is_second_bot:
+                        return # Only 2nd bot handles these
+                else:
+                    if is_second_bot:
+                        return # 2nd bot only handles specific commands
+                
                 handler_map = {
                     'start': self.start_command,
                     'balance': self.balance_command,
+                    'bal': self.balance_command,
                     'deposit': self.deposit_command,
                     'withdraw': self.withdraw_command,
                     'games': self.games_command,
                     'stats': self.stats_command,
                     'help': self.help_command,
                     'blackjack': self.blackjack_command,
+                    'bj': self.blackjack_command,
                     'roulette': self.roulette_command,
                     'slots': self.slots_command,
                     'dice': self.dice_command,
                     'refer': self.refer_command,
+                    'referral': self.referral_command,
+                    'ref': self.referral_command,
                     'top': self.top_command,
+                    'leaderboard': self.leaderboard_command,
+                    'global': self.leaderboard_command,
                     'predict': self.predict_command,
                     'admin': self.admin_command,
+                    'bonus': self.bonus_command,
                 }
                 if command in handler_map:
                     await handler_map[command](update, context)
         elif update.callback_query:
+            # For callback queries, we let either bot handle it based on update claiming
             await self.button_callback(update, context)
             dynamic_admins_state = db.session.get(GlobalState, "dynamic_admins")
             dynamic_admins = dynamic_admins_state.value["ids"] if dynamic_admins_state else []
