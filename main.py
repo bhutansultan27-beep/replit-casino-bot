@@ -4970,7 +4970,9 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                         params["mode"] = parts[5]
                 elif next_step == "points":
                     if len(parts) > 5:
-                        params["mode"] = parts[5]
+                        params["rolls"] = int(parts[5])
+                    if len(parts) > 6:
+                        params["mode"] = parts[6]
                 elif next_step == "final":
                     if len(parts) >= 8:
                         params["pts"] = int(parts[5])
