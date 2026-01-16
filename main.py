@@ -964,8 +964,42 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         """
         return 1.95
 
+    async def is_user_in_game(self, user_id: int) -> bool:
+        """Check if user has any active game (V2 bot, V2 pvp, or Blackjack)"""
+        # 1. Check V2 games in pending_pvp
+        with self.db.app.app_context():
+            pending_pvp_state = db.session.get(GlobalState, "pending_pvp")
+            pending_pvp = pending_pvp_state.value if pending_pvp_state else {}
+            
+            for cid, challenge in pending_pvp.items():
+                if cid.startswith("v2_bot_") and challenge.get('player') == user_id:
+                    return True
+                if cid.startswith("v2_pvp_") and (challenge.get('challenger') == user_id or challenge.get('opponent') == user_id):
+                    return True
+        
+        # 2. Check Blackjack sessions
+        if user_id in self.blackjack_sessions:
+            return True
+            
+        return False
+
+    async def check_active_game_and_delete(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+        """Utility to check for active game and delete command message if in game"""
+        if not update.effective_user or not update.message:
+            return False
+            
+        if await self.is_user_in_game(update.effective_user.id):
+            try:
+                await update.message.delete()
+            except Exception as e:
+                logger.error(f"Failed to delete command: {e}")
+            return True
+        return False
+
     async def roll_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play roll game setup (alias for dice but with switcher)"""
+        if await self.check_active_game_and_delete(update, context):
+            return
         amount = 1.0
         if context.args:
             try:
@@ -1387,6 +1421,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
 
     async def dice_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play dice game setup"""
+        if await self.check_active_game_and_delete(update, context):
+            return
         amount = 1.0
         if context.args:
             try:
@@ -1409,6 +1445,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
 
     async def darts_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play darts game setup"""
+        if await self.check_active_game_and_delete(update, context):
+            return
         amount = 1.0
         if context.args:
             try:
@@ -1431,6 +1469,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
 
     async def basketball_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play basketball game setup"""
+        if await self.check_active_game_and_delete(update, context):
+            return
         amount = 1.0
         if context.args:
             try:
@@ -1453,6 +1493,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
 
     async def soccer_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play soccer game setup"""
+        if await self.check_active_game_and_delete(update, context):
+            return
         amount = 1.0
         if context.args:
             try:
@@ -1475,6 +1517,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
 
     async def bowling_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play bowling game setup"""
+        if await self.check_active_game_and_delete(update, context):
+            return
         amount = 1.0
         if context.args:
             try:
@@ -1497,6 +1541,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
 
     async def coinflip_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play coinflip game setup"""
+        if await self.check_active_game_and_delete(update, context):
+            return
         amount = 1.0
         if context.args:
             try:
@@ -1738,6 +1784,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
 
     async def dice_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play dice game setup"""
+        if await self.check_active_game_and_delete(update, context):
+            return
         amount = 1.0
         if context.args:
             try:
@@ -1760,6 +1808,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
 
     async def darts_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play darts game setup"""
+        if await self.check_active_game_and_delete(update, context):
+            return
         amount = 1.0
         if context.args:
             try:
@@ -1782,6 +1832,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
 
     async def basketball_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play basketball game setup"""
+        if await self.check_active_game_and_delete(update, context):
+            return
         amount = 1.0
         if context.args:
             try:
@@ -1804,6 +1856,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
 
     async def soccer_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play soccer game setup"""
+        if await self.check_active_game_and_delete(update, context):
+            return
         amount = 1.0
         if context.args:
             try:
@@ -1826,6 +1880,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
 
     async def bowling_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play bowling game setup"""
+        if await self.check_active_game_and_delete(update, context):
+            return
         amount = 1.0
         if context.args:
             try:
@@ -2001,6 +2057,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
     
     async def coinflip_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play coinflip game setup"""
+        if await self.check_active_game_and_delete(update, context):
+            return
         amount = 1.0
         if context.args:
             try:
@@ -2017,6 +2075,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
     
     async def roulette_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play roulette game"""
+        if await self.check_active_game_and_delete(update, context):
+            return
         user_data = self.ensure_user_registered(update)
         user_id = update.effective_user.id
         
@@ -2085,6 +2145,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
     
     async def blackjack_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Start a Blackjack game"""
+        if await self.check_active_game_and_delete(update, context):
+            return
         user_data = self.ensure_user_registered(update)
         user_id = update.effective_user.id
         
