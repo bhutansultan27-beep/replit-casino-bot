@@ -71,21 +71,41 @@ class DatabaseManager:
                 return False
 
     async def handle_update(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Pre-process updates to check if they should be handled by this instance."""
+        """Process updates to ensure only one bot instance handles them."""
         if not update.update_id:
             return
             
         # Try to claim the update. If already claimed, skip.
         if not self.db.claim_update(update.update_id):
+            logger.debug(f"Update {update.update_id} already claimed by another instance.")
             return
 
-        # Proceed with normal handling logic if claimed
-        # (This would ideally wrap the existing handler logic or be added as a middleware)
-        # Compatibility layer for existing code that accesses self.db.data
-        with self.app.app_context():
-            house_balance_state = db.session.get(GlobalState, "house_balance")
-            house_balance = house_balance_state.value["amount"] if house_balance_state else 10000.00
-            
+        # Map command name to handler method
+        if update.message and update.message.text:
+            text = update.message.text
+            if text.startswith('/'):
+                command = text.split()[0][1:].split('@')[0].lower()
+                handler_map = {
+                    'start': self.start_command,
+                    'balance': self.balance_command,
+                    'deposit': self.deposit_command,
+                    'withdraw': self.withdraw_command,
+                    'games': self.games_command,
+                    'stats': self.stats_command,
+                    'help': self.help_command,
+                    'blackjack': self.blackjack_command,
+                    'roulette': self.roulette_command,
+                    'slots': self.slots_command,
+                    'dice': self.dice_command,
+                    'refer': self.refer_command,
+                    'top': self.top_command,
+                    'predict': self.predict_command,
+                    'admin': self.admin_command,
+                }
+                if command in handler_map:
+                    await handler_map[command](update, context)
+        elif update.callback_query:
+            await self.button_callback(update, context)
             dynamic_admins_state = db.session.get(GlobalState, "dynamic_admins")
             dynamic_admins = dynamic_admins_state.value["ids"] if dynamic_admins_state else []
             
