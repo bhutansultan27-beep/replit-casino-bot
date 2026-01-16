@@ -5887,25 +5887,36 @@ To withdraw, use:
 
 
 async def main():
-    BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN") or os.getenv("TELEGRAM_TOKEN")
+    tokens = [
+        os.getenv("TELEGRAM_BOT_TOKEN") or os.getenv("TELEGRAM_TOKEN"),
+        os.getenv("TELEGRAM_BOT_TOKEN_2")
+    ]
     
-    if not BOT_TOKEN or BOT_TOKEN == "YOUR_BOT_TOKEN_HERE":
-        logger.error("!!! FATAL ERROR: Please set the TELEGRAM_BOT_TOKEN environment variable. !!!")
+    # Filter out None or placeholder tokens
+    valid_tokens = [t for t in tokens if t and t != "YOUR_BOT_TOKEN_HERE"]
+    
+    if not valid_tokens:
+        logger.error("!!! FATAL ERROR: Please set at least one TELEGRAM_BOT_TOKEN environment variable. !!!")
         return
     
-    logger.info("Starting Antaria Casino Bot...")
-    bot = AntariaCasinoBot(token=BOT_TOKEN)
+    logger.info(f"Starting Antaria Casino with {len(valid_tokens)} bot(s)...")
     
-    if bot.app.job_queue:
-        bot.app.job_queue.run_repeating(bot.check_expired_challenges, interval=5, first=5)
-    else:
-        logger.warning("JobQueue is not available. Timer-based features will not work.")
+    bots = []
+    for token in valid_tokens:
+        bot = AntariaCasinoBot(token=token)
+        if bot.app.job_queue:
+            # Only run recurring jobs on the first bot to avoid duplication
+            if not bots:
+                bot.app.job_queue.run_repeating(bot.check_expired_challenges, interval=5, first=5)
+        else:
+            logger.warning(f"JobQueue not available for bot with token ending in ...{token[-5:]}")
+        
+        await bot.app.initialize()
+        await bot.app.start()
+        await bot.app.updater.start_polling(poll_interval=1.0)
+        bots.append(bot)
     
-    await bot.app.initialize()
-    await bot.app.start()
-    await bot.app.updater.start_polling(poll_interval=1.0)
-    
-    logger.info("Bot is running with polling mode...")
+    logger.info(f"{len(bots)} bot(s) are running with polling mode...")
     
     try:
         while True:
@@ -5913,10 +5924,11 @@ async def main():
     except KeyboardInterrupt:
         pass
     finally:
-        if bot.app.updater:
-            await bot.app.updater.stop()
-        await bot.app.stop()
-        await bot.app.shutdown()
+        for bot in bots:
+            if bot.app.updater:
+                await bot.app.updater.stop()
+            await bot.app.stop()
+            await bot.app.shutdown()
 
 if __name__ == '__main__':
     asyncio.run(main())
