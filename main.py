@@ -147,6 +147,11 @@ class DatabaseManager:
                     'roulette': self.roulette_command,
                     'slots': self.slots_command,
                     'dice': self.dice_command,
+                    'darts': self.darts_command,
+                    'basketball': self.basketball_command,
+                    'soccer': self.soccer_command,
+                    'bowling': self.bowling_command,
+                    'coinflip': self.coinflip_command,
                     'refer': self.refer_command,
                     'referral': self.referral_command,
                     'ref': self.referral_command,
@@ -158,9 +163,13 @@ class DatabaseManager:
                     'bonus': self.bonus_command,
                 }
                 if command in handler_map:
+                    # Capture the message we are replying to
+                    context.user_data['reply_to_message_id'] = update.message.message_id
                     await handler_map[command](update, context)
         elif update.callback_query:
-            # For callback queries, we let either bot handle it based on update claiming
+            # Capture the message we are replying to for callbacks (the original message)
+            if update.callback_query.message:
+                context.user_data['reply_to_message_id'] = update.callback_query.message.message_id
             await self.button_callback(update, context)
             dynamic_admins_state = db.session.get(GlobalState, "dynamic_admins")
             dynamic_admins = dynamic_admins_state.value["ids"] if dynamic_admins_state else []
@@ -659,13 +668,14 @@ class AntariaCasinoBot:
         
         return user_data
     
-    async def send_with_buttons(self, chat_id: int, text: str, keyboard: InlineKeyboardMarkup, user_id: int, parse_mode: str = "Markdown"):
+    async def send_with_buttons(self, chat_id: int, text: str, keyboard: InlineKeyboardMarkup, user_id: int, parse_mode: str = "Markdown", reply_to_message_id: int = None):
         """Send a message with buttons and register ownership"""
         sent_message = await self.app.bot.send_message(
             chat_id=chat_id,
             text=text,
             reply_markup=keyboard,
-            parse_mode=parse_mode
+            parse_mode=parse_mode,
+            reply_to_message_id=reply_to_message_id
         )
         self.button_ownership[(chat_id, sent_message.message_id)] = user_id
         return sent_message
@@ -1457,13 +1467,6 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         ])
         
         # Navigation row
-        keyboard.append([
-            InlineKeyboardButton("⬅️", callback_data=f"predict_menu_{wager:.2f}_{prev_mode}"),
-            InlineKeyboardButton(f"Mode: {current_emoji}", callback_data=f"setup_mode_predict_{wager:.2f}_{game_mode}"),
-            InlineKeyboardButton("➡️", callback_data=f"predict_menu_{wager:.2f}_{next_mode}")
-        ])
-        
-        # Action row
         keyboard.append([
             InlineKeyboardButton("⬅️ Back", callback_data="main_menu"),
             InlineKeyboardButton("✅ Start", callback_data=f"predict_start_{wager:.2f}_{game_mode}")
