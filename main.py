@@ -1141,7 +1141,9 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             
         # Back button
         back_button = None
-        if step == "rolls":
+        if step == "mode":
+            back_button = InlineKeyboardButton("⬅️ Cancel", callback_data="setup_cancel")
+        elif step == "rolls":
             back_button = InlineKeyboardButton("⬅️ Back", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_mode")
         elif step == "points":
             back_button = InlineKeyboardButton("⬅️ Back", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_rolls_{params.get('mode', 'normal')}")
