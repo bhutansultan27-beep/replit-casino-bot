@@ -2964,6 +2964,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         user_id = query.from_user.id
         user_data = self.db.get_user(user_id)
         chat_id = query.message.chat_id
+        msg_id = query.message.message_id
         
         if wager > user_data['balance']:
             await query.answer(f"❌ Insufficient balance! Balance: ${user_data['balance']:.2f}", show_alert=True)
@@ -2989,23 +2990,22 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             "emoji": "🎲",
             "player": user_id,
             "chat_id": chat_id,
+            "msg_id": msg_id,
             "emoji_wait": datetime.now().isoformat(),
             "waiting_for_emoji": True,
             "created_at": datetime.now().isoformat()
         }
         
         self.pending_pvp[game_id] = game_state
-        self.db.data['pending_pvp'] = self.pending_pvp
-        self.db.save_data()
+        self.db.update_pending_pvp(self.pending_pvp)
         
-        bot_mention = f"[{context.bot.username or 'Bot'}](tg://user?id={context.bot.id})"
         user_mention = f"@{update.effective_user.username}" if update.effective_user.username else update.effective_user.first_name
         
         await query.answer()
         await context.bot.send_message(
             chat_id=chat_id, 
             text=f"🎲 **Match accepted!**\n\nPlayer 1: {user_mention}\nPlayer 2: Bot\n\n**{user_mention}**, your turn! To start, click the button below! 🎲",
-            reply_to_message_id=query.message.message_id,
+            reply_to_message_id=msg_id,
             parse_mode="Markdown"
         )
 
@@ -4185,7 +4185,13 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             f"<b>{p1_name}</b>, your turn! To start, click the button below! {emoji}"
         )
         kb = [[InlineKeyboardButton("✅ Send emoji", callback_data=f"v2_send_emoji_{cid}")]]
-        await context.bot.send_message(chat_id=chat_id, text=msg_text, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+        await context.bot.send_message(
+            chat_id=chat_id, 
+            text=msg_text, 
+            reply_markup=InlineKeyboardMarkup(kb), 
+            reply_to_message_id=query.message.message_id,
+            parse_mode="HTML"
+        )
 
     async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
@@ -4215,7 +4221,12 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             await asyncio.sleep(4)
             
             p_tot = sum(challenge['p_rolls'])
-            await context.bot.send_message(chat_id=chat_id, text=f"<b>Rukia</b>, your turn!", parse_mode="HTML")
+            await context.bot.send_message(
+                chat_id=chat_id, 
+                text=f"<b>Rukia</b>, your turn!", 
+                reply_to_message_id=query.message.message_id,
+                parse_mode="HTML"
+            )
             
             # Bot rolls
             b_tot = 0
@@ -4264,10 +4275,21 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     )
                     kb = [[InlineKeyboardButton("🔄 Play Again", callback_data=f"{challenge['game']}_bot_{w:.2f}"),
                            InlineKeyboardButton("🔄 Double", callback_data=f"{challenge['game']}_bot_{w*2:.2f}")]]
-                    await context.bot.send_message(chat_id=chat_id, text=win_text, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+                    await context.bot.send_message(
+                        chat_id=chat_id, 
+                        text=win_text, 
+                        reply_markup=InlineKeyboardMarkup(kb), 
+                        reply_to_message_id=query.message.message_id,
+                        parse_mode="HTML"
+                    )
                 else:
                     self.db.update_house_balance(w)
-                    await context.bot.send_message(chat_id=chat_id, text=f"💀 <b>DEFEAT!</b> Rukia won {challenge['b_pts']}-{challenge['p_pts']}. Lost ${w:.2f}", parse_mode="HTML")
+                    await context.bot.send_message(
+                        chat_id=chat_id, 
+                        text=f"💀 <b>DEFEAT!</b> Rukia won {challenge['b_pts']}-{challenge['p_pts']}. Lost ${w:.2f}", 
+                        reply_to_message_id=query.message.message_id,
+                        parse_mode="HTML"
+                    )
                 
                 del self.pending_pvp[cid]
             else:
@@ -4432,7 +4454,12 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             await asyncio.sleep(4)
             
             p_tot = sum(challenge['p_rolls'])
-            await context.bot.send_message(chat_id=chat_id, text=f"<b>Rukia</b>, your turn!", parse_mode="HTML")
+            await context.bot.send_message(
+                chat_id=chat_id, 
+                text=f"<b>Rukia</b>, your turn!", 
+                reply_to_message_id=query.message.message_id,
+                parse_mode="HTML"
+            )
             
             # Bot rolls
             b_tot = 0
@@ -4480,10 +4507,21 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     )
                     kb = [[InlineKeyboardButton("🔄 Play Again", callback_data=f"{challenge['game']}_bot_{w:.2f}"),
                            InlineKeyboardButton("🔄 Double", callback_data=f"{challenge['game']}_bot_{w*2:.2f}")]]
-                    await context.bot.send_message(chat_id=chat_id, text=win_text, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+                    await context.bot.send_message(
+                        chat_id=chat_id, 
+                        text=win_text, 
+                        reply_markup=InlineKeyboardMarkup(kb), 
+                        reply_to_message_id=query.message.message_id,
+                        parse_mode="HTML"
+                    )
                 else:
                     self.db.update_house_balance(w)
-                    await context.bot.send_message(chat_id=chat_id, text=f"💀 <b>DEFEAT!</b> Rukia won {challenge['b_pts']}-{challenge['p_pts']}. Lost ${w:.2f}", parse_mode="HTML")
+                    await context.bot.send_message(
+                        chat_id=chat_id, 
+                        text=f"💀 <b>DEFEAT!</b> Rukia won {challenge['b_pts']}-{challenge['p_pts']}. Lost ${w:.2f}", 
+                        reply_to_message_id=query.message.message_id,
+                        parse_mode="HTML"
+                    )
                 
                 del self.pending_pvp[cid]
             else:
