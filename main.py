@@ -940,20 +940,20 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             )
 
     def _get_next_game_mode(self, current: str) -> str:
-        modes = ["dice", "darts", "basketball", "bowling", "soccer", "coinflip"]
+        modes = ["dice", "darts", "basketball", "bowling", "soccer"]
         try:
             idx = modes.index(current)
             return modes[(idx + 1) % len(modes)]
         except ValueError:
-            return modes[0]
+            return "dice"
 
     def _get_prev_game_mode(self, current: str) -> str:
-        modes = ["dice", "darts", "basketball", "bowling", "soccer", "coinflip"]
+        modes = ["dice", "darts", "basketball", "bowling", "soccer"]
         try:
             idx = modes.index(current)
             return modes[(idx - 1) % len(modes)]
         except ValueError:
-            return modes[0]
+            return "dice"
 
     def _calculate_emoji_multiplier(self, rolls: int, pts: int) -> float:
         """
