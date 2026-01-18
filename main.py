@@ -2435,12 +2435,15 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             return
 
         if not recipient_data:
-            await update.message.reply_text(f"❌ Could not find user @{recipient_username}.")
+            await update.message.reply_text(f"❌ Could not find user.")
             return
             
         if recipient_data['user_id'] == user_id:
             await update.message.reply_text("❌ You cannot tip yourself.")
             return
+
+        # Use mention_html for proper link to user profile
+        mention = f'<a href="tg://user?id={recipient_data["user_id"]}">{recipient_username}</a>'
 
         keyboard = [
             [InlineKeyboardButton("✅ Confirm", callback_data=f"tip_confirm_{recipient_data['user_id']}_{amount:.2f}"),
@@ -2449,7 +2452,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         await update.message.reply_text(
-            f"You want to tip <b>{recipient_username}</b> with <b>${amount:,.2f}</b>. Is that correct?",
+            f"You want to tip {mention} with <b>${amount:,.2f}</b>. Is that correct?",
             reply_markup=reply_markup,
             parse_mode="HTML",
             reply_to_message_id=update.message.message_id
@@ -5149,21 +5152,27 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 self.db.update_user(recipient_id, recipient_data)
                 
                 # Record transactions
-                self.db.add_transaction(user_id, "tip_sent", -amount, f"Tip to @{recipient_username}")
-                self.db.add_transaction(recipient_id, "tip_received", amount, f"Tip from @{user_data.get('username', user_id)}")
+                self.db.add_transaction(user_id, "tip_sent", -amount, f"Tip to {recipient_username}")
+                self.db.add_transaction(recipient_id, "tip_received", amount, f"Tip from {user_data.get('username', user_id)}")
                 
+                # Use mention_html for clickable link
+                mention = f'<a href="tg://user?id={recipient_id}">{recipient_username}</a>'
+
                 await query.message.delete()
                 await context.bot.send_message(
                     chat_id=chat_id,
-                    text=f"🎉 Tip succesful! <b>@{recipient_username}</b> received <b>${amount:,.2f}</b>",
+                    text=f"🎉 Tip succesful! {mention} received <b>${amount:,.2f}</b>",
                     parse_mode="HTML"
                 )
                 
                 # Notify receiver via DM
                 try:
+                    # Use mention for sender as well
+                    sender_name = user_data.get('username') or f"User{user_id}"
+                    sender_mention = f'<a href="tg://user?id={user_id}">{sender_name}</a>'
                     await context.bot.send_message(
                         chat_id=recipient_id,
-                        text=f"🎁 You received a tip of <b>${amount:,.2f}</b> from <b>@{user_data.get('username', user_id)}</b>!",
+                        text=f"🎁 You received a tip of <b>${amount:,.2f}</b> from {sender_mention}!",
                         parse_mode="HTML"
                     )
                 except Exception:
