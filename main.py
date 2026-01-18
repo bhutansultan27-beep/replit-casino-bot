@@ -207,8 +207,17 @@ class AntariaCasinoBot:
         # Dictionary to store active Blackjack games: user_id -> BlackjackGame instance
         self.blackjack_sessions: Dict[int, BlackjackGame] = {}
 
+    async def log_update(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Debug logger for all incoming updates"""
+        user = update.effective_user
+        msg = update.effective_message.text if update.effective_message else "No text"
+        logger.info(f"Update {update.update_id} | User: {user.id if user else 'N/A'} (@{user.username if user else 'N/A'}) | Msg: {msg}")
+
     def setup_handlers(self):
         """Setup all command and callback handlers"""
+        from telegram.ext import TypeHandler
+        self.app.add_handler(TypeHandler(Update, self.log_update), group=-1)
+
         self.app.add_handler(CommandHandler("start", self.start_command))
         self.app.add_handler(CommandHandler("help", self.start_command))
         self.app.add_handler(CommandHandler("balance", self.balance_command))
