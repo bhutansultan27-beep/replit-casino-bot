@@ -1272,13 +1272,13 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         mode_val = params.get("mode") if params else "normal"
         opponent_val = params.get("opponent", "bot") if params else "bot"
         
-        start_callback = f"emoji_setup_{game_mode}_{wager:.2f}_start_{pts_val}_{rolls_val}_{mode_val}" if (opponent_val == "bot" or is_private) else f"v2_pvp_{game_mode}_{wager:.2f}_{rolls_val}_{mode_val}_{pts_val}"
+        start_callback = f"v2_pvp_accept_confirm_{game_mode}_{wager:.2f}_{rolls_val}_{mode_val}_{pts_val}" if (opponent_val == "player" and not is_private) else f"emoji_setup_{game_mode}_{wager:.2f}_start_{pts_val}_{rolls_val}_{mode_val}"
         
         if step == "final":
             back_btn = InlineKeyboardButton("⬅️ Back", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_points_{params.get('rolls', 1)}_{params.get('mode', 'normal')}")
             keyboard.append([
                 back_btn,
-                InlineKeyboardButton("✅ Start", callback_data=start_callback)
+                InlineKeyboardButton("✅ Start" if opponent_val == "bot" or is_private else "🎮 Challenge", callback_data=start_callback)
             ])
         
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -4525,7 +4525,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             "emoji_wait": datetime.now().isoformat(),
             "p1_deducted": True, "p2_deducted": False
         }
-        keyboard = [[InlineKeyboardButton("Join Challenge", callback_data=f"v2_accept_{cid}")]]
+        keyboard = [[InlineKeyboardButton("Join Challenge", callback_data=f"v2_pvp_accept_confirm_{game}_{wager:.2f}_{rolls}_{mode}_{pts}_{cid}")]]
         msg_text = f"{emoji} **{game.capitalize()} PvP**\nChallenger: @{user_data['username']}\nWager: ${wager:.2f}\nMode: {mode.capitalize()}\nTarget: {pts}\n\nClick below to join!"
         await context.bot.send_message(chat_id=query.message.chat_id, text=msg_text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
@@ -5028,6 +5028,43 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             sent_msg = await update.message.reply_text(text, reply_markup=reply_markup, parse_mode="Markdown")
             self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
 
+    async def v2_pvp_accept_confirm(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Show confirmation menu for accepting a PvP challenge"""
+        query = update.callback_query
+        data = query.data
+        # Format: v2_pvp_accept_confirm_{game}_{wager}_{rolls}_{mode}_{pts}_{challenge_id}
+        parts = data.split("_")
+        game = parts[4]
+        wager = float(parts[5])
+        rolls = int(parts[6])
+        mode = parts[7]
+        pts = int(parts[8])
+        cid = parts[9]
+        
+        user_id = query.from_user.id
+        user_data = self.db.get_user(user_id)
+        
+        if wager > user_data['balance']:
+            await query.answer(f"❌ Insufficient balance! (${user_data['balance']:.2f})", show_alert=True)
+            return
+
+        text = (
+            f"🎲 **Accept PvP Challenge**\n\n"
+            f"Game: <b>{game.capitalize()}</b>\n"
+            f"Wager: <b>${wager:.2f}</b>\n"
+            f"Rolls: <b>{rolls}</b>\n"
+            f"Target: <b>{pts}</b>\n"
+            f"Mode: <b>{mode.capitalize()}</b>\n\n"
+            f"Do you want to accept this wager?"
+        )
+        
+        keyboard = [
+            [InlineKeyboardButton("✅ Accept Wager", callback_data=f"v2_accept_{cid}")],
+            [InlineKeyboardButton("⬅️ Back", callback_data=f"v2_pvp_back_{cid}")]
+        ]
+        
+        await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="HTML")
+
     async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handles all inline button presses."""
         query = update.callback_query
@@ -5044,6 +5081,30 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         button_key = (chat_id, message_id, data)
         if button_key in self.clicked_buttons:
             await query.answer("❌ This button has already been used!", show_alert=True)
+            return
+
+        if data.startswith("v2_pvp_accept_confirm_"):
+            await self.v2_pvp_accept_confirm(update, context)
+            return
+        
+        elif data.startswith("v2_pvp_back_"):
+            cid = data.replace("v2_pvp_back_", "")
+            challenge = self.pending_pvp.get(cid)
+            if not challenge:
+                await query.answer("❌ Challenge no longer exists!", show_alert=True)
+                return
+            
+            # Re-render the initial join challenge message
+            game = challenge.get('game', 'dice')
+            wager = challenge.get('wager', 1.0)
+            pts = challenge.get('pts', 1)
+            mode = challenge.get('mode', 'normal')
+            emoji = challenge.get('emoji', '🎲')
+            challenger_data = self.db.get_user(challenge['challenger'])
+            
+            keyboard = [[InlineKeyboardButton("Join Challenge", callback_data=f"v2_pvp_accept_confirm_{game}_{wager:.2f}_{challenge['rolls']}_{mode}_{pts}_{cid}")]]
+            msg_text = f"{emoji} **{game.capitalize()} PvP**\nChallenger: @{challenger_data.get('username', 'User')}\nWager: ${wager:.2f}\nMode: {mode.capitalize()}\nTarget: {pts}\n\nClick below to join!"
+            await query.edit_message_text(text=msg_text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
             return
         
         # Check button ownership
