@@ -2028,7 +2028,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         )
     
     async def dr_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Shortcut to show the dice prediction menu"""
+        """Shortcut to show the 🎱 Predict menu"""
         if await self.check_active_game_and_delete(update, context):
             return
         user_data = self.ensure_user_registered(update)
@@ -2040,7 +2040,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             await update.message.reply_text(f"❌ Minimum bet is $1.00. Your balance: ${user_data['balance']:.2f}")
             return
             
-        await self._show_game_prediction_menu(update, context, wager, "dice")
+        await self._setup_predict_interface(update, context, wager, "dice")
 
     async def predict_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play dice predict game - predict what you'll roll with multiple choices"""
