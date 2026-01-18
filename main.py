@@ -1106,9 +1106,6 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 f"Rolls: <b>{rolls}</b>\n\n"
                 f"Ready to start?"
             )
-            keyboard.append([
-                InlineKeyboardButton("✅ Start Game", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_start_{pts}_{rolls}_{mode}")
-            ])
         
         # Opponent selection row (Only in groups)
         is_private = update.effective_chat.type == "private"
