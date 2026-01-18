@@ -4983,33 +4983,25 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 return
             
             elif data == "setup_cancel":
-                await query.message.delete()
+                try:
+                    await query.message.delete()
+                    if query.message.reply_to_message:
+                        await query.message.reply_to_message.delete()
+                except Exception as e:
+                    logger.error(f"Error in setup_cancel: {e}")
                 return
 
             elif data == "setup_cancel_roll":
-                # Delete both the bot's message and the user's /roll message
                 try:
                     await query.message.delete()
-                except:
-                    pass
-                
-                # Try using reply_to_message first
-                deleted_cmd = False
-                try:
                     if query.message.reply_to_message:
                         await query.message.reply_to_message.delete()
-                        deleted_cmd = True
-                except:
-                    pass
-                
-                # Fallback to stored message ID
-                if not deleted_cmd:
-                    last_cmd_id = context.user_data.get('last_roll_cmd_id')
-                    if last_cmd_id:
-                        try:
+                    else:
+                        last_cmd_id = context.user_data.get('last_roll_cmd_id')
+                        if last_cmd_id:
                             await context.bot.delete_message(chat_id=chat_id, message_id=last_cmd_id)
-                        except:
-                            pass
+                except Exception as e:
+                    logger.error(f"Error in setup_cancel_roll: {e}")
                 return
 
             elif data.startswith("setup_bet_back_"):
@@ -5033,7 +5025,12 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     return
 
             if data == "tip_cancel":
-                await query.message.delete()
+                try:
+                    await query.message.delete()
+                    if query.message.reply_to_message:
+                        await query.message.reply_to_message.delete()
+                except Exception as e:
+                    logger.error(f"Error in tip_cancel: {e}")
                 return
                 
             elif data.startswith("tip_confirm_"):
