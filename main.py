@@ -1000,7 +1000,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             pts = params.get('pts', 3)
             
             # Start game directly without extra bet menu
-            if game_mode in ["dice", "basketball", "soccer", "darts", "bowling"]:
+            if game_mode in ["dice", "basketball", "soccer", "darts", "bowling", "coinflip"]:
                 # Always use v2_bot for consistent series play
                 challenge_id = f"v2_bot_{user_id}_{int(datetime.now().timestamp())}"
                 self.pending_pvp[challenge_id] = {
@@ -1269,7 +1269,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
     async def _show_game_prediction_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float, game_mode: str = "dice"):
         """Display the game prediction menu as shown in the screenshot"""
         # Route to multi-step setup for emoji games
-        if game_mode in ["dice", "basketball", "soccer", "darts", "bowling"]:
+        if game_mode in ["dice", "basketball", "soccer", "darts", "bowling", "coinflip"]:
             await self._show_emoji_game_setup(update, context, wager, game_mode)
             return
 
@@ -1361,7 +1361,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             keyboard.append(row)
 
         # VS Player / VS Bot buttons (Only in groups)
-        if not is_private and game_mode in ["dice", "darts", "basketball", "soccer", "bowling"]:
+        if not is_private and game_mode in ["dice", "darts", "basketball", "soccer", "bowling", "coinflip"]:
             keyboard.append([
                 InlineKeyboardButton("🆚 Player", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_mode"),
                 InlineKeyboardButton("🤖 Bot", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_start_1_1_normal")
@@ -1542,10 +1542,11 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             "basketball": "🏀",
             "soccer": "⚽",
             "darts": "🎯",
-            "bowling": "🎳"
+            "bowling": "🎳",
+            "coinflip": "🪙"
         }
         
-        modes = ["dice", "basketball", "soccer", "darts", "bowling"]
+        modes = ["dice", "basketball", "soccer", "darts", "bowling", "coinflip"]
         current_idx = modes.index(game_mode)
         next_mode = modes[(current_idx + 1) % len(modes)]
         prev_mode = modes[(current_idx - 1) % len(modes)]
@@ -1589,6 +1590,13 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             prediction_rows = [prediction_buttons]
         elif game_mode == "soccer":
             options = ["goal", "miss", "bar"]
+            prediction_buttons = []
+            for opt in options:
+                label = f"{opt.capitalize()} ✅" if opt in selections else opt.capitalize()
+                prediction_buttons.append(InlineKeyboardButton(label, callback_data=f"setup_predict_select_{wager:.2f}_{opt}_{game_mode}"))
+            prediction_rows = [prediction_buttons]
+        elif game_mode == "coinflip":
+            options = ["heads", "tails"]
             prediction_buttons = []
             for opt in options:
                 label = f"{opt.capitalize()} ✅" if opt in selections else opt.capitalize()
