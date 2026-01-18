@@ -980,6 +980,10 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         user_data = self.db.get_user(user_id)
         params = params or {}
         
+        # Store the user's original message ID to delete it later if canceled
+        if not update.callback_query and update.message:
+            context.user_data['last_roll_cmd_id'] = update.message.message_id
+        
         emoji_map = {
             "dice": "🎲",
             "darts": "🎯",
@@ -5314,11 +5318,24 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     await query.message.delete()
                 except:
                     pass
+                
+                # Try using reply_to_message first
+                deleted_cmd = False
                 try:
                     if query.message.reply_to_message:
                         await query.message.reply_to_message.delete()
+                        deleted_cmd = True
                 except:
                     pass
+                
+                # Fallback to stored message ID
+                if not deleted_cmd:
+                    last_cmd_id = context.user_data.get('last_roll_cmd_id')
+                    if last_cmd_id:
+                        try:
+                            await context.bot.delete_message(chat_id=chat_id, message_id=last_cmd_id)
+                        except:
+                            pass
                 return
 
             elif data.startswith("setup_bet_back_"):
