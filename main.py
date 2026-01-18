@@ -1039,6 +1039,9 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         params = params or {}
         
         # Store setup state
+        if not hasattr(self, 'emoji_setup_state'):
+            self.emoji_setup_state = {}
+            
         self.emoji_setup_state[user_id] = {
             "game_mode": game_mode,
             "wager": wager,
@@ -4279,7 +4282,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         chat_id = query.message.chat_id
 
         # Check for active game
-        for active_cid, active_challenge in self.pending_pvp.items():
+        for active_cid, active_challenge in list(self.pending_pvp.items()):
             if active_cid.startswith("v2_bot_") and active_challenge.get('player') == user_id:
                 await query.answer("❌ You already have an active game! Finish it first.", show_alert=True)
                 return
@@ -4804,7 +4807,9 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 # Re-load challenge for safety
                 self.pending_pvp = self.db.data.get('pending_pvp', {})
                 challenge = self.pending_pvp.get(cid)
-                if not challenge: return
+                if not challenge:
+                    logger.error(f"Challenge {cid} not found after rolls")
+                    return
                 
                 # Resolve Round/Series
                 round_win = None
