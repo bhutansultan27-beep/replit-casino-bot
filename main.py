@@ -5449,7 +5449,15 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             elif data == "withdraw_mock":
                 user_data = self.db.get_user(user_id)
                 if user_data['balance'] < 1.00:
-                    await query.edit_message_text(f"❌ **Withdrawal Failed**: Minimum withdrawal is $1.00. Current balance: ${user_data['balance']:.2f}", parse_mode="Markdown")
+                    try:
+                        # Delete the bot message
+                        await query.delete_message()
+                        # Try to delete the user message if it exists
+                        if update.callback_query.message.reply_to_message:
+                            await update.callback_query.message.reply_to_message.delete()
+                    except Exception as e:
+                        logger.error(f"Failed to delete messages in withdrawal check: {e}")
+                        await query.answer("❌ Minimum withdrawal is $1.00.", show_alert=True)
                 else:
                     withdraw_text = f"""💸 **LTC Withdrawal Request**
 
