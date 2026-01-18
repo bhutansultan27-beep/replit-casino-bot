@@ -1037,6 +1037,12 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
 
         keyboard = []
         
+        # Add mode switching buttons
+        modes = ["dice", "basketball", "soccer", "darts", "bowling"]
+        current_idx = modes.index(game_mode)
+        next_mode = modes[(current_idx + 1) % len(modes)]
+        prev_mode = modes[(current_idx - 1) % len(modes)]
+
         if step == "mode":
             text = (
                 f"{current_emoji} <b>{game_mode.replace('_', ' ').capitalize()}</b>\n\n"
@@ -1048,6 +1054,12 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 InlineKeyboardButton("Normal (Highest)", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_rolls_normal"),
                 InlineKeyboardButton("Crazy (Lowest)", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_rolls_inverted")
             ])
+            keyboard.append([
+                InlineKeyboardButton("⬅️", callback_data=f"emoji_setup_{prev_mode}_{wager:.2f}_mode"),
+                InlineKeyboardButton(f"Mode: {current_emoji}", callback_data="none"),
+                InlineKeyboardButton("➡️", callback_data=f"emoji_setup_{next_mode}_{wager:.2f}_mode")
+            ])
+            keyboard.append([InlineKeyboardButton("⬅️ Back", callback_data=f"setup_bet_back_{wager:.2f}")])
         elif step == "rolls":
             mode = params.get("mode")
             text = (
