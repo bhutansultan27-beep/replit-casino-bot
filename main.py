@@ -1209,8 +1209,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         
         if back_button:
             keyboard.append([back_button])
-        else:
-            # Add cancel button only if there is no back button (i.e., the first step)
+        elif step != "final":
+            # Add cancel button only if there is no back button and not on the final step
             keyboard.append([InlineKeyboardButton("❌ Cancel", callback_data=f"setup_cancel_roll")])
 
         if step == "final":
