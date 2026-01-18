@@ -206,6 +206,9 @@ class AntariaCasinoBot:
         
         # Dictionary to store active Blackjack games: user_id -> BlackjackGame instance
         self.blackjack_sessions: Dict[int, BlackjackGame] = {}
+        
+        # Dictionary to store emoji game setup state
+        self.emoji_setup_state: Dict[int, Dict[str, Any]] = {}
 
     async def log_update(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Debug logger for all incoming updates"""
@@ -1035,6 +1038,14 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         user_data = self.db.get_user(user_id)
         params = params or {}
         
+        # Store setup state
+        self.emoji_setup_state[user_id] = {
+            "game_mode": game_mode,
+            "wager": wager,
+            "step": step,
+            "params": params
+        }
+
         # Store the user's original message ID to delete it later if canceled
         if not update.callback_query and update.message:
             context.user_data['last_roll_cmd_id'] = update.message.message_id
@@ -1053,50 +1064,14 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         multiplier = 1.95
         
         # Check if we should skip to game start (last step completed)
-        if step == "confirm":
+        if step == "final":
             # Extract collected params
             mode = params.get('mode', 'normal')
             rolls = params.get('rolls', 1)
             pts = params.get('pts', 3)
             
-            # Start game directly without extra bet menu
-            if game_mode in ["dice", "basketball", "soccer", "darts", "bowling", "coinflip"]:
-                # Always use v2_bot for consistent series play
-                challenge_id = f"v2_bot_{user_id}_{int(datetime.now().timestamp())}"
-                
-                # Use class emoji map
-                game_emoji = self.emoji_map.get(game_mode, "🎲")
-                
-                self.pending_pvp[challenge_id] = {
-                    "type": "series_bot",
-                    "player": user_id,
-                    "wager": wager,
-                    "mode": mode,
-                    "rolls": rolls,
-                    "pts": pts,
-                    "emoji": game_emoji,
-                    "game_mode": game_mode,
-                    "player_points": 0,
-                    "bot_points": 0,
-                    "player_rolls": [],
-                    "bot_rolls": [],
-                    "waiting_for_emoji": True,
-                    "chat_id": chat_id,
-                    "wager_deducted": True
-                }
-                
-                user_mention = f"@{update.effective_user.username}" if update.effective_user.username else update.effective_user.first_name
-                
-                text = (
-                    f"{game_emoji} vs 🤖\n"
-                    f"Target: {pts}\n"
-                    f"Mode: {'Normal' if mode == 'normal' else 'Crazy'}\n\n"
-                    f"👉 Send your {rolls} {game_emoji} now!"
-                )
-                
-                await context.bot.send_message(chat_id=chat_id, text=text, parse_mode="HTML")
-                return
-            # Add other games as needed
+            # Start the game
+            await self.start_generic_v2_bot(update, context, game_mode, wager, rolls, mode, pts)
             return
 
         keyboard = []
@@ -4786,28 +4761,43 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 
                 await query.answer()
                 # Remove the button
-                await query.edit_message_reply_markup(reply_markup=None)
+                try:
+                    await query.edit_message_reply_markup(reply_markup=None)
+                except Exception as e:
+                    logger.error(f"Error removing reply markup: {e}")
                 
                 emoji = challenge['emoji']
                 # Send emojis for user based on number of rolls
                 num_rolls = challenge.get('rolls', 1)
                 pts = challenge.get('pts', 1) # Added pts definition from challenge
                 for _ in range(num_rolls):
-                    msg = await context.bot.send_dice(chat_id=chat_id, emoji=emoji)
-                    val = msg.dice.value
-                    score = (1 if val >= 4 else 0) if emoji in ["⚽", "🏀"] else val
-                    challenge['p_rolls'].append(score)
+                    try:
+                        msg = await context.bot.send_dice(chat_id=chat_id, emoji=emoji)
+                        val = msg.dice.value
+                        score = (1 if val >= 4 else 0) if emoji in ["⚽", "🏀"] else val
+                        challenge['p_rolls'].append(score)
+                    except Exception as e:
+                        logger.error(f"Error sending player dice: {e}")
+                        await context.bot.send_message(chat_id=chat_id, text="❌ Error sending dice. Please try again.")
+                        return
                 
                 await asyncio.sleep(4)
                 
+                # Check if challenge still exists after sleep
+                challenge = self.pending_pvp.get(cid)
+                if not challenge: return
+
                 p_tot = sum(challenge['p_rolls'])
                 await context.bot.send_message(chat_id=chat_id, text=f"<b>Rukia</b>, your turn!", parse_mode="HTML")
                 
                 # Bot rolls
                 b_tot = 0
                 for _ in range(challenge['rolls']):
-                    d = await context.bot.send_dice(chat_id=chat_id, emoji=emoji)
-                    b_tot += (1 if d.dice.value >= 4 else 0) if emoji in ["⚽", "🏀"] else d.dice.value
+                    try:
+                        d = await context.bot.send_dice(chat_id=chat_id, emoji=emoji)
+                        b_tot += (1 if d.dice.value >= 4 else 0) if emoji in ["⚽", "🏀"] else d.dice.value
+                    except Exception as e:
+                        logger.error(f"Error sending bot dice: {e}")
                 
                 await asyncio.sleep(4)
                 
