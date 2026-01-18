@@ -1201,9 +1201,9 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         
         if back_button:
             keyboard.append([back_button])
-            
-        # Add cancel button to keep chat clean
-        keyboard.append([InlineKeyboardButton("❌ Cancel", callback_data=f"setup_cancel_roll")])
+        else:
+            # Add cancel button only if there is no back button (i.e., the first step)
+            keyboard.append([InlineKeyboardButton("❌ Cancel", callback_data=f"setup_cancel_roll")])
 
         if step == "final":
             mode = params.get("mode")
