@@ -4841,11 +4841,11 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                         rolls = int(parts[6])
                         mode = parts[7]
                         
-                        # Remove the setup message buttons immediately
+                        # Delete the setup message immediately
                         try:
-                            await query.edit_message_reply_markup(reply_markup=None)
+                            await query.delete_message()
                         except Exception as e:
-                            logger.error(f"Error removing setup buttons: {e}")
+                            logger.error(f"Error deleting setup message: {e}")
 
                         # Start the game
                         await self.start_generic_v2_bot(update, context, g_mode, wager, rolls, mode, pts)
