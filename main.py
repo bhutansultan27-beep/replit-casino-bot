@@ -4862,8 +4862,10 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     elif b_tot < p_tot: round_win = "b"
                     else: round_win = "draw"
                 
-                if round_win == "p": challenge['p_pts'] += 1
-                elif round_win == "b": challenge['b_pts'] += 1
+                if round_win == "p":
+                    challenge['p_pts'] += 1
+                elif round_win == "b":
+                    challenge['b_pts'] += 1
                 
                 if round_win == "draw":
                     u = self.db.get_user(user_id)
