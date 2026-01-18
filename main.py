@@ -1092,7 +1092,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         multiplier = 1.95
         
         # Check if we should skip to game start (last step completed)
-        if step == "final":
+        if step == "start_game":
             # Extract collected params
             mode = params.get('mode', 'normal')
             rolls = params.get('rolls', 1)
@@ -1263,7 +1263,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         mode_val = params.get("mode") if params else "normal"
         opponent_val = params.get("opponent", "bot") if params else "bot"
         
-        start_callback = f"v2_pvp_accept_confirm_{game_mode}_{wager:.2f}_{rolls_val}_{mode_val}_{pts_val}" if (opponent_val == "player" and not is_private) else f"emoji_setup_{game_mode}_{wager:.2f}_start_{pts_val}_{rolls_val}_{mode_val}"
+        start_callback = f"v2_pvp_accept_confirm_{game_mode}_{wager:.2f}_{rolls_val}_{mode_val}_{pts_val}" if (opponent_val == "player" and not is_private) else f"emoji_setup_{game_mode}_{wager:.2f}_start_game_{pts_val}_{rolls_val}_{mode_val}"
         
         if step == "final":
             back_btn = InlineKeyboardButton("⬅️ Back", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_points_{params.get('rolls', 1)}_{params.get('mode', 'normal')}")
@@ -4991,6 +4991,22 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     if len(parts) > 8:
                         params["opponent"] = parts[8]
                 elif next_step == "start":
+                    if len(parts) >= 8:
+                        pts = int(parts[5])
+                        rolls = int(parts[6])
+                        mode = parts[7]
+                        
+                        # Remove buttons instead of deleting message
+                        try:
+                            await query.edit_message_reply_markup(reply_markup=None)
+                        except Exception as e:
+                            logger.error(f"Error removing setup buttons: {e}")
+
+                        # Start the game
+                        await self.start_generic_v2_bot(update, context, g_mode, wager, rolls, mode, pts)
+                        return
+                
+                elif next_step == "start_game":
                     if len(parts) >= 8:
                         pts = int(parts[5])
                         rolls = int(parts[6])
