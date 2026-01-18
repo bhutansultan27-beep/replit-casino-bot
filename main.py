@@ -1255,7 +1255,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             back_btn = InlineKeyboardButton("⬅️ Back", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_points_{params.get('rolls', 1)}_{params.get('mode', 'normal')}")
             keyboard.append([
                 back_btn,
-                InlineKeyboardButton("✅ Start" if opponent_val == "bot" or is_private else "🎮 Challenge", callback_data=start_callback)
+                InlineKeyboardButton("🚀 START GAME 🚀", callback_data=start_callback)
             ])
         
         reply_markup = InlineKeyboardMarkup(keyboard)
