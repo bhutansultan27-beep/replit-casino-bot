@@ -3714,7 +3714,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                         b_tot += b_val
                         await asyncio.sleep(3.5)
                     
-                    # Update challenge after bot rolls to ensure final score is captured
+                    # Re-load challenge for safety
                     with self.db.app.app_context():
                         pending_pvp_state = db.session.get(GlobalState, "pending_pvp")
                         self.pending_pvp = pending_pvp_state.value if pending_pvp_state else {}
@@ -3725,12 +3725,21 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     if challenge['mode'] == "normal":
                         if p_tot > b_tot: win = "p"
                         elif b_tot > p_tot: win = "b"
+                        else: win = "draw"
                     else: # crazy
                         if p_tot < b_tot: win = "p"
                         elif b_tot < p_tot: win = "b"
+                        else: win = "draw"
                     
                     if win == "p": challenge['p_pts'] += 1
                     elif win == "b": challenge['b_pts'] += 1
+                    elif win == "draw":
+                        await context.bot.send_message(chat_id=chat_id, text=f"🤝 <b>Round Draw!</b> No points awarded.", parse_mode="HTML")
+                        challenge['cur_rolls'] = 0
+                        challenge['p_rolls'] = []
+                        challenge['waiting_for_emoji'] = True
+                        self.db.update_pending_pvp(self.pending_pvp)
+                        return
                     
                     challenge['cur_rolls'] = 0
                     challenge['emoji_wait'] = datetime.now().isoformat()
@@ -4061,6 +4070,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             self.db.update_user(user_id, user_data)
             username_display = user_data.get('username', f'User{user_id}')
             result_text = f"🤝 <b>Game over!</b>\n\n<b>{username_display}</b> - Draw, bet refunded"
+            profit = 0.0
+            result = "draw"
         
         # Update stats (unless draw, which already refunded)
         if result != "draw":
@@ -4907,12 +4918,25 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 if challenge.get('mode', 'normal') == "normal":
                     if p_tot > b_tot: round_win = "p"
                     elif b_tot > p_tot: round_win = "b"
+                    else: round_win = "draw"
                 else:
                     if p_tot < b_tot: round_win = "p"
                     elif b_tot < p_tot: round_win = "b"
+                    else: round_win = "draw"
                 
                 if round_win == "p": challenge['p_pts'] += 1
                 elif round_win == "b": challenge['b_pts'] += 1
+                
+                if round_win == "draw":
+                    u = self.db.get_user(user_id)
+                    p1_name = u.get('username', f'User{user_id}')
+                    await context.bot.send_message(chat_id=chat_id, text=f"🤝 <b>Round Draw!</b>\n\nNo points awarded. Roll again!", parse_mode="HTML")
+                    challenge['p_rolls'] = []
+                    # Re-show roll button
+                    kb = [[InlineKeyboardButton("✅ Roll again", callback_data=f"v2_send_emoji_{cid}")]]
+                    await context.bot.send_message(chat_id=chat_id, text=f"<b>{p1_name}</b>, your turn! {emoji}", reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+                    self.db.update_pending_pvp(self.pending_pvp)
+                    return
                 
                 target_pts = challenge.get('pts', 1)
                 if challenge['p_pts'] >= target_pts or challenge['b_pts'] >= target_pts:
