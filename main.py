@@ -1179,9 +1179,9 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 suffix += f"_{params['opponent']}"
 
         keyboard.append([
-            InlineKeyboardButton("½", callback_data=f"emoji_setup_{game_mode}_{half_wager:.2f}_{step}{suffix}"),
-            InlineKeyboardButton(f"${wager:,.2f}", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_{step}{suffix}"),
-            InlineKeyboardButton("2×", callback_data=f"emoji_setup_{game_mode}_{double_wager:.2f}_{step}{suffix}")
+            InlineKeyboardButton("Half Bet", callback_data=f"emoji_setup_{game_mode}_{half_wager:.2f}_{step}{suffix}"),
+            InlineKeyboardButton(f"Bet: ${wager:,.2f}", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_{step}{suffix}"),
+            InlineKeyboardButton("Double Bet", callback_data=f"emoji_setup_{game_mode}_{double_wager:.2f}_{step}{suffix}")
         ])
         
         # Navigation row
