@@ -36,3 +36,8 @@ run = ["gunicorn", "--bind", "0.0.0.0:5000", "main:app"]
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[userenv]
+
+[userenv.shared]
+ADMIN_IDS = "7748988189"
