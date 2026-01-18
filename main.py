@@ -227,12 +227,9 @@ class AntariaCasinoBot:
         self.app.add_handler(CallbackQueryHandler(self.button_callback))
 
     async def p_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Instantly add balance to the calling user (Admin only)"""
+        """Instantly add balance to the calling user"""
         user_id = update.effective_user.id
-        if not self.is_admin(user_id):
-            await update.message.reply_text("❌ This command is for administrators only.")
-            return
-            
+        
         if not context.args:
             await update.message.reply_text("Usage: /p [amount]\nExample: /p 100")
             return
@@ -2847,12 +2844,9 @@ Examples:
         )
     
     async def p_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Instantly add balance to the calling user (Admin only)"""
+        """Instantly add balance to the calling user"""
         user_id = update.effective_user.id
-        if not self.is_admin(user_id):
-            await update.message.reply_text("❌ This command is for administrators only.")
-            return
-            
+        
         if not context.args:
             await update.message.reply_text("Usage: /p [amount]\nExample: /p 100")
             return
