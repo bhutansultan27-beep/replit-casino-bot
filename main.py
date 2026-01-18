@@ -241,7 +241,7 @@ class AntariaCasinoBot:
         self.app.add_handler(CommandHandler("bowling", self.bowling_command))
         self.app.add_handler(CommandHandler("roll", self.roll_command))
         self.app.add_handler(CommandHandler("predict", self.predict_command))
-        self.app.add_handler(CommandHandler("dr", self.predict_command))
+        self.app.add_handler(CommandHandler("dr", self.dr_command))
         self.app.add_handler(CommandHandler("coinflip", self.coinflip_command))
         self.app.add_handler(CommandHandler("flip", self.coinflip_command))
         self.app.add_handler(CommandHandler("roulette", self.roulette_command))
@@ -2027,6 +2027,21 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             parse_mode="Markdown"
         )
     
+    async def dr_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Shortcut to show the dice prediction menu"""
+        if await self.check_active_game_and_delete(update, context):
+            return
+        user_data = self.ensure_user_registered(update)
+        # Default wager $10.00 or balance if lower
+        wager = min(10.0, user_data.get('balance', 0))
+        if wager < 1.0 and user_data.get('balance', 0) >= 1.0:
+            wager = 1.0
+        elif user_data.get('balance', 0) < 1.0:
+            await update.message.reply_text(f"❌ Minimum bet is $1.00. Your balance: ${user_data['balance']:.2f}")
+            return
+            
+        await self._show_game_prediction_menu(update, context, wager, "dice")
+
     async def predict_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play dice predict game - predict what you'll roll with multiple choices"""
         user_data = self.ensure_user_registered(update)
