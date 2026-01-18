@@ -486,13 +486,18 @@ class AntariaCasinoBot:
     # --- COMMAND HANDLERS ---
     
     def ensure_user_registered(self, update: Update) -> Dict[str, Any]:
-        """Ensure user exists and has username set"""
+        """Ensure user exists and has username set to their chat name"""
         user = update.effective_user
         user_data = self.db.get_user(user.id)
         
+        # Get the users chat name (First Name + Last Name if available)
+        chat_name = user.first_name
+        if user.last_name:
+            chat_name += f" {user.last_name}"
+        
         # Update username if it has changed or is not set
-        if user.username and user_data.get("username") != user.username:
-            self.db.update_user(user.id, {"username": user.username, "user_id": user.id})
+        if user_data.get("username") != chat_name:
+            self.db.update_user(user.id, {"username": chat_name, "user_id": user.id})
             user_data = self.db.get_user(user.id)
         
         return user_data
@@ -535,11 +540,14 @@ class AntariaCasinoBot:
         user = update.effective_user
         user_data = self.db.get_user(user.id)
         
+        # Get the users chat name
+        chat_name = user.first_name
+        if user.last_name:
+            chat_name += f" {user.last_name}"
+
         # Update username if it has changed
-        if user_data.get("username") != user.username:
-            # Only update if the user has a public username set
-            if user.username:
-                self.db.update_user(user.id, {"username": user.username})
+        if user_data.get("username") != chat_name:
+            self.db.update_user(user.id, {"username": chat_name})
             user_data = self.db.get_user(user.id) # Reload data if updated
         
         # Check for referral link in /start arguments
