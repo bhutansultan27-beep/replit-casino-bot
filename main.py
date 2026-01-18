@@ -42,10 +42,6 @@ class DatabaseManager:
             if not house_balance_state:
                 db.session.add(GlobalState(key="house_balance", value={"amount": 10000.00}))
             
-            dynamic_admins_state = db.session.get(GlobalState, "dynamic_admins")
-            if not dynamic_admins_state:
-                db.session.add(GlobalState(key="dynamic_admins", value={"ids": []}))
-            
             stickers_state = db.session.get(GlobalState, "stickers")
             if not stickers_state:
                 db.session.add(GlobalState(key="stickers", value={"roulette": {}}))
@@ -58,9 +54,6 @@ class DatabaseManager:
             house_balance_state = db.session.get(GlobalState, "house_balance")
             house_balance = house_balance_state.value["amount"] if house_balance_state else 10000.00
             
-            dynamic_admins_state = db.session.get(GlobalState, "dynamic_admins")
-            dynamic_admins = dynamic_admins_state.value["ids"] if dynamic_admins_state else []
-            
             stickers_state = db.session.get(GlobalState, "stickers")
             stickers = stickers_state.value if stickers_state else {}
             
@@ -69,7 +62,6 @@ class DatabaseManager:
             
             return {
                 "house_balance": house_balance,
-                "dynamic_admins": dynamic_admins,
                 "stickers": stickers,
                 "pending_pvp": pending_pvp
             }
@@ -166,15 +158,6 @@ class AntariaCasinoBot:
                 logger.info(f"Loaded {len(self.env_admin_ids)} permanent admin(s) from environment")
             except ValueError:
                 logger.error("Invalid ADMIN_IDS format. Use comma-separated numbers.")
-        
-        # Load dynamic admins from database
-        if 'dynamic_admins' not in self.db.data:
-            self.db.data['dynamic_admins'] = []
-            self.db.save_data()
-        
-        self.dynamic_admin_ids = set(self.db.data.get('dynamic_admins', []))
-        if self.dynamic_admin_ids:
-            logger.info(f"Loaded {len(self.dynamic_admin_ids)} dynamic admin(s) from database")
         
         # Initialize bot application
         token = os.environ.get("TELEGRAM_TOKEN")
@@ -278,31 +261,39 @@ class AntariaCasinoBot:
         self.app.add_handler(CommandHandler("deposit", self.deposit_command))
         self.app.add_handler(CommandHandler("withdraw", self.withdraw_command))
         self.app.add_handler(CommandHandler("matches", self.matches_command))
-        self.app.add_handler(CommandHandler("backup", self.backup_command))
-        self.app.add_handler(CommandHandler("savesticker", self.save_sticker_command))
-        self.app.add_handler(CommandHandler("stickers", self.list_stickers_command))
-        self.app.add_handler(CommandHandler("saveroulette", self.save_roulette_stickers_command))
         
         # Admin commands
-        self.app.add_handler(CommandHandler("admin", self.admin_command))
-        self.app.add_handler(CommandHandler("givebal", self.givebal_command))
-        self.app.add_handler(CommandHandler("setbal", self.setbal_command))
         self.app.add_handler(CommandHandler("p", self.p_command))
-        self.app.add_handler(CommandHandler("allusers", self.allusers_command))
-        self.app.add_handler(CommandHandler("userinfo", self.userinfo_command))
-        self.app.add_handler(CommandHandler("addadmin", self.addadmin_command))
-        self.app.add_handler(CommandHandler("removeadmin", self.removeadmin_command))
-        self.app.add_handler(CommandHandler("listadmins", self.listadmins_command))
-        self.app.add_handler(CommandHandler("pendingdeposits", self.pending_deposits_command))
-        self.app.add_handler(CommandHandler("approvedeposit", self.approve_deposit_command))
-        self.app.add_handler(CommandHandler("pendingwithdraws", self.pending_withdraws_command))
-        self.app.add_handler(CommandHandler("processwithdraw", self.process_withdraw_command))
         self.app.add_handler(CommandHandler("s", self.s_command))
         
         self.app.add_handler(MessageHandler(filters.Sticker.ALL, self.sticker_handler))
         self.app.add_handler(MessageHandler(filters.Dice.ALL, self.handle_emoji_response))
         self.app.add_handler(CallbackQueryHandler(self.button_callback))
-    
+
+    async def p_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Instantly add balance to the calling user (Admin only)"""
+        user_id = update.effective_user.id
+        if not self.is_admin(user_id):
+            await update.message.reply_text("❌ This command is for administrators only.")
+            return
+            
+        if not context.args:
+            await update.message.reply_text("Usage: /p [amount]\nExample: /p 100")
+            return
+            
+        try:
+            amount = float(context.args[0])
+        except ValueError:
+            await update.message.reply_text("❌ Invalid amount.")
+            return
+            
+        user_data = self.db.get_user(user_id)
+        user_data['balance'] += amount
+        self.db.update_user(user_id, user_data)
+        self.db.add_transaction(user_id, "admin_p", amount, f"Self-grant /p by {user_id}")
+        
+        await update.message.reply_text(f"✅ Added ${amount:.2f} to your balance.\nNew balance: ${user_data['balance']:.2f}")
+
     async def s_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Set the expiration time for bets (Admin only)"""
         if not self.is_admin(update.effective_user.id):
@@ -319,8 +310,16 @@ class AntariaCasinoBot:
                 await update.message.reply_text("❌ Minimum expiration time is 10 seconds.")
                 return
             
-            self.db.data['expiration_seconds'] = seconds
-            self.db.save_data()
+            # Use current GlobalState approach
+            with self.db.app.app_context():
+                state = db.session.get(GlobalState, "expiration_seconds")
+                if not state:
+                    state = GlobalState(key="expiration_seconds", value={"seconds": seconds})
+                    db.session.add(state)
+                else:
+                    state.value = {"seconds": seconds}
+                db.session.commit()
+            
             await update.message.reply_text(f"✅ Expiration time set to {seconds} seconds.")
         except ValueError:
             await update.message.reply_text("❌ Invalid number of seconds.")
@@ -558,9 +557,9 @@ class AntariaCasinoBot:
         return sent_message
     
     def is_admin(self, user_id: int) -> bool:
-        """Check if a user is an admin (environment or dynamic)"""
-        return user_id in self.env_admin_ids or user_id in self.dynamic_admin_ids
-    
+        """Check if a user is an admin (environment only)"""
+        return user_id in self.env_admin_ids
+
     def find_user_by_username_or_id(self, identifier: str) -> Optional[Dict[str, Any]]:
         """Find a user by username (@username) or user ID"""
         # Remove @ if present
