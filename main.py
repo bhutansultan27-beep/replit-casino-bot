@@ -1038,7 +1038,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         keyboard = []
         
         # Add mode switching buttons
-        modes = ["dice", "basketball", "soccer", "darts", "bowling"]
+        modes = ["dice", "basketball", "soccer", "darts", "bowling", "coinflip"]
         current_idx = modes.index(game_mode)
         next_mode = modes[(current_idx + 1) % len(modes)]
         prev_mode = modes[(current_idx - 1) % len(modes)]
@@ -1050,10 +1050,16 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 f"Multiplier: <b>{multiplier:.2f}x</b>\n\n"
                 f"Choose your game mode:"
             )
-            keyboard.append([
-                InlineKeyboardButton("Normal (Highest)", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_rolls_normal"),
-                InlineKeyboardButton("Crazy (Lowest)", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_rolls_inverted")
-            ])
+            if game_mode == "coinflip":
+                keyboard.append([
+                    InlineKeyboardButton("Heads", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_rolls_heads"),
+                    InlineKeyboardButton("Tails", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_rolls_tails")
+                ])
+            else:
+                keyboard.append([
+                    InlineKeyboardButton("Normal (Highest)", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_rolls_normal"),
+                    InlineKeyboardButton("Crazy (Lowest)", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_rolls_inverted")
+                ])
         elif step == "rolls":
             mode = params.get("mode")
             text = (
@@ -1125,7 +1131,10 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             
             # Prepare summary of selected settings
             mode_val = params.get('mode', 'normal')
-            mode_display = "Normal" if mode_val == 'normal' else "Crazy"
+            if game_mode == "coinflip":
+                mode_display = mode_val.capitalize()
+            else:
+                mode_display = "Normal" if mode_val == 'normal' else "Crazy"
             rolls_val = params.get('rolls')
             pts_val = params.get('pts')
             
@@ -1195,7 +1204,10 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             pts = params.get("pts")
             opponent = params.get("opponent", "bot")
             
-            mode_display = "Normal" if mode == "normal" else "Crazy"
+            if game_mode == "coinflip":
+                mode_display = mode.capitalize()
+            else:
+                mode_display = "Normal" if mode == "normal" else "Crazy"
             opponent_display = "vs Bot" if opponent == "bot" else "vs Player"
             
             text = (
