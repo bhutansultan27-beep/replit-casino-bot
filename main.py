@@ -60,10 +60,14 @@ class DatabaseManager:
             pending_pvp_state = db.session.get(GlobalState, "pending_pvp")
             pending_pvp = pending_pvp_state.value if pending_pvp_state else {}
             
+            expiration_state = db.session.get(GlobalState, "expiration_seconds")
+            expiration_seconds = expiration_state.value["seconds"] if expiration_state else 300
+            
             return {
                 "house_balance": house_balance,
                 "stickers": stickers,
-                "pending_pvp": pending_pvp
+                "pending_pvp": pending_pvp,
+                "expiration_seconds": expiration_seconds
             }
 
     def save_data(self):
@@ -175,54 +179,6 @@ class AntariaCasinoBot:
         self.button_ownership: Dict[tuple, int] = {}
         # Track clicked buttons to prevent re-use: (chat_id, message_id, callback_data)
         self.clicked_buttons: set = set()
-        
-        # Sticker configuration - Load from database or initialize with defaults
-        if 'stickers' not in self.db.data:
-            self.db.data['stickers'] = {
-                "roulette": {
-                    "00": "CAACAgQAAxkBAAEPnjFo-TLLYpgTZExC4IIOG6PIXwsviAAC1BgAAkmhgFG_0u82E59m3DYE",
-                    "0": "CAACAgQAAxkBAAEPnjNo-TMFaqDdWCkRDNlus4jcuamAAwACOh0AAtQAAYBRlMLfm2ulRSM2BA",
-                    "1": "CAACAgQAAxkBAAEPnjRo-TMFH5o5R9ztNtTFBJmQVK_t3wACqBYAAvTrgVE4WCoxbBzVCDYE",
-                    "2": "CAACAgQAAxkBAAEPnjdo-TMvGdoX-f6IAuR7kpYO-hh9fwAC1RYAAob0eVF1zbcG00UjMzYE",
-                    "3": "CAACAgQAAxkBAAEPnjho-TMwui0CFuGEK5iwS7xMRDiPfgACSRgAAs74gVEyHQtTsRykGjYE",
-                    "4": "CAACAgQAAxkBAAEPnj1o-TNGYNdmhy4n5Uyp3pzWmukTgAACfBgAAg3IgFGEjdLKewti5zYE",
-                    "5": "CAACAgQAAxkBAAEPnj5o-TNHTKLFF2NpdxfLhHnsnFGTXgACyhYAAltygVECKXn73kUyCjYE",
-                    "6": "CAACAgQAAxkBAAEPnkFo-TNPGqrsJJwZNwUe_I6k4W86cwACyxoAAgutgVGyiCe4lNK2-DYE",
-                    "7": "CAACAgQAAxkBAAEPnkJo-TNPksXPcYnpXDWYQC68AAGlqzQAAtUYAAKU_IFRJTHChQd2yfw2BA",
-                    "8": "CAACAgQAAxkBAAEPnkdo-TQOIBN5WtoKKnvcthXdcy0LLgACgBQAAmlWgVFImh6M5RcAAdI2BA",
-                    "9": "CAACAgQAAxkBAAEPnkho-TQO92px4jOuq80nT2uWjURzSAAC4BcAAvPKeVFBx-TZycAWDzYE",
-                    "10": "CAACAgQAAxkBAAEPnkto-TZ8-6moW-biByRYl8J2QEPnTwAC8hgAArnAgFGen1zgHwABLPc2BA",
-                    "11": "CAACAgQAAxkBAAEPnkxo-TZ8ncZZ7FYYyFMJHXRv2rB0TwAC2RMAAmzdgVEao0YAAdIy41g2BA",
-                    "12": "CAACAgQAAxkBAAEPnk1o-TZ9z6xAxxIeccUPXoQQ9VaikQACVRgAAovngVFUjR-qYgq8LDYE",
-                    "13": "CAACAgQAAxkBAAEPnlFo-TbUs79Rm549dK3JK2L3P83q-QACTR0AAmc0gFHXnJ509OdiOjYE",
-                    "14": "CAACAgQAAxkBAAEPnlJo-TbUCpjrhSxP-x84jkBerEYB8AACQxkAAqXDeVEQ5uCH3dK9OjYE",
-                    "15": "CAACAgQAAxkBAAEPnlNo-TbUZokc7ubz-neSYtK9kxQ0DAACrRYAAlBWgVH9BqGde-NivjYE",
-                    "16": "CAACAgQAAxkBAAEPnlRo-TbUiOcqxKI6HNExFR8yT3qyvAACrxsAAkcfeVG9im0F0tuZPzYE",
-                    "17": "CAACAgQAAxkBAAEPnllo-TdIFRtpAW3PeDbxD2QxTgjk2QACLhgAAiuXgVHaPo1woXZEYTYE",
-                    "18": "CAACAgQAAxkBAAEPnlpo-TdI9Gdz2Nv3icxluy8jC3keBwACYxkAAnx7eFGsZP2AXXBKwzYE",
-                    "19": "CAACAgQAAxkBAAEPnlto-TdIUktLbTIhkihQz3ymy4lUIwACKRkAArDwgFH0iKqIPPiHYDYE",
-                    "20": "CAACAgQAAxkBAAEPnlxo-TdJVrOSPiCRuD8Jc0XGvF3B8AACcxoAAr7OeFGSuSoHyKxf5TYE",
-                    "21": "CAACAgQAAxkBAAEPnl1o-TdJ1jlMSjGQPO0zkaS_rOv5JQACxhcAAv1dgFF3khtGYFneYzYE",
-                    "22": "CAACAgQAAxkBAAEPnmNo-Te2OhfAwfprG1HfmY-UNtkEAgADGQACE8KAUSJTKzPQQQ9INgQ",
-                    "23": "CAACAgQAAxkBAAEPnmRo-Te3rAHmt7_CRgFp55KSNVYdKwACTBgAAundgVF6unXyM34ZYzYE",
-                    "24": "CAACAgQAAxkBAAEPnmVo-Te3LcVARwsUx3Akt75bruvNXAAC4RoAAnkvgFHRL4l2927wnDYE",
-                    "25": "CAACAgQAAxkBAAEPnmZo-Te3lY0O1JxF8tTLYJJhN1QcnAAC5hcAAiPegFFsMkNzpqfR0zYE",
-                    "26": "CAACAgQAAxkBAAEPnmto-TgIsR6UdO8EukNYajboFnX3mgACzSAAAn15gVG-oQ4oaJLYrzYE",
-                    "27": "CAACAgQAAxkBAAEPnmxo-TgIVFkyEf19Je-9awnfcm0HNAACoBcAAjK0gVFqoRMWJ0V2AjYE",
-                    "28": "CAACAgQAAxkBAAEPnm1o-TgIEaTKLI1hP_FD5NoPNMoRrQAC8xUAAjTtgVFbDjOI7hjkyDYE",
-                    "29": "CAACAgQAAxkBAAEPnm5o-TgIrfmuYVnfQps2DUcaDPJtYAACehcAAgL2eFFyvPJETxqlljYE",
-                    "30": "CAACAgQAAxkBAAEPnm9o-TgIumJ40cFAJ7xQVVJu8yioGQACrBUAAqMsgVEiKujpQgVfJDYE",
-                    "31": "CAACAgQAAxkBAAEPnndo-ThreZX7kJJpPO5idNcOeIWZpQACDhsAArW6gFENcv6I97q9xDYE",
-                    "32": "CAACAgQAAxkBAAEPni9o-Ssij-qcC2-pLlmtFrUQr5AUgQACWxcAAsmneVGFqOYh9w81_TYE",
-                    "33": "CAACAgQAAxkBAAEPnnto-Thsmi6zNRuaeXnBFpXJ-w2JnQACjBkAAo3JeFEYXOtgIzFLjTYE",
-                    "34": "CAACAgQAAxkBAAEPnnlo-ThrHvyKnt3O8UiLblKzGgWqzQACWBYAAvn3gVElI6JyUvoRYzYE",
-                    "35": "CAACAgQAAxkBAAEPnn9o-Tij1sCB1_UVenRU6QvBnfFKagACkhYAAsKTgFHHcm9rj3PDyDYE",
-                    "36": "CAACAgQAAxkBAAEPnoBo-Tik1zRaZMCVCaOi9J1FtVvEiAACrBcAAtbQgVFt8Uw1gyn4MDYE"
-                }
-            }
-            self.db.save_data()
-        
-        self.stickers = self.db.data['stickers']
         
         # Dictionary to store active Blackjack games: user_id -> BlackjackGame instance
         self.blackjack_sessions: Dict[int, BlackjackGame] = {}
@@ -525,7 +481,6 @@ class AntariaCasinoBot:
             
             if expired_challenges:
                 self.db.data['pending_pvp'] = self.pending_pvp
-                self.db.save_data()
                 logger.info(f"Expired/forfeited {len(expired_challenges)} challenge(s)")
                 
         except Exception as e:
@@ -2465,7 +2420,6 @@ Your balance will be credited automatically after 3 confirmations (~10 minutes).
         }
         
         self.db.data['pending_withdrawals'].append(withdrawal_request)
-        self.db.save_data()
         
         await update.message.reply_text(
             f"✅ **Withdrawal Request Submitted**\n\nAmount: **${amount:.2f}**\nTo: `{ltc_address}`\n\nAn admin will process your withdrawal soon.\n\nNew balance: ${user_data['balance']:.2f}",
@@ -2531,7 +2485,6 @@ Your balance will be credited automatically after 3 confirmations (~10 minutes).
             if dep['user_id'] == target_user_id and dep.get('status') == 'pending':
                 dep['status'] = 'approved'
                 break
-        self.db.save_data()
         
         await update.message.reply_text(
             f"✅ **Deposit Approved**\n\nUser ID: {target_user_id}\nAmount: ${amount:.2f}\nNew Balance: ${user_data['balance']:.2f}",
@@ -2598,7 +2551,6 @@ Your balance will be credited automatically after 3 confirmations (~10 minutes).
             return
         
         self.db.add_transaction(target_user_id, "withdrawal", -processed['amount'], f"LTC Withdrawal to {processed['ltc_address'][:20]}...")
-        self.db.save_data()
         
         await update.message.reply_text(
             f"✅ **Withdrawal Processed**\n\nUser ID: {target_user_id}\nAmount: ${processed['amount']:.2f}\nSent to: `{processed['ltc_address']}`",
@@ -2654,7 +2606,6 @@ Your balance will be credited automatically after 3 confirmations (~10 minutes).
         
         self.stickers['roulette'][number] = file_id
         self.db.data['stickers'] = self.stickers
-        self.db.save_data()
         
         await update.message.reply_text(f"✅ Sticker saved for roulette number '{number}'!")
         
@@ -2721,7 +2672,6 @@ Your balance will be credited automatically after 3 confirmations (~10 minutes).
         
         # Save to database
         self.db.data['stickers'] = self.stickers
-        self.db.save_data()
         
         await update.message.reply_text("✅ All 38 roulette stickers have been saved to the database!")
     
@@ -2950,7 +2900,6 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         # Add to dynamic admins
         self.dynamic_admin_ids.add(new_admin_id)
         self.db.data['dynamic_admins'] = list(self.dynamic_admin_ids)
-        self.db.save_data()
         
         await update.message.reply_text(f"✅ User {new_admin_id} has been added as an admin!")
         
@@ -2995,7 +2944,6 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         # Remove from dynamic admins
         self.dynamic_admin_ids.discard(admin_id)
         self.db.data['dynamic_admins'] = list(self.dynamic_admin_ids)
-        self.db.save_data()
         
         await update.message.reply_text(f"✅ Removed admin privileges from user {admin_id}!")
         
@@ -3177,7 +3125,6 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         
         self.pending_pvp[game_id] = game_state
         self.db.data['pending_pvp'] = self.pending_pvp
-        self.db.save_data()
         
         bot_mention = f"[{context.bot.username or 'Bot'}](tg://user?id={context.bot.id})"
         user_mention = f"@{update.effective_user.username}" if update.effective_user.username else update.effective_user.first_name
@@ -3226,7 +3173,6 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         
         self.pending_pvp[game_id] = game_state
         self.db.data['pending_pvp'] = self.pending_pvp
-        self.db.save_data()
         
         bot_mention = f"[{context.bot.username or 'Bot'}](tg://user?id={context.bot.id})"
         user_mention = f"@{update.effective_user.username}" if update.effective_user.username else update.effective_user.first_name
@@ -3275,7 +3221,6 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         
         self.pending_pvp[game_id] = game_state
         self.db.data['pending_pvp'] = self.pending_pvp
-        self.db.save_data()
         
         bot_mention = f"[{context.bot.username or 'Bot'}](tg://user?id={context.bot.id})"
         user_mention = f"@{update.effective_user.username}" if update.effective_user.username else update.effective_user.first_name
@@ -3323,7 +3268,6 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         
         self.pending_pvp[game_id] = game_state
         self.db.data['pending_pvp'] = self.pending_pvp
-        self.db.save_data()
         
         bot_mention = f"[{context.bot.username or 'Bot'}](tg://user?id={context.bot.id})"
         user_mention = f"@{update.effective_user.username}" if update.effective_user.username else update.effective_user.first_name
@@ -3364,7 +3308,6 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             "created_at": datetime.now().isoformat()
         }
         self.db.data['pending_pvp'] = self.pending_pvp
-        self.db.save_data()
         
         keyboard = [[InlineKeyboardButton("✅ Accept Challenge", callback_data=f"accept_dice_{challenge_id}")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -3425,7 +3368,6 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         challenge['emoji_wait_started'] = datetime.now().isoformat()
         self.pending_pvp[challenge_id] = challenge
         self.db.data['pending_pvp'] = self.pending_pvp
-        self.db.save_data()
 
     async def create_emoji_pvp_challenge(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float, game_type: str, emoji: str):
         """Create an emoji-based PvP challenge (darts, basketball, soccer)"""
@@ -3456,7 +3398,6 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             "created_at": datetime.now().isoformat()
         }
         self.db.data['pending_pvp'] = self.pending_pvp
-        self.db.save_data()
         
         keyboard = [[InlineKeyboardButton("✅ Accept Challenge", callback_data=f"accept_{game_type}_{challenge_id}")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -3520,7 +3461,6 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         challenge['emoji_wait_started'] = datetime.now().isoformat()
         self.pending_pvp[challenge_id] = challenge
         self.db.data['pending_pvp'] = self.pending_pvp
-        self.db.save_data()
 
     def calculate_cashout(self, p_pts, b_pts, target_pts, wager):
         """
@@ -3785,8 +3725,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                         p2_data = self.db.get_user(challenge['opponent'])
                         await update.message.reply_text(f"✅ @{p2_data['username']} turn!")
                     challenge['emoji_wait'] = datetime.now().isoformat()
-                    self.db.save_data()
-                    return
+                        return
                 if challenge.get('waiting_p2') and challenge['opponent'] == user_id:
                     if not challenge.get('p2_deducted'):
                         user_data = self.db.get_user(user_id)
@@ -3800,8 +3739,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     if len(challenge['p2_rolls']) >= challenge['rolls']:
                         challenge['waiting_p2'] = False
                     challenge['emoji_wait'] = datetime.now().isoformat()
-                    self.db.save_data()
-                    return
+                        return
         challenge_id_to_resolve = None
         challenge_to_resolve = None
         
@@ -3827,7 +3765,6 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 challenge['emoji_wait_started'] = datetime.now().isoformat()
                 self.pending_pvp[cid] = challenge
                 self.db.data['pending_pvp'] = self.pending_pvp
-                self.db.save_data()
                 
                 acceptor_user = self.db.get_user(challenge['opponent'])
                 await context.bot.send_message(chat_id=chat_id, text=f"@{acceptor_user['username']} your turn", parse_mode="Markdown")
@@ -3870,7 +3807,6 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         # Remove challenge from pending
         del self.pending_pvp[challenge_id_to_resolve]
         self.db.data['pending_pvp'] = self.pending_pvp
-        self.db.save_data()
         
         # Determine winner
         winner_id = None
@@ -3973,7 +3909,6 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         # Remove from pending
         del self.pending_pvp[challenge_id]
         self.db.data['pending_pvp'] = self.pending_pvp
-        self.db.save_data()
         
         # Determine result
         profit = 0.0
@@ -4492,7 +4427,6 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             "emoji_wait": datetime.now().isoformat(),
             "p1_deducted": True, "p2_deducted": False
         }
-        self.db.save_data()
         keyboard = [[InlineKeyboardButton("Join Challenge", callback_data=f"v2_accept_{cid}")]]
         msg_text = f"{emoji} **{game.capitalize()} PvP**\nChallenger: @{user_data['username']}\nWager: ${wager:.2f}\nMode: {mode.capitalize()}\nTarget: {pts}\n\nClick below to join!"
         await context.bot.send_message(chat_id=query.message.chat_id, text=msg_text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
@@ -4531,8 +4465,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             challenge['p1_rolls'], challenge['p2_rolls'] = [], []
             challenge['waiting_p1'], challenge['waiting_p2'] = True, False
             challenge['emoji_wait'] = datetime.now().isoformat()
-            self.db.save_data()
-            while len(challenge['p1_rolls']) < challenge['rolls'] or len(challenge['p2_rolls']) < challenge['rolls']:
+                while len(challenge['p1_rolls']) < challenge['rolls'] or len(challenge['p2_rolls']) < challenge['rolls']:
                 await asyncio.sleep(2)
                 challenge = self.pending_pvp.get(cid)
                 if not challenge: return
@@ -4573,7 +4506,6 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         
         await context.bot.send_message(chat_id=chat_id, text=win_msg, parse_mode="HTML")
         del self.pending_pvp[cid]
-        self.db.save_data()
 
     async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
@@ -4717,8 +4649,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             self.db.add_transaction(user_id, "cashout", wager, f"Cashout from {challenge['game']}")
             
             del self.pending_pvp[cid]
-            self.db.save_data()
-            
+                
             await query.answer("💰 Cashed out successfully!", show_alert=True)
             await query.edit_message_text(f"💰 <b>Cashed Out!</b>\n\nRefunded ${wager:,.2f} to your balance.", parse_mode="HTML")
             return
@@ -4842,8 +4773,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             challenge['waiting_for_p1'] = True
             challenge['waiting_for_p2'] = False
             challenge['emoji_wait_started'] = datetime.now().isoformat()
-            self.db.save_data()
-            
+                
             # We use a loop with sleep to check if both players rolled. 
             # In a real bot, we'd handle this via the event loop, but for simplicity:
             while len(challenge['p1_turn_rolls']) < challenge['rolls'] or len(challenge['p2_turn_rolls']) < challenge['rolls']:
@@ -5838,8 +5768,7 @@ To withdraw, use:
                      await query.edit_message_text("✅ Challenge canceled.")
                      del self.pending_pvp[challenge_id]
                      self.db.data['pending_pvp'] = self.pending_pvp
-                     self.db.save_data()
-                else:
+                     else:
                     await query.answer("❌ Only the challenger can cancel this game.", show_alert=True)
             
             # Blackjack button handlers
