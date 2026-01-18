@@ -895,7 +895,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             )
 
     def _get_next_game_mode(self, current: str) -> str:
-        modes = ["dice", "darts", "basketball", "bowling", "soccer"]
+        modes = ["dice", "basketball", "soccer", "darts", "bowling", "coinflip"]
         try:
             idx = modes.index(current)
             return modes[(idx + 1) % len(modes)]
@@ -903,7 +903,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             return "dice"
 
     def _get_prev_game_mode(self, current: str) -> str:
-        modes = ["dice", "darts", "basketball", "bowling", "soccer"]
+        modes = ["dice", "basketball", "soccer", "darts", "bowling", "coinflip"]
         try:
             idx = modes.index(current)
             return modes[(idx - 1) % len(modes)]
