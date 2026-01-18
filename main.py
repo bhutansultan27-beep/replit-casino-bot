@@ -2331,6 +2331,31 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             
             message += hand_status + "\n"
         
+        # Action Buttons
+        keyboard = []
+        if not state['game_over']:
+            # Normal Actions
+            row1 = [
+                InlineKeyboardButton("🎯 Hit", callback_data=f"bj_hit_{user_id}"),
+                InlineKeyboardButton("🛑 Stand", callback_data=f"bj_stand_{user_id}")
+            ]
+            keyboard.append(row1)
+            
+            row2 = []
+            if state['can_double']:
+                row2.append(InlineKeyboardButton("💰 Double", callback_data=f"bj_double_{user_id}"))
+            if state['can_split']:
+                row2.append(InlineKeyboardButton("✂️ Split", callback_data=f"bj_split_{user_id}"))
+            if row2:
+                keyboard.append(row2)
+                
+            row3 = [InlineKeyboardButton("🏳️ Surrender", callback_data=f"bj_surrender_{user_id}")]
+            if state['is_insurance_available']:
+                row3.append(InlineKeyboardButton("🛡️ Insurance", callback_data=f"bj_insurance_{user_id}"))
+            keyboard.append(row3)
+        
+        reply_markup = InlineKeyboardMarkup(keyboard) if keyboard else None
+        
         # Insurance info
         if state['is_insurance_available']:
             message += f"\n**Insurance available:** ${state['insurance_bet']:.2f}\n"
@@ -2353,15 +2378,25 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             
             # Update user balance
             user_data = self.db.get_user(user_id)
-            # Add back: total payout + all hand bets + insurance bet (if taken)
-            insurance_refund = state['insurance_bet'] if state['insurance_bet'] > 0 else 0
-            user_data['balance'] += total_payout + sum(h['bet'] for h in state['player_hands']) + insurance_refund
-            user_data['total_wagered'] += sum(h['bet'] for h in state['player_hands'])
+            user_data['balance'] += total_payout
             user_data['total_pnl'] += total_payout
             user_data['games_played'] += 1
             if total_payout > 0:
                 user_data['games_won'] += 1
+            
             self.db.update_user(user_id, user_data)
+            
+            if total_payout > 0:
+                self.db.add_transaction(user_id, "blackjack_win", total_payout, f"Blackjack Win (Bet: {state['total_bet']:.2f})")
+            
+            # Clean up session
+            del self.blackjack_sessions[user_id]
+        
+        # Send or edit message
+        if update.callback_query:
+            await update.callback_query.edit_message_text(message, reply_markup=reply_markup, parse_mode="Markdown")
+        else:
+            await update.message.reply_text(message, reply_markup=reply_markup, parse_mode="Markdown")
             
             # Record game
             self.db.record_game({
