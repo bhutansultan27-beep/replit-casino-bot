@@ -2483,8 +2483,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         )
 
     async def deposit_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Redirect to balance menu."""
-        await self.balance_command(update, context)
+        """Show deposits coming soon message."""
+        await update.message.reply_text("💳 **Deposits coming soon!**\n\nWe are currently updating our payment providers. Please check back later.", parse_mode="Markdown")
 
     async def withdraw_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Redirect to balance menu."""
@@ -5443,32 +5443,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
 
             # Deposit/Withdrawal buttons
             elif data == "deposit_mock":
-                user_data = self.db.get_user(user_id)
-                user_deposit_address = user_data.get('ltc_deposit_address')
-                
-                if not user_deposit_address:
-                    master_address = os.getenv("LTC_MASTER_ADDRESS", "")
-                    if master_address:
-                        user_deposit_address = master_address
-                    else:
-                        await query.edit_message_text("❌ Deposits not configured. Contact admin.", parse_mode="Markdown")
-                        return
-                
-                deposit_fee = float(os.getenv('DEPOSIT_FEE_PERCENT', '2'))
-                ltc_rate = await self.get_live_rate("litecoin")
-                
-                deposit_text = f"""💰 **LTC Deposit**
-
-Send Litecoin to:
-`{user_deposit_address}`
-
-**Rate:** 1 LTC = ${ltc_rate:.2f}
-**Fee:** {deposit_fee}%
-
-Your balance will be credited automatically after 3 confirmations.
-
-⚠️ Only send LTC to this address!"""
-                
+                deposit_text = "💳 **Deposits coming soon!**\n\nWe are currently updating our payment providers. Please check back later."
                 await query.edit_message_text(deposit_text, parse_mode="Markdown")
             
             elif data == "withdraw_mock":
