@@ -1223,7 +1223,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 mode_display = mode.capitalize()
             else:
                 mode_display = "Normal" if mode == "normal" else "Crazy"
-            opponent_display = "vs Bot" if opponent == "bot" else "vs Player"
+            opponent_display = "vs Rukia" if opponent == "bot" else "vs Player"
             
             text = (
                 f"{current_emoji} <b>{game_mode.replace('_', ' ').title()}</b>\n\n"
@@ -1238,7 +1238,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             
             is_private = update.effective_chat.type == "private"
             if not is_private:
-                text += f"Opponent: <b>{opponent_display}</b>\n"
+                text += f"• Opponent: <b>{opponent_display}</b>\n"
             
             text += f"\nReady to start?"
             
