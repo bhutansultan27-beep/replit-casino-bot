@@ -5104,7 +5104,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 if len(parts) < 5:
                     await query.answer("❌ Invalid setup data!", show_alert=True)
                     return
-                g_mode = parts[1] # Fix index: data.split("_") -> ["emoji", "setup", game_mode, wager, step, ...]
+                g_mode = parts[2] # data.split("_") -> ["emoji", "setup", game_mode, wager, step, ...]
                 wager = float(parts[3])
                 next_step = parts[4]
                 
