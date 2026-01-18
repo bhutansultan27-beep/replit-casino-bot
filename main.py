@@ -34,6 +34,9 @@ class DatabaseManager:
         self.app = Flask(__name__)
         # Use SQLite as fallback if DATABASE_URL is not set
         database_url = os.environ.get("DATABASE_URL")
+        if database_url and database_url.startswith("postgres://"):
+            database_url = database_url.replace("postgres://", "postgresql://", 1)
+            
         if not database_url:
             # Use SQLite for local development
             database_url = "sqlite:///casino_bot.db"
@@ -795,10 +798,17 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
     async def housebal_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Show house balance"""
         house_balance = self.db.get_house_balance()
+        # Using current XMR price for conversion (approx $625)
+        xmr_price = 625.0
+        xmr_balance = house_balance / xmr_price
         
-        housebal_text = f"🏦 House: ${house_balance:.2f}"
+        housebal_text = f"💰 Available house balance: <b>${house_balance:,.2f}</b> ({xmr_balance:,.2f} XMR)"
         
-        await update.message.reply_text(housebal_text, parse_mode="Markdown")
+        await update.message.reply_text(
+            housebal_text, 
+            parse_mode="HTML",
+            reply_to_message_id=update.message.message_id
+        )
     
     async def history_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Show match history"""
@@ -5703,7 +5713,7 @@ To withdraw, use:
 
 
 async def main():
-    BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN") or os.getenv("TELEGRAM_TOKEN")
+    BOT_TOKEN = (os.getenv("TELEGRAM_BOT_TOKEN") or os.getenv("TELEGRAM_TOKEN", "")).strip()
     
     if not BOT_TOKEN or BOT_TOKEN == "YOUR_BOT_TOKEN_HERE":
         logger.error("!!! FATAL ERROR: Please set the TELEGRAM_BOT_TOKEN environment variable. !!!")
