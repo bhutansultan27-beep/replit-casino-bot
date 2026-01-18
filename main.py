@@ -2233,18 +2233,24 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
     
     async def blackjack_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Start a Blackjack game"""
+        if not update.effective_message:
+            return
+            
         if await self.check_active_game_and_delete(update, context):
             return
+            
+        # Ensure user is registered
         user_data = self.ensure_user_registered(update)
         user_id = update.effective_user.id
         
         # Check if user already has an active game
         if user_id in self.blackjack_sessions:
-            await update.message.reply_text("❌ You already have an active Blackjack game. Finish it first or use /stand to end it.")
+            await update.effective_message.reply_text("❌ You already have an active Blackjack game. Finish it first or use /stand to end it.")
             return
         
+        # If no arguments, show help
         if not context.args:
-            await update.message.reply_text(
+            await update.effective_message.reply_text(
                 "🃏 **Blackjack Rules**\n\n"
                 "Get as close to 21 as possible without going over!\n\n"
                 "**Card Values:**\n"
@@ -2267,35 +2273,49 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             return
         
         # Parse wager
+        wager_str = context.args[0].lower()
         wager = 0.0
-        if context.args[0].lower() == "all":
+        if wager_str == "all":
             wager = user_data['balance']
         else:
             try:
-                wager = round(float(context.args[0]), 2)
+                # Clean input and parse
+                wager_str = "".join(c for c in wager_str if c.isdigit() or c == '.')
+                if not wager_str:
+                    raise ValueError
+                wager = round(float(wager_str), 2)
             except ValueError:
-                await update.message.reply_text("❌ Invalid amount")
+                await update.effective_message.reply_text("❌ Invalid amount. Usage: /blackjack <amount>")
                 return
         
-        if wager <= 0.01:
-            await update.message.reply_text("❌ Min: $0.01")
+        if wager < 0.01:
+            await update.effective_message.reply_text("❌ Min: $0.01")
             return
         
         if wager > user_data['balance']:
-            await update.message.reply_text(f"❌ Balance: ${user_data['balance']:.2f}")
+            await update.effective_message.reply_text(f"❌ Balance: ${user_data['balance']:.2f}")
             return
         
-        # Deduct wager from balance
+        # Deduct wager
         user_data['balance'] -= wager
         self.db.update_user(user_id, user_data)
+        self.db.add_transaction(user_id, "blackjack_bet", -wager, f"Blackjack Bet: {wager}")
         
-        # Create new Blackjack game
-        game = BlackjackGame(bet_amount=wager)
-        game.start_game()
-        self.blackjack_sessions[user_id] = game
-        
-        # Display game state
-        await self._display_blackjack_state(update, context, user_id)
+        # Start game
+        try:
+            from blackjack import BlackjackGame
+            game = BlackjackGame(bet_amount=wager)
+            game.start_game()
+            self.blackjack_sessions[user_id] = game
+            
+            # Show game state
+            await self._display_blackjack_state(update, context, user_id)
+        except Exception as e:
+            logger.error(f"Error starting blackjack: {e}")
+            # Refund
+            user_data['balance'] += wager
+            self.db.update_user(user_id, user_data)
+            await update.effective_message.reply_text("❌ Error starting game. Your bet has been refunded.")
     
     async def _display_blackjack_state(self, update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int):
         """Display the current Blackjack game state with action buttons"""
@@ -3595,65 +3615,61 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         return max(0, round(cashout_val, 2))
 
     async def handle_emoji_response(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        if not update.message.dice: return
+        """Handles dice/emoji responses from users (for game rolls)"""
+        if not update.message or not update.message.dice:
+            return
+            
         user_id = update.effective_user.id
+        chat_id = update.effective_chat.id
+        dice_value = update.message.dice.value
         emoji = update.message.dice.emoji
-        val = update.message.dice.value
-        chat_id = update.message.chat_id
         
         # Determine if this message is a reply to a bot message
         is_reply = False
+        replied_to_id = None
         if update.message.reply_to_message and update.message.reply_to_message.from_user.id == context.bot.id:
             is_reply = True
             replied_to_id = update.message.reply_to_message.message_id
-        
-        logger.info(f"Received dice roll: user={user_id}, emoji={emoji}, value={val}, is_reply={is_reply}")
-
-        # Scoring logic
-        if emoji in ["⚽", "🏀"]: score = 1 if val >= 4 else 0
-        else: score = val
-
-        # Ensure pending_pvp is up to date
-        with self.db.app.app_context():
-            pending_pvp_state = db.session.get(GlobalState, "pending_pvp")
-            self.pending_pvp = pending_pvp_state.value if pending_pvp_state else {}
-        
-        logger.info(f"Checking for matching game in {len(self.pending_pvp)} pending challenges")
-        
-        # Priority check for V2 bot games
+            
+        # Check for matching game
         for cid, challenge in list(self.pending_pvp.items()):
-            if cid.startswith("v2_bot_") and challenge.get('player') == user_id and challenge.get('emoji') == emoji:
-                # If it's a reply, it MUST be to the correct message. 
-                # If it's NOT a reply, we'll still accept it if it's in the same chat (convenience)
-                msg_id_match = True
-                if is_reply:
-                    if challenge.get('msg_id') and replied_to_id != challenge.get('msg_id'):
-                        msg_id_match = False
+            if (cid.startswith("v2_bot_") or cid.startswith("v2_pvp_")):
+                # Basic criteria: same chat, same emoji
+                if challenge.get('chat_id') != chat_id or challenge.get('emoji') != emoji:
+                    continue
+                    
+                # User participation check
+                if cid.startswith("v2_bot_"):
+                    if challenge.get('player') != user_id:
+                        continue
+                else:
+                    if challenge.get('challenger') != user_id and challenge.get('opponent') != user_id:
+                        continue
                 
-                if challenge.get('chat_id') == chat_id and challenge.get('waiting_for_emoji') and msg_id_match:
-                    logger.info(f"Match found for V2 Bot game: {cid}")
-                    
-                    # Ensure state keys exist
-                    if 'cur_rolls' not in challenge: challenge['cur_rolls'] = 0
-                    if 'p_pts' not in challenge: challenge['p_pts'] = 0
-                    if 'b_pts' not in challenge: challenge['b_pts'] = 0
-                    if 'p_rolls' not in challenge: challenge['p_rolls'] = []
-                    if 'rolls' not in challenge: challenge['rolls'] = 1
-                    if 'pts' not in challenge: challenge['pts'] = 3
-                    if 'mode' not in challenge: challenge['mode'] = 'normal'
-                    
+                # Reply check (if it's a reply, it should match the message ID)
+                if is_reply:
+                    stored_msg_id = challenge.get('message_id')
+                    if stored_msg_id and replied_to_id != stored_msg_id:
+                        continue
+                
+                # Match found
+                await self.process_generic_v2_roll(update, context, cid, dice_value, emoji)
+                return
+
+        # Legacy/Other PvP logic...
+        for cid, challenge in list(self.pending_pvp.items()):
+            if not cid.startswith("v2_bot_") and not cid.startswith("v2_pvp_"):
+                # Handle old game styles here
+                if challenge.get('chat_id') == chat_id and challenge.get('waiting_for_emoji'):
                     # Check balance if wager not yet deducted
                     if not challenge.get('wager_deducted'):
                         user_data = self.db.get_user(user_id)
                         if user_data['balance'] < (challenge['wager'] - 0.001):
                             await update.message.reply_text(f"❌ Insufficient balance to start the game! (Balance: ${user_data['balance']:.2f}, Wager: ${challenge['wager']:.2f})")
                             del self.pending_pvp[cid]
-                            with self.db.app.app_context():
-                                pending_pvp_state = db.session.get(GlobalState, "pending_pvp")
-                                if pending_pvp_state:
-                                    pending_pvp_state.value = self.pending_pvp
-                                    db.session.commit()
-                            return
+                            self.db.update_pending_pvp(self.pending_pvp)
+                            continue
+                    # Process legacy roll...
                         self.db.update_user(user_id, {'balance': max(0, user_data['balance'] - challenge['wager'])})
                         self.db.add_transaction(user_id, "game_bet", -challenge['wager'], f"Bet on {challenge.get('game_mode', 'game')} vs Bot")
                         challenge['wager_deducted'] = True
