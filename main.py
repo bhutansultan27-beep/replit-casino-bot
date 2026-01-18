@@ -1093,6 +1093,23 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 InlineKeyboardButton("3 Pts", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_final_3_{rolls}_{mode}")
             ])
         
+        elif step == "final":
+            mode = params.get("mode")
+            rolls = params.get("rolls")
+            pts = params.get("pts")
+            text = (
+                f"{current_emoji} <b>{game_mode.replace('_', ' ').capitalize()}</b>\n\n"
+                f"Your balance: <b>${user_data['balance']:,.2f}</b>\n"
+                f"Multiplier: <b>{multiplier:.2f}x</b>\n\n"
+                f"Target: <b>{pts}</b>\n"
+                f"Mode: <b>{mode.capitalize()}</b>\n"
+                f"Rolls: <b>{rolls}</b>\n\n"
+                f"Ready to start?"
+            )
+            keyboard.append([
+                InlineKeyboardButton("✅ Start Game", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_start_{pts}_{rolls}_{mode}")
+            ])
+        
         # Opponent selection row (Only in groups)
         is_private = update.effective_chat.type == "private"
         if not is_private and step == "final":
