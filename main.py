@@ -1872,10 +1872,10 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         await self.predict_command(update, context)
 
     async def predict_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Show dice prediction menu."""
-        self.ensure_user_registered(update)
-        # Default to $1.00 wager and dice game
-        await self._show_game_prediction_menu(update, context, 1.0, "dice")
+        """Show game menu."""
+        user_data = self.ensure_user_registered(update)
+        # Default to $1.00 wager and show game menu
+        await self._show_game_menu(update, context, 1.0)
 
     async def _generic_emoji_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE, game_name: str, emoji: str):
         """Generic emoji game setup with nested options"""
