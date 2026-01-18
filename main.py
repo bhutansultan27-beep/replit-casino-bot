@@ -4306,7 +4306,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         self.db.add_transaction(user_id, "game_bet", -wager, f"{game.capitalize()} vs Bot")
             
         cid = f"v2_bot_{game}_{user_id}_{int(datetime.now().timestamp())}"
-        emoji_map = {"dice": "🎲", "darts": "🎯", "basketball": "🏀", "soccer": "⚽", "bowling": "🎳"}
+        emoji_map = {"dice": "🎲", "darts": "🎯", "basketball": "🏀", "soccer": "⚽", "bowling": "🎳", "coinflip": "🪙"}
         emoji = emoji_map.get(game, "🎲")
         
         self.pending_pvp[cid] = {
@@ -4478,7 +4478,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         self.db.add_transaction(user_id, "game_bet", -wager, f"{game.capitalize()} PvP (Challenger)")
             
         cid = f"v2_pvp_{game}_{user_id}_{int(datetime.now().timestamp())}"
-        emoji_map = {"dice": "🎲", "darts": "🎯", "basketball": "🏀", "soccer": "⚽", "bowling": "🎳"}
+        emoji_map = {"dice": "🎲", "darts": "🎯", "basketball": "🏀", "soccer": "⚽", "bowling": "🎳", "coinflip": "🪙"}
         emoji = emoji_map.get(game, "🎲")
         
         self.pending_pvp[cid] = {
