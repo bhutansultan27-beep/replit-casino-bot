@@ -4,6 +4,8 @@ import random
 import hashlib
 import json
 import logging
+import socket
+import sys
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List
 
@@ -5855,4 +5857,14 @@ async def main():
         await bot.app.shutdown()
 
 if __name__ == '__main__':
+    # Ensure only one instance is running using a socket lock
+    try:
+        lock_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # Use a high port number that is unlikely to be used by other processes
+        # but is within the internal range.
+        lock_socket.bind(('127.0.0.1', 47123))
+    except socket.error:
+        print("Another instance of the bot is already running. Exiting.")
+        sys.exit(1)
+
     asyncio.run(main())
