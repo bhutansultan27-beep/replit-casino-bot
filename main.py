@@ -2410,7 +2410,14 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         """Send money to another player."""
         user_data = self.ensure_user_registered(update)
         user_id = update.effective_user.id
-        
+
+        if user_data['balance'] <= 0:
+            try:
+                await update.message.delete()
+            except Exception as e:
+                logger.error(f"Failed to delete tip message for 0 balance user: {e}")
+            return
+
         # Check if this is a reply to another user
         reply_to_message = update.message.reply_to_message
         recipient_data = None
