@@ -5660,6 +5660,28 @@ To withdraw, use:
         else:
             self.app.job_queue.run_repeating(self.check_expired_challenges, interval=5, first=5)
         
+        # Set bot commands for the menu
+        from telegram import BotCommand
+        async def set_commands():
+            commands = [
+                BotCommand("start", "Start the bot"),
+                BotCommand("bal", "Check balance"),
+                BotCommand("tip", "Tip a user"),
+                BotCommand("bet", "Place a bet"),
+                BotCommand("blackjack", "Play Blackjack"),
+                BotCommand("housebal", "Check house balance"),
+                BotCommand("leaderboard", "View leaderboard"),
+                BotCommand("stats", "View your stats"),
+                BotCommand("help", "Get help")
+            ]
+            await self.app.bot.set_my_commands(commands)
+        
+        # We need to run this in the loop
+        import asyncio
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            asyncio.ensure_future(set_commands())
+        
         self.app.run_polling(poll_interval=1.0)
 
 
@@ -5673,12 +5695,27 @@ async def main():
     logger.info("Starting Antaria Casino Bot...")
     bot = AntariaCasinoBot(token=BOT_TOKEN)
     
+    # Set bot commands for the menu
+    from telegram import BotCommand
+    commands = [
+        BotCommand("start", "Start the bot"),
+        BotCommand("bal", "Check balance"),
+        BotCommand("tip", "Tip a user"),
+        BotCommand("bet", "Place a bet"),
+        BotCommand("blackjack", "Play Blackjack"),
+        BotCommand("housebal", "Check house balance"),
+        BotCommand("leaderboard", "View leaderboard"),
+        BotCommand("stats", "View your stats"),
+        BotCommand("help", "Get help")
+    ]
+    
     if bot.app.job_queue:
         bot.app.job_queue.run_repeating(bot.check_expired_challenges, interval=5, first=5)
     else:
         logger.warning("JobQueue is not available. Timer-based features will not work.")
     
     await bot.app.initialize()
+    await bot.app.bot.set_my_commands(commands)
     await bot.app.start()
     await bot.app.updater.start_polling(poll_interval=1.0)
     
