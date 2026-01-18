@@ -1184,10 +1184,18 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         next_game = self._get_next_game_mode(game_mode)
         prev_game = self._get_prev_game_mode(game_mode)
         
+        # Determine if we need to reset mode when switching games
+        # If moving to/from coinflip, we should reset the mode to the first available step
+        def get_nav_callback(target_game):
+            # If target is coinflip or current is coinflip, reset to 'mode' step
+            if target_game == "coinflip" or game_mode == "coinflip":
+                return f"emoji_setup_{target_game}_{wager:.2f}_mode"
+            return f"emoji_setup_{target_game}_{wager:.2f}_{step}{suffix}"
+
         keyboard.append([
-            InlineKeyboardButton("⬅️", callback_data=f"emoji_setup_{prev_game}_{wager:.2f}_{step}{suffix}"),
+            InlineKeyboardButton("⬅️", callback_data=get_nav_callback(prev_game)),
             InlineKeyboardButton(f"Mode: {current_emoji}", callback_data="none"),
-            InlineKeyboardButton("➡️", callback_data=f"emoji_setup_{next_game}_{wager:.2f}_{step}{suffix}")
+            InlineKeyboardButton("➡️", callback_data=get_nav_callback(next_game))
         ])
             
         # Back button
