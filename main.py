@@ -4841,28 +4841,14 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                         rolls = int(parts[6])
                         mode = parts[7]
                         
+                        # Remove the setup message buttons immediately
+                        try:
+                            await query.edit_message_reply_markup(reply_markup=None)
+                        except Exception as e:
+                            logger.error(f"Error removing setup buttons: {e}")
+
                         # Start the game
                         await self.start_generic_v2_bot(update, context, g_mode, wager, rolls, mode, pts)
-                        
-                        # Mark the message as "started" in the context of button interaction
-                        try:
-                            current_markup = query.message.reply_markup
-                            if current_markup:
-                                new_keyboard = []
-                                for row in current_markup.inline_keyboard:
-                                    new_row = []
-                                    for button in row:
-                                        new_row.append(InlineKeyboardButton(
-                                            text=button.text,
-                                            callback_data="button_unavailable"
-                                        ))
-                                    new_keyboard.append(new_row)
-                                
-                                await query.edit_message_reply_markup(
-                                    reply_markup=InlineKeyboardMarkup(new_keyboard)
-                                )
-                        except Exception as e:
-                            logger.error(f"Error updating buttons to unavailable: {e}")
                         return
                 
                 elif next_step == "mode":
