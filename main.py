@@ -2397,12 +2397,18 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         # Check if this is a reply to another user
         reply_to_message = update.message.reply_to_message
         recipient_data = None
-        recipient_username = None
+        recipient_display_name = None
 
         if reply_to_message and not reply_to_message.from_user.is_bot:
             recipient_id = reply_to_message.from_user.id
-            recipient_username = reply_to_message.from_user.username or reply_to_message.from_user.first_name
+            # Prefer username, fallback to first_name
+            recipient_display_name = reply_to_message.from_user.username or reply_to_message.from_user.first_name
             recipient_data = self.db.get_user(recipient_id)
+            
+            # Update username in DB if it changed
+            if reply_to_message.from_user.username and recipient_data.get('username') != reply_to_message.from_user.username:
+                self.db.update_user(recipient_id, {'username': reply_to_message.from_user.username})
+                recipient_data['username'] = reply_to_message.from_user.username
             
             if not context.args:
                 await update.message.reply_text("Usage: Reply to a user with `/tip <amount>`", parse_mode="Markdown")
@@ -2425,6 +2431,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 
             recipient_username = context.args[1].lstrip('@')
             recipient_data = next((u for u in self.db.data['users'].values() if u.get('username') == recipient_username), None)
+            recipient_display_name = recipient_username
 
         if amount <= 0.01:
             await update.message.reply_text("❌ Min: $0.01")
@@ -2443,7 +2450,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             return
 
         # Use mention_html for proper link to user profile
-        mention = f'<a href="tg://user?id={recipient_data["user_id"]}">{recipient_username}</a>'
+        mention = f'<a href="tg://user?id={recipient_data["user_id"]}">{recipient_display_name}</a>'
 
         keyboard = [
             [InlineKeyboardButton("✅ Confirm", callback_data=f"tip_confirm_{recipient_data['user_id']}_{amount:.2f}"),
@@ -5141,7 +5148,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     return
                 
                 recipient_data = self.db.get_user(recipient_id)
-                recipient_username = recipient_data.get('username') or f"User{recipient_id}"
+                recipient_display_name = recipient_data.get('username') or recipient_data.get('first_name') or f"User{recipient_id}"
                 
                 # Deduct from sender
                 user_data['balance'] -= amount
@@ -5152,11 +5159,11 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 self.db.update_user(recipient_id, recipient_data)
                 
                 # Record transactions
-                self.db.add_transaction(user_id, "tip_sent", -amount, f"Tip to {recipient_username}")
+                self.db.add_transaction(user_id, "tip_sent", -amount, f"Tip to {recipient_display_name}")
                 self.db.add_transaction(recipient_id, "tip_received", amount, f"Tip from {user_data.get('username', user_id)}")
                 
                 # Use mention_html for clickable link
-                mention = f'<a href="tg://user?id={recipient_id}">{recipient_username}</a>'
+                mention = f'<a href="tg://user?id={recipient_id}">{recipient_display_name}</a>'
 
                 await query.message.delete()
                 await context.bot.send_message(
@@ -5168,7 +5175,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 # Notify receiver via DM
                 try:
                     # Use mention for sender as well
-                    sender_name = user_data.get('username') or f"User{user_id}"
+                    sender_name = user_data.get('username') or user_data.get('first_name') or f"User{user_id}"
                     sender_mention = f'<a href="tg://user?id={user_id}">{sender_name}</a>'
                     await context.bot.send_message(
                         chat_id=recipient_id,
