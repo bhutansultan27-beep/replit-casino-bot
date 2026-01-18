@@ -2483,8 +2483,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         )
 
     async def deposit_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Show deposits coming soon message."""
-        await update.message.reply_text("💳 **Deposits coming soon!**\n\nWe are currently updating our payment providers. Please check back later.", parse_mode="Markdown")
+        """Redirect to balance menu."""
+        await self.balance_command(update, context)
 
     async def withdraw_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Redirect to balance menu."""
