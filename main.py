@@ -159,6 +159,11 @@ class AntariaCasinoBot:
         self.token = token
         # Initialize the internal database manager
         self.db = DatabaseManager()
+        self.emoji_setup_state = {}
+        self.blackjack_sessions = {}
+        self.button_ownership = {}
+        self.clicked_buttons = set()
+        self.pending_pvp = self.db.data.get('pending_pvp', {})
         
         self.emoji_map = {
             "dice": "🎲",
@@ -1039,9 +1044,6 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         params = params or {}
         
         # Store setup state
-        if not hasattr(self, 'emoji_setup_state'):
-            self.emoji_setup_state = {}
-            
         self.emoji_setup_state[user_id] = {
             "game_mode": game_mode,
             "wager": wager,
@@ -4282,14 +4284,20 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         chat_id = query.message.chat_id
 
         # Check for active game
-        for active_cid, active_challenge in list(self.pending_pvp.items()):
-            if active_cid.startswith("v2_bot_") and active_challenge.get('player') == user_id:
+        active_games = [cid for cid, chal in self.pending_pvp.items() if cid.startswith("v2_bot_") and chal.get('player') == user_id]
+        if active_games:
+            try:
                 await query.answer("❌ You already have an active game! Finish it first.", show_alert=True)
-                return
+            except:
+                pass
+            return
 
         user_data = self.db.get_user(user_id)
         if wager > user_data['balance']:
-            await query.answer("❌ Insufficient balance", show_alert=True)
+            try:
+                await query.answer("❌ Insufficient balance", show_alert=True)
+            except:
+                pass
             return
             
         # Deduct balance immediately
@@ -4300,17 +4308,12 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         emoji_map = {"dice": "🎲", "darts": "🎯", "basketball": "🏀", "soccer": "⚽", "bowling": "🎳", "coinflip": "🪙"}
         emoji = emoji_map.get(game, "🎲")
         
-        # Determine if we should wait for manual emoji or auto-send
-        waiting_for_emoji = False
-        if emoji == "🪙":
-             waiting_for_emoji = False # Always auto-handle coinflip since it's custom
-        
         self.pending_pvp[cid] = {
             "type": f"{game}_bot_v2", "player": user_id, "wager": wager, "game": game, "emoji": emoji,
             "rolls": rolls, "mode": mode, "pts": pts, "chat_id": chat_id,
             "p_pts": 0, "b_pts": 0, "p_rolls": [], "cur_rolls": 0, "emoji_wait": datetime.now().isoformat(),
             "wager_deducted": True, "message_id": query.message.message_id,
-            "waiting_for_emoji": waiting_for_emoji
+            "waiting_for_emoji": False
         }
         self.db.update_pending_pvp(self.pending_pvp)
         
@@ -4322,13 +4325,29 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             f"<b>{p1_name}</b>, your turn! To start, click the button below! {emoji}"
         )
         kb = [[InlineKeyboardButton("✅ Send emoji", callback_data=f"v2_send_emoji_{cid}")]]
-        await context.bot.send_message(
-            chat_id=chat_id, 
-            text=msg_text, 
-            reply_markup=InlineKeyboardMarkup(kb), 
-            reply_to_message_id=query.message.message_id,
-            parse_mode="HTML"
-        )
+        
+        try:
+            # First try to answer the query to stop the loading spinner
+            await query.answer()
+            # Then send the new message
+            await context.bot.send_message(
+                chat_id=chat_id, 
+                text=msg_text, 
+                reply_markup=InlineKeyboardMarkup(kb), 
+                parse_mode="HTML"
+            )
+            # Try to delete the setup message
+            try:
+                await query.delete_message()
+            except:
+                pass
+        except Exception as e:
+            logger.error(f"Error starting game message: {e}")
+            # Fallback if message sending fails
+            try:
+                await query.edit_message_text(text=msg_text, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+            except:
+                pass
 
     async def accept_generic_v2_pvp(self, update: Update, context: ContextTypes.DEFAULT_TYPE, cid: str):
         query = update.callback_query
@@ -4772,7 +4791,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 emoji = challenge['emoji']
                 # Send emojis for user based on number of rolls
                 num_rolls = challenge.get('rolls', 1)
-                pts = challenge.get('pts', 1) # Added pts definition from challenge
+                pts = challenge.get('pts', 1)
+                
                 for _ in range(num_rolls):
                     try:
                         msg = await context.bot.send_dice(chat_id=chat_id, emoji=emoji)
@@ -4787,8 +4807,11 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 await asyncio.sleep(4)
                 
                 # Check if challenge still exists after sleep
+                self.pending_pvp = self.db.data.get('pending_pvp', {})
                 challenge = self.pending_pvp.get(cid)
-                if not challenge: return
+                if not challenge: 
+                    logger.error(f"Challenge {cid} not found after player rolls")
+                    return
 
                 p_tot = sum(challenge['p_rolls'])
                 await context.bot.send_message(chat_id=chat_id, text=f"<b>Rukia</b>, your turn!", parse_mode="HTML")
