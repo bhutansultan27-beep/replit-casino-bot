@@ -5071,7 +5071,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 await query.message.delete()
                 await context.bot.send_message(
                     chat_id=chat_id,
-                    text=f"🎉 Tip succesful! {mention} received <b>${amount:,.2f}</b>",
+                    text=f"🎉 Tip succesful!! {mention} received <b>${amount:,.2f}</b>",
                     parse_mode="HTML"
                 )
                 
