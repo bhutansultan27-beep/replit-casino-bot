@@ -249,8 +249,6 @@ class AntariaCasinoBot:
         self.app.add_handler(CommandHandler("ref", self.referral_command))
         self.app.add_handler(CommandHandler("housebal", self.housebal_command))
         self.app.add_handler(CommandHandler("history", self.history_command))
-        self.app.add_handler(CommandHandler("bet", self.bet_command))
-        self.app.add_handler(CommandHandler("wager", self.bet_command))
         self.app.add_handler(CommandHandler("dice", self.dice_command))
         self.app.add_handler(CommandHandler("darts", self.darts_command))
         self.app.add_handler(CommandHandler("basketball", self.basketball_command))
@@ -5790,7 +5788,6 @@ To withdraw, use:
                 BotCommand("start", "Start the bot"),
                 BotCommand("bal", "Check balance"),
                 BotCommand("tip", "Tip a user"),
-                BotCommand("bet", "Place a bet"),
                 BotCommand("blackjack", "Play Blackjack"),
                 BotCommand("housebal", "Check house balance"),
                 BotCommand("leaderboard", "View leaderboard"),
@@ -5824,7 +5821,6 @@ async def main():
         BotCommand("start", "Start the bot"),
         BotCommand("bal", "Check balance"),
         BotCommand("tip", "Tip a user"),
-        BotCommand("bet", "Place a bet"),
         BotCommand("blackjack", "Play Blackjack"),
         BotCommand("housebal", "Check house balance"),
         BotCommand("leaderboard", "View leaderboard"),
