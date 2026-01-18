@@ -4619,11 +4619,22 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             await query.edit_message_reply_markup(reply_markup=None)
             
             emoji = challenge['emoji']
-            # Send emoji for user
-            msg = await context.bot.send_dice(chat_id=chat_id, emoji=emoji)
-            val = msg.dice.value
-            score = (1 if val >= 4 else 0) if emoji in ["⚽", "🏀"] else val
-            challenge['p_rolls'].append(score)
+            # Send emojis for user based on challenge['rolls']
+            user_msg_dice = []
+            for _ in range(challenge['rolls']):
+                if emoji == "🪙":
+                    # Special handling for coinflip as it's not a native Telegram dice emoji
+                    res = random.choice(["heads", "tails"])
+                    d_msg = await context.bot.send_message(chat_id=chat_id, text=f"🪙 The coin landed on: <b>{res.capitalize()}</b>", parse_mode="HTML")
+                    # Mock a dice-like object for score calculation
+                    class MockDice:
+                        def __init__(self, val): self.value = val
+                    class MockMsg:
+                        def __init__(self, val): self.dice = MockDice(val)
+                    user_msg_dice.append(MockMsg(1 if res == "heads" else 2))
+                else:
+                    d_msg = await context.bot.send_dice(chat_id=chat_id, emoji=emoji)
+                    user_msg_dice.append(d_msg)
             
             await asyncio.sleep(4)
             
