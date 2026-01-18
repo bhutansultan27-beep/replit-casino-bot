@@ -159,11 +159,6 @@ class AntariaCasinoBot:
         self.token = token
         # Initialize the internal database manager
         self.db = DatabaseManager()
-        self.emoji_setup_state = {}
-        self.blackjack_sessions = {}
-        self.button_ownership = {}
-        self.clicked_buttons = set()
-        self.pending_pvp = self.db.data.get('pending_pvp', {})
         
         self.emoji_map = {
             "dice": "🎲",
@@ -173,6 +168,12 @@ class AntariaCasinoBot:
             "bowling": "🎳",
             "coinflip": "🪙"
         }
+        
+        self.emoji_setup_state = {}
+        self.blackjack_sessions = {}
+        self.button_ownership = {}
+        self.clicked_buttons = set()
+        self.pending_pvp = self.db.data.get('pending_pvp', {})
         
         # Admin user IDs from environment variable (permanent admins)
         admin_ids_str = os.getenv("ADMIN_IDS", "")
@@ -4305,8 +4306,9 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         self.db.add_transaction(user_id, "game_bet", -wager, f"{game.capitalize()} vs Bot")
             
         cid = f"v2_bot_{game}_{user_id}_{int(datetime.now().timestamp())}"
-        emoji_map = {"dice": "🎲", "darts": "🎯", "basketball": "🏀", "soccer": "⚽", "bowling": "🎳", "coinflip": "🪙"}
-        emoji = emoji_map.get(game, "🎲")
+        
+        # Use class emoji map
+        emoji = self.emoji_map.get(game, "🎲")
         
         self.pending_pvp[cid] = {
             "type": f"{game}_bot_v2", "player": user_id, "wager": wager, "game": game, "emoji": emoji,
@@ -4330,12 +4332,17 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             # First try to answer the query to stop the loading spinner
             await query.answer()
             # Then send the new message
-            await context.bot.send_message(
+            sent_msg = await context.bot.send_message(
                 chat_id=chat_id, 
                 text=msg_text, 
                 reply_markup=InlineKeyboardMarkup(kb), 
                 parse_mode="HTML"
             )
+            # Register ownership
+            if not hasattr(self, 'button_ownership'):
+                self.button_ownership = {}
+            self.button_ownership[(chat_id, sent_msg.message_id)] = user_id
+            
             # Try to delete the setup message
             try:
                 await query.delete_message()
@@ -4346,8 +4353,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             # Fallback if message sending fails
             try:
                 await query.edit_message_text(text=msg_text, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
-            except:
-                pass
+            except Exception as inner_e:
+                logger.error(f"Fallback edit also failed: {inner_e}")
 
     async def accept_generic_v2_pvp(self, update: Update, context: ContextTypes.DEFAULT_TYPE, cid: str):
         query = update.callback_query
@@ -4700,7 +4707,9 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
     async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handles all inline button presses."""
         query = update.callback_query
-        
+        if not query:
+            return
+            
         # Ensure user is registered and username is updated
         self.ensure_user_registered(update)
         
