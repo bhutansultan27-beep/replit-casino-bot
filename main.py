@@ -2474,116 +2474,12 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         )
 
     async def deposit_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Show user their unique deposit address for automatic deposits."""
-        user_data = self.ensure_user_registered(update)
-        user_id = update.effective_user.id
-        
-        user_deposit_address = user_data.get('ltc_deposit_address')
-        
-        if not user_deposit_address:
-            master_address = os.getenv("LTC_MASTER_ADDRESS", "")
-            if master_address:
-                user_deposit_address = master_address
-                deposit_memo = f"User ID: {user_id}"
-            else:
-                await update.message.reply_text("❌ Deposits not configured. Contact admin.")
-                return
-        else:
-            deposit_memo = None
-        
-        # Fetch live rates
-        ltc_rate = await self.get_live_rate("litecoin")
-        deposit_fee = float(os.getenv('DEPOSIT_FEE_PERCENT', '2'))
-        
-        deposit_text = f"""💰 **LTC Deposit**
-
-Send Litecoin to this address:
-`{user_deposit_address}`"""
-        
-        if deposit_memo:
-            deposit_text += f"""
-
-**Important:** Include your User ID in the memo/note:
-`{user_id}`"""
-        
-        deposit_text += f"""
-
-**Rate:** 1 LTC = ${ltc_rate:.2f}
-**Fee:** {deposit_fee}%
-
-Your balance will be credited automatically after 3 confirmations (~10 minutes).
-
-⚠️ Only send LTC to this address!"""
-        
-        await update.message.reply_text(deposit_text, parse_mode="Markdown")
+        """Redirect to balance menu."""
+        await self.balance_command(update, context)
 
     async def withdraw_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Submit a withdrawal request for admin processing."""
-        user_data = self.ensure_user_registered(update)
-        user_id = update.effective_user.id
-        username = user_data.get('username', f'User{user_id}')
-        
-        if len(context.args) < 2:
-            await update.message.reply_text(
-                f"💸 **Withdraw LTC**\n\nYour balance: **${user_data['balance']:.2f}**\n\nUsage: `/withdraw <amount> <your_ltc_address>`\n\n**Example:** `/withdraw 50 LTC1abc123...`",
-                parse_mode="Markdown"
-            )
-            return
-        
-        try:
-            amount = round(float(context.args[0]), 2)
-        except ValueError:
-            await update.message.reply_text("❌ Invalid amount.", parse_mode="Markdown")
-            return
-        
-        if amount <= 0:
-            await update.message.reply_text("❌ Amount must be positive.")
-            return
-        
-        if amount > user_data['balance']:
-            await update.message.reply_text(f"❌ Insufficient balance. You have ${user_data['balance']:.2f}")
-            return
-        
-        if amount < 1.00:
-            await update.message.reply_text("❌ Minimum withdrawal is $1.00")
-            return
-        
-        ltc_address = context.args[1]
-        
-        # Deduct balance immediately (hold for withdrawal)
-        user_data['balance'] -= amount
-        self.db.update_user(user_id, user_data)
-        
-        # Store pending withdrawal
-        if 'pending_withdrawals' not in self.db.data:
-            self.db.data['pending_withdrawals'] = []
-        
-        withdrawal_request = {
-            'user_id': user_id,
-            'username': username,
-            'amount': amount,
-            'ltc_address': ltc_address,
-            'timestamp': datetime.now().isoformat(),
-            'status': 'pending'
-        }
-        
-        self.db.data['pending_withdrawals'].append(withdrawal_request)
-        
-        await update.message.reply_text(
-            f"✅ **Withdrawal Request Submitted**\n\nAmount: **${amount:.2f}**\nTo: `{ltc_address}`\n\nAn admin will process your withdrawal soon.\n\nNew balance: ${user_data['balance']:.2f}",
-            parse_mode="Markdown"
-        )
-        
-        # Notify admins
-        for admin_id in list(self.env_admin_ids) + list(self.dynamic_admin_ids):
-            try:
-                await self.app.bot.send_message(
-                    chat_id=admin_id,
-                    text=f"🔔 **New Withdrawal Request**\n\nUser: @{username} (ID: {user_id})\nAmount: ${amount:.2f}\nLTC Address: `{ltc_address}`\n\nUse `/processwithdraw {user_id}` after sending.",
-                    parse_mode="Markdown"
-                )
-            except Exception as e:
-                logger.error(f"Failed to notify admin {admin_id}: {e}")
+        """Redirect to balance menu."""
+        await self.balance_command(update, context)
 
     async def pending_deposits_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """View all pending deposits (Admin only)."""
