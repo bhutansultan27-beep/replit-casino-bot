@@ -1032,7 +1032,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         user_data = self.db.get_user(user_id)
         if user_data.get('balance', 0) <= 0:
             try:
-                await update.message.delete()
+                await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=update.message.message_id)
             except Exception as e:
                 logger.error(f"Error deleting zero balance message: {e}")
             return True
@@ -1931,6 +1931,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
 
     async def _generic_emoji_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE, game_name: str, emoji: str):
         """Generic emoji game setup with nested options"""
+        if await self.check_balance_and_delete(update, context) or await self.check_active_game_and_delete(update, context):
+            return
         user_data = self.ensure_user_registered(update)
         user_id = update.effective_user.id
         
@@ -1972,7 +1974,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
     
     async def dr_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Shortcut to show the 🎱 Predict menu"""
-        if await self.check_active_game_and_delete(update, context):
+        if await self.check_balance_and_delete(update, context) or await self.check_active_game_and_delete(update, context):
             return
         user_data = self.ensure_user_registered(update)
         # Default wager $10.00 or balance if lower
@@ -1987,6 +1989,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
 
     async def predict_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play dice predict game - predict what you'll roll with multiple choices"""
+        if await self.check_balance_and_delete(update, context) or await self.check_active_game_and_delete(update, context):
+            return
         user_data = self.ensure_user_registered(update)
         user_id = update.effective_user.id
         
@@ -2423,15 +2427,10 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
     
     async def tip_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Send money to another player."""
+        if await self.check_balance_and_delete(update, context) or await self.check_active_game_and_delete(update, context):
+            return
         user_data = self.ensure_user_registered(update)
         user_id = update.effective_user.id
-
-        if user_data['balance'] <= 0:
-            try:
-                await update.message.delete()
-            except Exception as e:
-                logger.error(f"Failed to delete tip message for 0 balance user: {e}")
-            return
 
         # Check if this is a reply to another user
         reply_to_message = update.message.reply_to_message
