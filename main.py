@@ -3725,7 +3725,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                         p2_data = self.db.get_user(challenge['opponent'])
                         await update.message.reply_text(f"✅ @{p2_data['username']} turn!")
                     challenge['emoji_wait'] = datetime.now().isoformat()
-                        return
+                    return
                 if challenge.get('waiting_p2') and challenge['opponent'] == user_id:
                     if not challenge.get('p2_deducted'):
                         user_data = self.db.get_user(user_id)
@@ -3739,7 +3739,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     if len(challenge['p2_rolls']) >= challenge['rolls']:
                         challenge['waiting_p2'] = False
                     challenge['emoji_wait'] = datetime.now().isoformat()
-                        return
+                    return
         challenge_id_to_resolve = None
         challenge_to_resolve = None
         
@@ -4465,7 +4465,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             challenge['p1_rolls'], challenge['p2_rolls'] = [], []
             challenge['waiting_p1'], challenge['waiting_p2'] = True, False
             challenge['emoji_wait'] = datetime.now().isoformat()
-                while len(challenge['p1_rolls']) < challenge['rolls'] or len(challenge['p2_rolls']) < challenge['rolls']:
+            while len(challenge['p1_rolls']) < challenge['rolls'] or len(challenge['p2_rolls']) < challenge['rolls']:
                 await asyncio.sleep(2)
                 challenge = self.pending_pvp.get(cid)
                 if not challenge: return
@@ -5765,10 +5765,10 @@ To withdraw, use:
             elif data.startswith("decline_"):
                 challenge_id = data.split('_', 1)[1]
                 if challenge_id in self.pending_pvp and self.pending_pvp[challenge_id]['challenger'] == user_id:
-                     await query.edit_message_text("✅ Challenge canceled.")
-                     del self.pending_pvp[challenge_id]
-                     self.db.data['pending_pvp'] = self.pending_pvp
-                     else:
+                    await query.edit_message_text("✅ Challenge canceled.")
+                    del self.pending_pvp[challenge_id]
+                    self.db.update_pending_pvp(self.pending_pvp)
+                else:
                     await query.answer("❌ Only the challenger can cancel this game.", show_alert=True)
             
             # Blackjack button handlers
