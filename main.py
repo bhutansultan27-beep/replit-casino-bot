@@ -989,7 +989,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             "darts": "🎯",
             "basketball": "🏀",
             "soccer": "⚽",
-            "bowling": "🎳"
+            "bowling": "🎳",
+            "coinflip": "🪙"
         }
         current_emoji = emoji_map.get(game_mode, "🎲")
         
@@ -1007,6 +1008,10 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             if game_mode in ["dice", "basketball", "soccer", "darts", "bowling", "coinflip"]:
                 # Always use v2_bot for consistent series play
                 challenge_id = f"v2_bot_{user_id}_{int(datetime.now().timestamp())}"
+                
+                # Use class emoji map
+                game_emoji = self.emoji_map.get(game_mode, "🎲")
+                
                 self.pending_pvp[challenge_id] = {
                     "type": "series_bot",
                     "player": user_id,
@@ -1014,7 +1019,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                     "mode": mode,
                     "rolls": rolls,
                     "pts": pts,
-                    "emoji": self.emoji_map.get(game_mode, "🎲"),
+                    "emoji": game_emoji,
                     "game_mode": game_mode,
                     "player_points": 0,
                     "bot_points": 0,
@@ -1028,10 +1033,10 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 user_mention = f"@{update.effective_user.username}" if update.effective_user.username else update.effective_user.first_name
                 
                 text = (
-                    f"{current_emoji} vs 🤖\n"
+                    f"{game_emoji} vs 🤖\n"
                     f"Target: {pts}\n"
                     f"Mode: {'Normal' if mode == 'normal' else 'Crazy'}\n\n"
-                    f"👉 Send your {rolls} {current_emoji} now!"
+                    f"👉 Send your {rolls} {game_emoji} now!"
                 )
                 
                 await context.bot.send_message(chat_id=chat_id, text=text, parse_mode="HTML")
