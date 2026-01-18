@@ -241,6 +241,7 @@ class AntariaCasinoBot:
         self.app.add_handler(CommandHandler("bowling", self.bowling_command))
         self.app.add_handler(CommandHandler("roll", self.roll_command))
         self.app.add_handler(CommandHandler("predict", self.predict_command))
+        self.app.add_handler(CommandHandler("dr", self.predict_command))
         self.app.add_handler(CommandHandler("coinflip", self.coinflip_command))
         self.app.add_handler(CommandHandler("flip", self.coinflip_command))
         self.app.add_handler(CommandHandler("roulette", self.roulette_command))
