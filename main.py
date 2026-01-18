@@ -4309,12 +4309,17 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         emoji_map = {"dice": "🎲", "darts": "🎯", "basketball": "🏀", "soccer": "⚽", "bowling": "🎳", "coinflip": "🪙"}
         emoji = emoji_map.get(game, "🎲")
         
+        # Determine if we should wait for manual emoji or auto-send
+        waiting_for_emoji = False
+        if emoji == "🪙":
+             waiting_for_emoji = False # Always auto-handle coinflip since it's custom
+        
         self.pending_pvp[cid] = {
             "type": f"{game}_bot_v2", "player": user_id, "wager": wager, "game": game, "emoji": emoji,
             "rolls": rolls, "mode": mode, "pts": pts, "chat_id": chat_id,
             "p_pts": 0, "b_pts": 0, "p_rolls": [], "cur_rolls": 0, "emoji_wait": datetime.now().isoformat(),
             "wager_deducted": True, "message_id": query.message.message_id,
-            "waiting_for_emoji": False # Not waiting for manual user roll anymore
+            "waiting_for_emoji": waiting_for_emoji
         }
         self.db.update_pending_pvp(self.pending_pvp)
         
