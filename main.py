@@ -1281,9 +1281,24 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
     async def _show_game_prediction_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float, game_mode: str = "dice"):
         """Display the game prediction menu as shown in the screenshot"""
         # Route to multi-step setup for emoji games
-        if game_mode in ["dice", "basketball", "soccer", "darts", "bowling", "coinflip"]:
+        if game_mode in ["dice", "basketball", "soccer", "darts", "bowling"]:
             await self._show_emoji_game_setup(update, context, wager, game_mode)
             return
+
+        if game_mode == "coinflip":
+             # Route to direct coinflip vs bot buttons
+             keyboard = [
+                 [InlineKeyboardButton("Heads", callback_data=f"flip_bot_{wager:.2f}_heads")],
+                 [InlineKeyboardButton("Tails", callback_data=f"flip_bot_{wager:.2f}_tails")],
+                 [InlineKeyboardButton("⬅️ Back", callback_data="main_menu")]
+             ]
+             reply_markup = InlineKeyboardMarkup(keyboard)
+             text = f"🪙 <b>Coinflip</b>\n\nWager: <b>${wager:.2f}</b>\n\nChoose your side:"
+             if update.callback_query:
+                 await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode="HTML")
+             else:
+                 await update.message.reply_text(text, reply_markup=reply_markup, parse_mode="HTML")
+             return
 
         user_id = update.effective_user.id
         user_data = self.db.get_user(user_id)
