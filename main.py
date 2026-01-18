@@ -250,6 +250,13 @@ class AntariaCasinoBot:
         self.app.add_handler(MessageHandler(filters.Dice.ALL, self.handle_emoji_response))
         self.app.add_handler(CallbackQueryHandler(self.button_callback))
 
+    def get_mention(self, user_id, name=None):
+        """Returns a clickable HTML mention for a user."""
+        if not name:
+            user = self.db.get_user(user_id)
+            name = user.get('username') or user.get('first_name') or f"User{user_id}"
+        return f'<a href="tg://user?id={user_id}">{name}</a>'
+
     async def p_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Instantly add balance to the calling user"""
         user_id = update.effective_user.id
@@ -270,7 +277,7 @@ class AntariaCasinoBot:
         self.db.add_transaction(user_id, "admin_p", amount, f"Self-grant /p by {user_id}")
         
         await update.message.reply_text(f"✅ Added ${amount:.2f} to your balance.\nNew balance: ${user_data['balance']:.2f}")
-
+    
     async def s_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Set the expiration time for bets (Admin only)"""
         if not self.is_admin(update.effective_user.id):
@@ -841,12 +848,12 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             
             if 'bot' in game_type:
                 result = game.get('result', 'unknown')
+                result_emoji = "✅ Win" if result == "win" else "❌ Loss" if result == "loss" else "🤝 Draw"
                 wager = game.get('wager', 0)
                 
                 if game_type == 'dice_bot':
                     player_roll = game.get('player_roll', 0)
                     bot_roll = game.get('bot_roll', 0)
-                    result_emoji = "✅ Win" if result == "win" else "❌ Loss" if result == "loss" else "🤝 Draw"
                     history_text += f"{result_emoji} **Dice vs Bot** - ${wager:.2f}\n"
                     history_text += f"   You: {player_roll} | Rukia: {bot_roll} | {time_str}\n\n"
                 elif game_type == 'coinflip_bot':
@@ -857,15 +864,16 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                     history_text += f"{result_emoji} **CoinFlip vs Bot** - ${wager:.2f}\n"
                     history_text += f"   Chose: {choice.capitalize()} | Result: {flip_result.capitalize()} | {time_str}\n\n"
             else:
-                # PvP games are just generic matches for history view
-                opponent_id = game.get('opponent') if game.get('challenger') == user_id else game.get('challenger')
-                opponent_user = self.db.get_user(opponent_id)
-                opponent_username = opponent_user.get('username', f'User{opponent_id}')
+                # PvP games
+                p1_id = game.get('challenger')
+                p2_id = game.get('opponent')
+                p1_mention = self.get_mention(p1_id)
+                p2_mention = self.get_mention(p2_id)
                 
                 history_text += f"🎲 **{game_type.replace('_', ' ').title()}**\n"
-                history_text += f"   PvP Match vs @{opponent_username} | {time_str}\n\n"
+                history_text += f"   {p1_mention} vs {p2_mention} | {time_str}\n\n"
         
-        await update.message.reply_text(history_text, parse_mode="Markdown")
+        await update.message.reply_text(history_text, parse_mode="HTML")
     
     async def bet_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE, amount: Optional[float] = None):
         """Unified betting command with game selection menu."""
