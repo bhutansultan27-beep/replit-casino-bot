@@ -1054,12 +1054,6 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 InlineKeyboardButton("Normal (Highest)", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_rolls_normal"),
                 InlineKeyboardButton("Crazy (Lowest)", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_rolls_inverted")
             ])
-            keyboard.append([
-                InlineKeyboardButton("⬅️", callback_data=f"emoji_setup_{prev_mode}_{wager:.2f}_mode"),
-                InlineKeyboardButton(f"Mode: {current_emoji}", callback_data="none"),
-                InlineKeyboardButton("➡️", callback_data=f"emoji_setup_{next_mode}_{wager:.2f}_mode")
-            ])
-            keyboard.append([InlineKeyboardButton("⬅️ Back", callback_data=f"setup_bet_back_{wager:.2f}")])
         elif step == "rolls":
             mode = params.get("mode")
             text = (
@@ -1177,19 +1171,16 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         next_game = self._get_next_game_mode(game_mode)
         prev_game = self._get_prev_game_mode(game_mode)
         
-        # Navigation buttons are already added at the top if step == "mode"
-        # We only add them here if we are NOT in the "mode" step
-        if step != "mode":
-            keyboard.append([
-                InlineKeyboardButton("⬅️", callback_data=f"emoji_setup_{prev_game}_{wager:.2f}_{step}{suffix}"),
-                InlineKeyboardButton(f"Mode: {current_emoji}", callback_data="none"),
-                InlineKeyboardButton("➡️", callback_data=f"emoji_setup_{next_game}_{wager:.2f}_{step}{suffix}")
-            ])
+        keyboard.append([
+            InlineKeyboardButton("⬅️", callback_data=f"emoji_setup_{prev_game}_{wager:.2f}_{step}{suffix}"),
+            InlineKeyboardButton(f"Mode: {current_emoji}", callback_data="none"),
+            InlineKeyboardButton("➡️", callback_data=f"emoji_setup_{next_game}_{wager:.2f}_{step}{suffix}")
+        ])
             
         # Back button
         back_button = None
         if step == "mode":
-            back_button = InlineKeyboardButton("⬅️ Cancel", callback_data="setup_cancel")
+            back_button = None # Removed back button
         elif step == "rolls":
             back_button = InlineKeyboardButton("⬅️ Back", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_mode")
         elif step == "points":
