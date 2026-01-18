@@ -1197,6 +1197,9 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         
         if back_button:
             keyboard.append([back_button])
+            
+        # Add cancel button to keep chat clean
+        keyboard.append([InlineKeyboardButton("❌ Cancel", callback_data=f"setup_cancel_roll")])
 
         if step == "final":
             mode = params.get("mode")
@@ -5295,6 +5298,19 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             
             elif data == "setup_cancel":
                 await query.message.delete()
+                return
+
+            elif data == "setup_cancel_roll":
+                # Delete both the bot's message and the user's /roll message
+                try:
+                    await query.message.delete()
+                except:
+                    pass
+                try:
+                    if query.message.reply_to_message:
+                        await query.message.reply_to_message.delete()
+                except:
+                    pass
                 return
 
             elif data.startswith("setup_bet_back_"):
