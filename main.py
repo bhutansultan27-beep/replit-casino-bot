@@ -2394,16 +2394,38 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         user_data = self.ensure_user_registered(update)
         user_id = update.effective_user.id
         
-        if len(context.args) < 2:
-            await update.message.reply_text("Usage: `/tip <amount> @user`", parse_mode="Markdown")
-            return
-        
-        try:
-            amount = round(float(context.args[0]), 2)
-        except ValueError:
-            await update.message.reply_text("❌ Invalid amount")
-            return
+        # Check if this is a reply to another user
+        reply_to_message = update.message.reply_to_message
+        recipient_data = None
+        recipient_username = None
+
+        if reply_to_message and not reply_to_message.from_user.is_bot:
+            recipient_id = reply_to_message.from_user.id
+            recipient_username = reply_to_message.from_user.username or reply_to_message.from_user.first_name
+            recipient_data = self.db.get_user(recipient_id)
             
+            if not context.args:
+                await update.message.reply_text("Usage: Reply to a user with `/tip <amount>`", parse_mode="Markdown")
+                return
+            try:
+                amount = round(float(context.args[0]), 2)
+            except ValueError:
+                await update.message.reply_text("❌ Invalid amount")
+                return
+        else:
+            if len(context.args) < 2:
+                await update.message.reply_text("Usage: `/tip <amount> @user` or reply to a message with `/tip <amount>`", parse_mode="Markdown")
+                return
+            
+            try:
+                amount = round(float(context.args[0]), 2)
+            except ValueError:
+                await update.message.reply_text("❌ Invalid amount")
+                return
+                
+            recipient_username = context.args[1].lstrip('@')
+            recipient_data = next((u for u in self.db.data['users'].values() if u.get('username') == recipient_username), None)
+
         if amount <= 0.01:
             await update.message.reply_text("❌ Min: $0.01")
             return
@@ -2412,11 +2434,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             await update.message.reply_text(f"❌ Balance: ${user_data['balance']:.2f}")
             return
 
-        recipient_username = context.args[1].lstrip('@')
-        recipient_data = next((u for u in self.db.data['users'].values() if u.get('username') == recipient_username), None)
-
         if not recipient_data:
-            await update.message.reply_text(f"❌ Could not find user with username @{recipient_username}.")
+            await update.message.reply_text(f"❌ Could not find user @{recipient_username}.")
             return
             
         if recipient_data['user_id'] == user_id:
@@ -2430,9 +2449,9 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         await update.message.reply_text(
-            f"You want to tip **{recipient_username}** with **${amount:.2f}**. Is that correct?",
+            f"You want to tip <b>{recipient_username}</b> with <b>${amount:,.2f}</b>. Is that correct?",
             reply_markup=reply_markup,
-            parse_mode="Markdown",
+            parse_mode="HTML",
             reply_to_message_id=update.message.message_id
         )
 
@@ -5110,39 +5129,42 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 
             elif data.startswith("tip_confirm_"):
                 parts = data.split("_")
-                target_id = int(parts[2])
+                recipient_id = int(parts[2])
                 amount = float(parts[3])
                 
                 user_data = self.db.get_user(user_id)
-                if user_data['balance'] < amount:
-                    await query.answer("❌ Insufficient balance!", show_alert=True)
+                if amount > user_data['balance']:
+                    await query.answer("❌ Insufficient balance for this tip.", show_alert=True)
                     return
-                    
-                recipient_data = self.db.get_user(target_id)
                 
-                # Perform transaction
+                recipient_data = self.db.get_user(recipient_id)
+                recipient_username = recipient_data.get('username') or f"User{recipient_id}"
+                
+                # Deduct from sender
                 user_data['balance'] -= amount
-                recipient_data['balance'] += amount
-                
                 self.db.update_user(user_id, user_data)
-                self.db.update_user(target_id, recipient_data)
                 
-                self.db.add_transaction(user_id, "tip_sent", -amount, f"Tip to @{recipient_data.get('username', target_id)}")
-                self.db.add_transaction(target_id, "tip_received", amount, f"Tip from @{user_data.get('username', user_id)}")
+                # Add to recipient
+                recipient_data['balance'] += amount
+                self.db.update_user(recipient_id, recipient_data)
+                
+                # Record transactions
+                self.db.add_transaction(user_id, "tip_sent", -amount, f"Tip to @{recipient_username}")
+                self.db.add_transaction(recipient_id, "tip_received", amount, f"Tip from @{user_data.get('username', user_id)}")
                 
                 await query.message.delete()
                 await context.bot.send_message(
                     chat_id=chat_id,
-                    text=f"Tip successful! **{recipient_data.get('username', target_id)}** receives **${amount:.2f}**!",
-                    parse_mode="Markdown"
+                    text=f"🎉 Tip succesful! <b>@{recipient_username}</b> received <b>${amount:,.2f}</b>",
+                    parse_mode="HTML"
                 )
                 
-                # Notify receiver
+                # Notify receiver via DM
                 try:
                     await context.bot.send_message(
-                        chat_id=target_id,
-                        text=f"🎁 You received a tip of **${amount:.2f}** from **{user_data.get('username', user_id)}**!",
-                        parse_mode="Markdown"
+                        chat_id=recipient_id,
+                        text=f"🎁 You received a tip of <b>${amount:,.2f}</b> from <b>@{user_data.get('username', user_id)}</b>!",
+                        parse_mode="HTML"
                     )
                 except Exception:
                     pass
