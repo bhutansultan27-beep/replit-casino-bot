@@ -613,11 +613,11 @@ class AntariaCasinoBot:
         user_data = self.ensure_user_registered(update)
         user_id = update.effective_user.id
         
-        # Fetch live XMR rate
-        xmr_usd_rate = await self.get_live_rate("monero")
-        xmr_balance = user_data['balance'] / xmr_usd_rate
+        # Fetch live LTC rate
+        ltc_usd_rate = await self.get_live_rate("litecoin")
+        ltc_balance = user_data['balance'] / ltc_usd_rate
         
-        balance_text = f"Your balance: <b>${user_data['balance']:,.2f}</b> ({xmr_balance:.5f} XMR)"
+        balance_text = f"Your balance: <b>${user_data['balance']:,.2f}</b> ({ltc_balance:.5f} LTC)"
         
         keyboard = [
             [InlineKeyboardButton("💳 Deposit", callback_data="deposit_mock"),
