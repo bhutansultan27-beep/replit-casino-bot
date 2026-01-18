@@ -250,6 +250,7 @@ class AntariaCasinoBot:
         self.app.add_handler(CommandHandler("deposit", self.deposit_command))
         self.app.add_handler(CommandHandler("withdraw", self.withdraw_command))
         self.app.add_handler(CommandHandler("matches", self.matches_command))
+        self.app.add_handler(CommandHandler("fake_matches", self.fake_matches_command))
         
         # Admin commands
         self.app.add_handler(CommandHandler("p", self.p_command))
@@ -4471,6 +4472,74 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         self.ensure_user_registered(update)
         user_id = update.effective_user.id
         await self.show_matches_page(update, 0, user_id)
+
+    async def fake_matches_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Populate database with fake matches for testing (Admin only)"""
+        if not self.is_admin(update.effective_user.id):
+            await update.message.reply_text("❌ Admin only.")
+            return
+            
+        user_id = update.effective_user.id
+        username = update.effective_user.username or f"User{user_id}"
+        
+        fake_games = [
+            {
+                "type": "dice_bot",
+                "player_id": user_id,
+                "wager": 5.0,
+                "p_pts": 10,
+                "b_pts": 7,
+                "result": "win",
+                "timestamp": (datetime.now() - timedelta(hours=1)).isoformat()
+            },
+            {
+                "type": "basketball_bot",
+                "player_id": user_id,
+                "wager": 10.0,
+                "p_pts": 2,
+                "b_pts": 5,
+                "result": "loss",
+                "timestamp": (datetime.now() - timedelta(hours=2)).isoformat()
+            },
+            {
+                "type": "soccer_bot",
+                "player_id": user_id,
+                "wager": 20.0,
+                "p_pts": 3,
+                "b_pts": 3,
+                "result": "draw",
+                "timestamp": (datetime.now() - timedelta(hours=3)).isoformat()
+            },
+            {
+                "type": "blackjack_bot",
+                "player_id": user_id,
+                "wager": 50.0,
+                "result": "win",
+                "timestamp": (datetime.now() - timedelta(hours=4)).isoformat()
+            },
+            {
+                "type": "roulette_bot",
+                "player_id": user_id,
+                "wager": 15.0,
+                "result": "loss",
+                "timestamp": (datetime.now() - timedelta(hours=5)).isoformat()
+            },
+            {
+                "type": "dice_pvp",
+                "challenger": user_id,
+                "opponent": 12345678, # Fake opponent ID
+                "wager": 25.0,
+                "p1_pts": 2,
+                "p2_pts": 1,
+                "result": "win",
+                "timestamp": (datetime.now() - timedelta(hours=6)).isoformat()
+            }
+        ]
+        
+        for game_data in fake_games:
+            self.db.record_game(game_data)
+            
+        await update.message.reply_text(f"✅ Added {len(fake_games)} fake matches to your history. Use /matches to see them!")
 
     async def show_matches_page(self, update: Update, page: int, user_id: int):
         # Fetch games from database
