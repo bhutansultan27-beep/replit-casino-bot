@@ -665,7 +665,7 @@ class AntariaCasinoBot:
         ltc_usd_rate = await self.get_live_rate("litecoin")
         ltc_balance = user_data['balance'] / ltc_usd_rate
         
-        balance_text = f"Your balance: <b>${user_data['balance']:,.2f}</b> ({ltc_balance:.5f} LTC)"
+        balance_text = f"Your balance <b>${user_data['balance']:,.2f}</b> ({ltc_balance:.5f} LTC)"
         
         keyboard = [
             [InlineKeyboardButton("💳 Deposit", callback_data="deposit_mock"),
@@ -1108,7 +1108,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         if step == "mode":
             text = (
                 f"{current_emoji} <b>{game_mode.replace('_', ' ').capitalize()}</b>\n\n"
-                f"Your balance: <b>${user_data['balance']:,.2f}</b>\n"
+                f"Your balance <b>${user_data['balance']:,.2f}</b>\n"
                 f"Multiplier: <b>{multiplier:.2f}x</b>\n\n"
                 f"Choose your game mode:"
             )
@@ -1126,7 +1126,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             mode = params.get("mode")
             text = (
                 f"{current_emoji} <b>{game_mode.replace('_', ' ').capitalize()}</b>\n\n"
-                f"Your balance: <b>${user_data['balance']:,.2f}</b>\n"
+                f"Your balance <b>${user_data['balance']:,.2f}</b>\n"
                 f"Multiplier: <b>{multiplier:.2f}x</b>\n\n"
                 f"Choose the amount of rolls:"
             )
@@ -1139,7 +1139,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             rolls = params.get("rolls")
             text = (
                 f"{current_emoji} <b>{game_mode.replace('_', ' ').capitalize()}</b>\n\n"
-                f"Your balance: <b>${user_data['balance']:,.2f}</b>\n"
+                f"Your balance <b>${user_data['balance']:,.2f}</b>\n"
                 f"Multiplier: <b>{multiplier:.2f}x</b>\n\n"
                 f"Choose the amount of points:"
             )
@@ -1155,7 +1155,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             pts = params.get("pts")
             text = (
                 f"{current_emoji} <b>{game_mode.replace('_', ' ').capitalize()}</b>\n\n"
-                f"Your balance: <b>${user_data['balance']:,.2f}</b>\n"
+                f"Your balance <b>${user_data['balance']:,.2f}</b>\n"
                 f"Multiplier: <b>{multiplier:.2f}x</b>\n\n"
                 f"Target: <b>{pts}</b>\n"
                 f"Mode: <b>{mode.capitalize()}</b>\n"
@@ -1227,7 +1227,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
 
             text = (
                 f"{current_emoji} <b>{game_mode.replace('_', ' ').title()}</b>\n\n"
-                f"Your balance: <b>${user_data['balance']:,.2f}</b>\n"
+                f"Your balance <b>${user_data['balance']:,.2f}</b>\n"
                 f"Multiplier: <b>{multiplier:.2f}x</b>\n\n"
                 f"<b>Current Setup:</b>\n"
                 f"{setup_details}"
@@ -1299,7 +1299,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             
             text = (
                 f"{current_emoji} <b>{game_mode.replace('_', ' ').title()}</b>\n\n"
-                f"Your balance: <b>${user_data['balance']:,.2f}</b>\n"
+                f"Your balance <b>${user_data['balance']:,.2f}</b>\n"
                 f"Multiplier: <b>{self._calculate_emoji_multiplier(rolls, pts):.2f}x</b>\n\n"
                 f"<b>Game Details:</b>\n"
                 f"• Mode: <b>{mode_display}</b>\n"
@@ -1421,7 +1421,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
 
         text = (
             f"{current_emoji} <b>{game_mode.replace('_', ' ').capitalize()}</b>\n\n"
-            f"Your balance: <b>${user_data['balance']:,.2f}</b>\n"
+            f"Your balance <b>${user_data['balance']:,.2f}</b>\n"
             f"Multiplier: <b>{multiplier:.2f}x</b>\n\n"
             f"Make your selection:"
         )
@@ -1668,7 +1668,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
 
         text = (
             f"{current_emoji} <b>{game_mode.replace('_', ' ').capitalize()} Prediction</b>\n\n"
-            f"Your balance: <b>${user_data['balance']:,.2f}</b>\n"
+            f"Your balance <b>${user_data['balance']:,.2f}</b>\n"
             f"{multiplier_text}\n\n"
             f"Make your prediction:"
         )
@@ -5492,7 +5492,7 @@ Your balance will be credited automatically after 3 confirmations.
                 else:
                     withdraw_text = f"""💸 **LTC Withdrawal Request**
 
-Your balance: **${user_data['balance']:.2f}**
+Your balance **${user_data['balance']:.2f}**
 
 To withdraw, use:
 `/withdraw <amount> <your_ltc_address>`
