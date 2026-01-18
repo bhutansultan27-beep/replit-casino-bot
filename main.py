@@ -4356,8 +4356,19 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             # Send emojis for user based on challenge['rolls']
             user_msg_dice = []
             for _ in range(challenge['rolls']):
-                d_msg = await context.bot.send_dice(chat_id=chat_id, emoji=emoji)
-                user_msg_dice.append(d_msg)
+                if emoji == "🪙":
+                    # Special handling for coinflip as it's not a native Telegram dice emoji
+                    res = random.choice(["heads", "tails"])
+                    d_msg = await context.bot.send_message(chat_id=chat_id, text=f"🪙 The coin landed on: <b>{res.capitalize()}</b>", parse_mode="HTML")
+                    # Mock a dice-like object for score calculation
+                    class MockDice:
+                        def __init__(self, val): self.value = val
+                    class MockMsg:
+                        def __init__(self, val): self.dice = MockDice(val)
+                    user_msg_dice.append(MockMsg(1 if res == "heads" else 2))
+                else:
+                    d_msg = await context.bot.send_dice(chat_id=chat_id, emoji=emoji)
+                    user_msg_dice.append(d_msg)
             
             # Wait for all animations to complete (roughly) and collect scores
             await asyncio.sleep(4)
@@ -4388,8 +4399,13 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             b_tot = 0
             for _ in range(challenge['rolls']):
                 await asyncio.sleep(2)
-                d = await context.bot.send_dice(chat_id=chat_id, emoji=emoji)
-                b_tot += (1 if d.dice.value >= 4 else 0) if emoji in ["⚽", "🏀"] else d.dice.value
+                if emoji == "🪙":
+                    res = random.choice(["heads", "tails"])
+                    await context.bot.send_message(chat_id=chat_id, text=f"🤖 Rukia flips: 🪙 <b>{res.capitalize()}</b>", parse_mode="HTML")
+                    b_tot += (1 if res == "heads" else 2)
+                else:
+                    d = await context.bot.send_dice(chat_id=chat_id, emoji=emoji)
+                    b_tot += (1 if d.dice.value >= 4 else 0) if emoji in ["⚽", "🏀"] else d.dice.value
                 await asyncio.sleep(4)
             
             # Re-load challenge for safety
@@ -4618,8 +4634,13 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             b_tot = 0
             for _ in range(challenge['rolls']):
                 await asyncio.sleep(2)
-                d = await context.bot.send_dice(chat_id=chat_id, emoji=emoji)
-                b_tot += (1 if d.dice.value >= 4 else 0) if emoji in ["⚽", "🏀"] else d.dice.value
+                if emoji == "🪙":
+                    res = random.choice(["heads", "tails"])
+                    await context.bot.send_message(chat_id=chat_id, text=f"🤖 Rukia flips: 🪙 <b>{res.capitalize()}</b>", parse_mode="HTML")
+                    b_tot += (1 if res == "heads" else 2)
+                else:
+                    d = await context.bot.send_dice(chat_id=chat_id, emoji=emoji)
+                    b_tot += (1 if d.dice.value >= 4 else 0) if emoji in ["⚽", "🏀"] else d.dice.value
                 await asyncio.sleep(4)
             
             # Re-load challenge for safety
