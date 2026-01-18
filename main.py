@@ -1179,78 +1179,16 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 suffix += f"_{params['opponent']}"
 
         keyboard.append([
-            InlineKeyboardButton("Half Bet", callback_data=f"emoji_setup_{game_mode}_{half_wager:.2f}_{step}{suffix}"),
-            InlineKeyboardButton(f"Bet: ${wager:,.2f}", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_{step}{suffix}"),
-            InlineKeyboardButton("Double Bet", callback_data=f"emoji_setup_{game_mode}_{double_wager:.2f}_{step}{suffix}")
+            InlineKeyboardButton("½", callback_data=f"emoji_setup_{game_mode}_{half_wager:.2f}_{step}{suffix}"),
+            InlineKeyboardButton(f"${wager:,.2f}", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_{step}{suffix}"),
+            InlineKeyboardButton("2×", callback_data=f"emoji_setup_{game_mode}_{double_wager:.2f}_{step}{suffix}")
         ])
-        
-        # Ensure we don't have vs Bot/Player in DMs
-        if is_private:
-            # Re-filter keyboard to remove any opponent selection buttons that might have been added
-            keyboard = [row for row in keyboard if not any(btn.text and ("vs Bot" in btn.text or "vs Player" in btn.text) for btn in row)]
-            if params:
-                params['opponent'] = 'bot'
-
-        if step in ["mode", "rolls", "points"]:
-            # Custom title based on current step
-            step_titles = {"mode": "Game Mode", "rolls": "Rolls", "points": "Target Score"}
-            current_step_title = step_titles.get(step, step.capitalize())
-            
-            # Prepare summary of selected settings
-            mode_val = params.get('mode', 'normal')
-            if game_mode == "coinflip":
-                mode_display = mode_val.capitalize()
-            else:
-                mode_display = "Normal" if mode_val == 'normal' else "Crazy"
-            rolls_val = params.get('rolls')
-            pts_val = params.get('pts')
-            
-            # Conditionally build the setup summary
-            setup_details = ""
-            if step != "mode":
-                setup_details += f"• Mode: {mode_display}\n"
-            if rolls_val is not None:
-                setup_details += f"• Rolls: {rolls_val}\n"
-            if pts_val is not None:
-                setup_details += f"• Target Score: {pts_val}\n"
-            
-            setup_details += f"• Bet: ${wager:,.2f}\n\n"
-
-            text = (
-                f"{current_emoji} <b>{game_mode.replace('_', ' ').title()}</b>\n\n"
-                f"Your balance <b>${user_data['balance']:,.2f}</b>\n"
-                f"Multiplier: <b>{multiplier:.2f}x</b>\n\n"
-                f"<b>Current Setup:</b>\n"
-                f"{setup_details}"
-                f"Choose your {current_step_title.lower()}:"
-            )
-            
-            # Opponent display (only in groups)
-            if not is_private:
-                text += f"\n\nOpponent: {params.get('opponent', 'vs Bot') if params else 'vs Bot'}"
-            
-        # Consistent emoji mapping
-        emoji_map = {
-            "dice": "🎲",
-            "basketball": "🏀",
-            "soccer": "⚽",
-            "darts": "🎯",
-            "bowling": "🎳",
-            "coinflip": "🪙"
-        }
-        current_emoji = emoji_map.get(game_mode, "🎲")
-        
-        # Determine multiplier
-        multiplier = self._calculate_emoji_multiplier(params.get("rolls", 1), params.get("pts", 1))
         
         # Navigation row
         next_game = self._get_next_game_mode(game_mode)
         prev_game = self._get_prev_game_mode(game_mode)
         
-        # Determine if we need to reset mode when switching games
-        # If moving to/from coinflip, we should reset the mode to the first available step
         def get_nav_callback(target_game):
-            # If target is coinflip or current is coinflip, reset to 'mode' step
             if target_game == "coinflip" or game_mode == "coinflip":
                 return f"emoji_setup_{target_game}_{wager:.2f}_mode"
             return f"emoji_setup_{target_game}_{wager:.2f}_{step}{suffix}"
@@ -5043,11 +4981,11 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                         rolls = int(parts[6])
                         mode = parts[7]
                         
-                        # Delete the setup message immediately
+                        # Remove buttons instead of deleting message
                         try:
-                            await query.delete_message()
+                            await query.edit_message_reply_markup(reply_markup=None)
                         except Exception as e:
-                            logger.error(f"Error deleting setup message: {e}")
+                            logger.error(f"Error removing setup buttons: {e}")
 
                         # Start the game
                         await self.start_generic_v2_bot(update, context, g_mode, wager, rolls, mode, pts)
