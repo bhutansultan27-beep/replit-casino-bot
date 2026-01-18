@@ -5036,10 +5036,10 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 # Bot rolls
                 b_tot = 0
                 for _ in range(challenge['rolls']):
-                    await asyncio.sleep(2)
                     d = await context.bot.send_dice(chat_id=chat_id, emoji=emoji)
                     b_tot += (1 if d.dice.value >= 4 else 0) if emoji in ["⚽", "🏀"] else d.dice.value
-                    await asyncio.sleep(4)
+                
+                await asyncio.sleep(4)
                 
                 # Re-load challenge for safety
                 self.pending_pvp = self.db.data.get('pending_pvp', {})
