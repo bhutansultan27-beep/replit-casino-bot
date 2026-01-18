@@ -29,7 +29,7 @@ class User(Base):
     referral_count: Mapped[int] = mapped_column(Integer, default=0)
     referral_earnings: Mapped[float] = mapped_column(Float, default=0.0)
     unclaimed_referral_earnings: Mapped[float] = mapped_column(Float, default=0.0)
-    achievements: Mapped[list] = mapped_column(JSON, default=list)
+    achievements: Mapped[dict] = mapped_column(JSON, default=dict)
 
 class Game(Base):
     __tablename__ = "games"

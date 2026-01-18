@@ -38,6 +38,11 @@ class DatabaseManager:
             # Use SQLite for local development
             database_url = "sqlite:///casino_bot.db"
             logger.info("No DATABASE_URL found, using SQLite database: casino_bot.db")
+        
+        # SQLAlchemy 2.0+ requires postgresql:// instead of postgres://
+        if database_url.startswith("postgres://"):
+            database_url = database_url.replace("postgres://", "postgresql://", 1)
+            
         self.app.config["SQLALCHEMY_DATABASE_URI"] = database_url
         # Only use pool options for PostgreSQL (not SQLite)
         if database_url.startswith("postgresql"):
@@ -172,7 +177,15 @@ class AntariaCasinoBot:
                 logger.error("Invalid ADMIN_IDS format. Use comma-separated numbers.")
         
         # Initialize bot application
-        token = os.environ.get("TELEGRAM_TOKEN")
+        if not token:
+            token = os.environ.get("TELEGRAM_BOT_TOKEN") or os.environ.get("TELEGRAM_TOKEN")
+        
+        if token:
+            token = token.strip()
+            
+        if not token or token == "YOUR_BOT_TOKEN_HERE":
+            raise ValueError("Invalid or missing Telegram Bot Token")
+            
         self.app = Application.builder().token(token).build()
         self.app.bot_data['casino_bot'] = self # Store reference for access from handlers if needed
         # Add job queue check
