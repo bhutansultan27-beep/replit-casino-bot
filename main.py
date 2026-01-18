@@ -809,7 +809,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         xmr_price = 625.0
         xmr_balance = house_balance / xmr_price
         
-        housebal_text = f"💰 Available house balance: <b>${house_balance:,.2f}</b> ({xmr_balance:,.2f} XMR)"
+        housebal_text = f"💰 Available house balance <b>${house_balance:,.2f}</b> ({xmr_balance:,.2f} XMR)"
         
         await update.message.reply_text(
             housebal_text, 
