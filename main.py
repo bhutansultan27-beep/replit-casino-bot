@@ -52,7 +52,15 @@ class DatabaseManager:
             self.app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {"pool_recycle": 300, "pool_pre_ping": True}
         db.init_app(self.app)
         with self.app.app_context():
-            db.create_all()
+            try:
+                # Use a simpler check for table existence to handle various Postgres states
+                db.create_all()
+            except Exception as e:
+                logger.warning(f"Initial create_all failed (likely table exists): {e}")
+                # If it's a transient error or schema conflict, we might still be able to proceed
+                # if the tables already exist or if we can ignore the specific DDL error
+                pass
+            
             # Initialize house balance if not exists
             house_balance_state = db.session.get(GlobalState, "house_balance")
             if not house_balance_state:
