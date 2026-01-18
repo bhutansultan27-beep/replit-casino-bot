@@ -1,9 +1,10 @@
-modules = ["python-3.11", "postgresql-16"]
+modules = ["python-3.11"]
 [agent]
 expertMode = true
 
 [nix]
 channel = "stable-25_05"
+packages = ["openssl", "postgresql"]
 
 [workflows]
 runButton = "Project"
@@ -27,3 +28,11 @@ args = "python main.py"
 
 [workflows.workflow.metadata]
 outputType = "console"
+
+[deployment]
+deploymentTarget = "autoscale"
+run = ["gunicorn", "--bind", "0.0.0.0:5000", "main:app"]
+
+[[ports]]
+localPort = 5000
+externalPort = 80
