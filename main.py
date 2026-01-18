@@ -1263,7 +1263,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         mode_val = params.get("mode") if params else "normal"
         opponent_val = params.get("opponent", "bot") if params else "bot"
         
-        start_callback = f"v2_pvp_accept_confirm_{game_mode}_{wager:.2f}_{rolls_val}_{mode_val}_{pts_val}" if (opponent_val == "player" and not is_private) else f"emoji_setup_{game_mode}_{wager:.2f}_start_game_{pts_val}_{rolls_val}_{mode_val}"
+        start_callback = f"v2_pvp_create_{game_mode}_{wager:.2f}_{rolls_val}_{mode_val}_{pts_val}" if (opponent_val == "player" and not is_private) else f"emoji_setup_{game_mode}_{wager:.2f}_start_game_{pts_val}_{rolls_val}_{mode_val}"
         
         if step == "final":
             back_btn = InlineKeyboardButton("⬅️ Back", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_points_{params.get('rolls', 1)}_{params.get('mode', 'normal')}")
@@ -4377,6 +4377,48 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             except Exception as inner_e:
                 logger.error(f"Fallback edit also failed: {inner_e}")
 
+    async def start_generic_v2_pvp(self, update: Update, context: ContextTypes.DEFAULT_TYPE, game: str, wager: float, rolls: int, mode: str, pts: int):
+        """Create a new PvP challenge in the group"""
+        user_id = update.effective_user.id
+        user_data = self.db.get_user(user_id)
+        
+        if wager > user_data['balance']:
+            await update.effective_message.reply_text(f"❌ Insufficient balance! (${user_data['balance']:.2f})")
+            return
+
+        # Deduct wager immediately to lock it
+        self.db.update_user(user_id, {'balance': user_data['balance'] - wager})
+        
+        cid = f"v2_{user_id}_{int(time.time())}"
+        emoji = self.game_emojis.get(game, "🎲")
+        
+        challenge = {
+            'challenger': user_id,
+            'game': game,
+            'wager': wager,
+            'rolls': rolls,
+            'mode': mode,
+            'pts': pts,
+            'emoji': emoji,
+            'status': 'pending',
+            'created_at': time.time(),
+            'p1_rolls': [],
+            'p2_rolls': [],
+            'p1_pts': 0,
+            'p2_pts': 0
+        }
+        
+        self.pending_pvp[cid] = challenge
+        self.db.update_pending_pvp(self.pending_pvp)
+        
+        keyboard = [[InlineKeyboardButton("Join Challenge", callback_data=f"v2_pvp_accept_confirm_{game}_{wager:.2f}_{rolls}_{mode}_{pts}_{cid}")]]
+        msg_text = f"{emoji} **{game.capitalize()} PvP**\nChallenger: @{user_data.get('username', 'User')}\nWager: ${wager:.2f}\nMode: {mode.capitalize()}\nTarget: {pts}\n\nClick below to join!"
+        
+        if update.callback_query:
+            await update.callback_query.edit_message_text(text=msg_text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+        else:
+            await update.message.reply_text(text=msg_text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+
     async def accept_generic_v2_pvp(self, update: Update, context: ContextTypes.DEFAULT_TYPE, cid: str):
         query = update.callback_query
         user_id = query.from_user.id
@@ -4694,12 +4736,21 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         data = query.data
         # Format: v2_pvp_accept_confirm_{game}_{wager}_{rolls}_{mode}_{pts}_{challenge_id}
         parts = data.split("_")
-        game = parts[4]
-        wager = float(parts[5])
-        rolls = int(parts[6])
-        mode = parts[7]
-        pts = int(parts[8])
-        cid = parts[9]
+        if len(parts) >= 10:
+            game = parts[4]
+            wager = float(parts[5])
+            rolls = int(parts[6])
+            mode = parts[7]
+            pts = int(parts[8])
+            cid = parts[9]
+        else:
+            # Fallback for shorter format if needed
+            game = parts[4]
+            wager = float(parts[5])
+            rolls = int(parts[6])
+            mode = parts[7]
+            pts = int(parts[8])
+            cid = "unknown"
         
         user_id = query.from_user.id
         user_data = self.db.get_user(user_id)
@@ -4743,6 +4794,12 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         button_key = (chat_id, message_id, data)
         if button_key in self.clicked_buttons:
             await query.answer("❌ This button has already been used!", show_alert=True)
+            return
+
+        if data.startswith("v2_pvp_create_"):
+            parts = data.split("_")
+            game, wager, rolls, mode, pts = parts[3], float(parts[4]), int(parts[5]), parts[6], int(parts[7])
+            await self.start_generic_v2_pvp(update, context, game, wager, rolls, mode, pts)
             return
 
         if data.startswith("v2_pvp_accept_confirm_"):
