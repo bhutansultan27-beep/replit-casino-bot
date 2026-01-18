@@ -5027,8 +5027,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     val = msg.dice.value
                     score = (1 if val >= 4 else 0) if emoji in ["⚽", "🏀"] else val
                     challenge['p_rolls'].append(score)
-                    if num_rolls > 1:
-                        await asyncio.sleep(4)
+                
+                await asyncio.sleep(4)
                 
                 p_tot = sum(challenge['p_rolls'])
                 await context.bot.send_message(chat_id=chat_id, text=f"<b>Rukia</b>, your turn!", parse_mode="HTML")
