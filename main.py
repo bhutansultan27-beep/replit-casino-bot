@@ -1961,7 +1961,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         user_id = update.effective_user.id
         
         if len(context.args) < 2:
-            await update.message.reply_text("Usage: `/predict <amount|all> #<number1>,#<number2>...`\nExample: `/predict 5 #1,#3,#6`", parse_mode="HTML")
+            await update.message.reply_text("Usage: `/predict amount #number1,#number2...`\nExample: `/predict 5 #1,#3,#6`", parse_mode="Markdown")
             return
         
         wager = 0.0
@@ -5073,6 +5073,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 emoji = challenge['emoji']
                 # Send emojis for user based on number of rolls
                 num_rolls = challenge.get('rolls', 1)
+                pts = challenge.get('pts', 1) # Added pts definition from challenge
                 for _ in range(num_rolls):
                     msg = await context.bot.send_dice(chat_id=chat_id, emoji=emoji)
                     val = msg.dice.value
