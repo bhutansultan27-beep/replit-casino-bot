@@ -1214,8 +1214,20 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             InlineKeyboardButton("➡️", callback_data=get_nav_callback(next_game))
         ])
             
-        # Cancel button instead of back
-        keyboard.append([InlineKeyboardButton("❌ Cancel", callback_data=f"setup_cancel_roll")])
+        # Back button
+        back_button = None
+        if step == "mode":
+            back_button = None # Removed back button
+        elif step == "rolls":
+            back_button = InlineKeyboardButton("⬅️ Back", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_mode")
+        elif step == "points":
+            back_button = InlineKeyboardButton("⬅️ Back", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_rolls_{params.get('mode', 'normal')}")
+        
+        if back_button:
+            keyboard.append([back_button])
+        elif step != "final":
+            # Add cancel button only if there is no back button and not on the final step
+            keyboard.append([InlineKeyboardButton("❌ Cancel", callback_data=f"setup_cancel_roll")])
 
         if step == "final":
             mode = params.get("mode")
@@ -1255,8 +1267,9 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         start_callback = f"v2_pvp_create_{game_mode}_{wager:.2f}_{rolls_val}_{mode_val}_{pts_val}" if (opponent_val == "player" and not is_private) else f"emoji_setup_{game_mode}_{wager:.2f}_start_game_{pts_val}_{rolls_val}_{mode_val}"
         
         if step == "final":
+            back_btn = InlineKeyboardButton("⬅️ Back", callback_data=f"emoji_setup_{game_mode}_{wager:.2f}_points_{params.get('rolls', 1)}_{params.get('mode', 'normal')}")
             keyboard.append([
-                InlineKeyboardButton("❌ Cancel", callback_data=f"setup_cancel_roll"),
+                back_btn,
                 InlineKeyboardButton("🚀 START GAME 🚀", callback_data=start_callback)
             ])
         
