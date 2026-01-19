@@ -1601,7 +1601,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             selections = {str(selections)} if selections != "None" else set()
             
         selection_list = sorted(list(selections))
-        selection_text = f"Selected: <b>{', '.join([s.capitalize() for p in selection_list])}</b>" if selections else "Selected: <b>None</b>"
+        selection_text = f"Selected: <b>{', '.join([s.capitalize() for s in selection_list])}</b>" if selections else "Selected: <b>None</b>"
         
         if selections:
             multiplier = round(6.0 / len(selections), 2)
