@@ -5869,8 +5869,9 @@ To withdraw, use:
             else:
                 await query.edit_message_text("Something went wrong or this button is for a different command!")
         except Exception as e:
+            import traceback
             error_str = str(e)
-            logger.error(f"Error in button_callback: {error_str}")
+            logger.error(f"Error in button_callback: {error_str}\n{traceback.format_exc()}")
             # Don't send error message for known non-critical issues or if message was already handled
             if "Minimum bet" in error_str or "query is answered" in error_str or "Message is not modified" in error_str:
                 try:
@@ -5879,7 +5880,7 @@ To withdraw, use:
                     pass
                 return
             try:
-                await context.bot.send_message(chat_id=query.message.chat_id, text="An unexpected error occurred. Please try the command again.")
+                await context.bot.send_message(chat_id=query.message.chat_id, text=f"An unexpected error occurred: {error_str}. Please try again.")
             except:
                 pass
 
@@ -5925,6 +5926,9 @@ async def main():
     
     logger.info("Starting Antaria Casino Bot...")
     bot = AntariaCasinoBot(token=BOT_TOKEN)
+    
+    # Ensure no other instances are running by deleting webhook
+    await bot.app.bot.delete_webhook(drop_pending_updates=True)
     
     # Set bot commands for the menu
     from telegram import BotCommand
