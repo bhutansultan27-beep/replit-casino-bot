@@ -5106,6 +5106,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                             logger.error(f"Error removing setup buttons: {e}")
 
                         # Start the game
+                        # Ensure user_id is passed correctly to registration
                         await self.start_generic_v2_bot(update, context, g_mode, wager, rolls, mode, pts)
                         return
                 
