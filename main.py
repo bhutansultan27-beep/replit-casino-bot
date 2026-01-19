@@ -1964,12 +1964,13 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             [InlineKeyboardButton("Normal", callback_data=f"setup_mode_normal_{game_name}_{wager:.2f}"),
              InlineKeyboardButton("Crazy", callback_data=f"setup_mode_crazy_{game_name}_{wager:.2f}")]
         ]
-        await update.message.reply_text(
+        sent_msg = await update.message.reply_text(
             f"{emoji} **{game_name.capitalize()} Game**\n\nWager: ${wager:.2f}\n\nChoose Mode:",
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode="Markdown"
         )
-    
+        self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
+
     async def dr_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Shortcut to show the 🎱 Predict menu"""
         if await self.check_balance_and_delete(update, context) or await self.check_active_game_and_delete(update, context):
@@ -2370,9 +2371,13 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         
         # Send or edit message
         if update.callback_query:
-            await update.callback_query.edit_message_text(message, reply_markup=reply_markup, parse_mode="Markdown")
+            sent_msg = await update.callback_query.edit_message_text(message, reply_markup=reply_markup, parse_mode="Markdown")
+            if not state['game_over']:
+                self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
         else:
-            await update.message.reply_text(message, reply_markup=reply_markup, parse_mode="Markdown")
+            sent_msg = await update.message.reply_text(message, reply_markup=reply_markup, parse_mode="Markdown")
+            if not state['game_over']:
+                self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
             
             # Record game
             self.db.record_game({
@@ -2380,14 +2385,9 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 'user_id': user_id,
                 'username': user_data.get('username', 'Unknown'),
                 'wager': sum(h['bet'] for h in state['player_hands']),
-                'payout': total_payout,
-                'result': 'win' if total_payout > 0 else ('loss' if total_payout < 0 else 'push')
+                'payout': total_payout if state['game_over'] else 0,
+                'result': ('win' if total_payout > 0 else ('loss' if total_payout < 0 else 'push')) if state['game_over'] else 'pending'
             })
-            
-            # Remove session
-            del self.blackjack_sessions[user_id]
-            
-            await update.effective_message.reply_text(message, parse_mode="Markdown")
             return
         
         # Build action buttons for current hand
@@ -3923,7 +3923,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             
-            await context.bot.send_message(chat_id=chat_id, text=result_text, reply_markup=reply_markup, parse_mode="Markdown")
+            sent_msg = await context.bot.send_message(chat_id=chat_id, text=result_text, reply_markup=reply_markup, parse_mode="Markdown")
+            self.button_ownership[(chat_id, sent_msg.message_id)] = user_id
             return
         
         # Handle Win/Loss
@@ -3960,13 +3961,14 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await context.bot.send_message(
+        sent_msg = await context.bot.send_message(
             chat_id=chat_id, 
             text=final_text, 
             reply_markup=reply_markup, 
             parse_mode="HTML",
             reply_to_message_id=update.effective_message.message_id
         )
+        self.button_ownership[(chat_id, sent_msg.message_id)] = user_id
 
     async def resolve_bot_vs_player_game(self, update: Update, context: ContextTypes.DEFAULT_TYPE, challenge: Dict, challenge_id: str, player_roll: int):
         """Resolve a bot vs player game"""
@@ -4046,13 +4048,14 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await context.bot.send_message(
+        sent_msg = await context.bot.send_message(
             chat_id=chat_id, 
             text=result_text, 
             reply_markup=reply_markup, 
             parse_mode="HTML",
             reply_to_message_id=update.effective_message.message_id if update.effective_message else None
         )
+        self.button_ownership[(chat_id, sent_msg.message_id)] = user_id
 
     async def coinflip_vs_bot(self, update: Update, context: ContextTypes.DEFAULT_TYPE, wager: float, choice: str):
         """Play coinflip against the bot (called from button)"""
@@ -4415,9 +4418,11 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         msg_text = f"{emoji} **{game.capitalize()} PvP**\nChallenger: @{user_data.get('username', 'User')}\nWager: ${wager:.2f}\nMode: {mode.capitalize()}\nTarget: {pts}\n\nClick below to join!"
         
         if update.callback_query:
-            await update.callback_query.edit_message_text(text=msg_text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+            sent_msg = await update.callback_query.edit_message_text(text=msg_text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
         else:
-            await update.message.reply_text(text=msg_text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+            sent_msg = await update.message.reply_text(text=msg_text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+        
+        self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
 
     async def accept_generic_v2_pvp(self, update: Update, context: ContextTypes.DEFAULT_TYPE, cid: str):
         query = update.callback_query
@@ -4774,7 +4779,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             [InlineKeyboardButton("⬅️ Back", callback_data=f"v2_pvp_back_{cid}")]
         ]
         
-        await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="HTML")
+        sent_msg = await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="HTML")
+        self.button_ownership[(chat_id, sent_msg.message_id)] = user_id
 
     async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handles all inline button presses."""
@@ -4823,7 +4829,9 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
             
             keyboard = [[InlineKeyboardButton("Join Challenge", callback_data=f"v2_pvp_accept_confirm_{game}_{wager:.2f}_{challenge['rolls']}_{mode}_{pts}_{cid}")]]
             msg_text = f"{emoji} **{game.capitalize()} PvP**\nChallenger: @{challenger_data.get('username', 'User')}\nWager: ${wager:.2f}\nMode: {mode.capitalize()}\nTarget: {pts}\n\nClick below to join!"
-            await query.edit_message_text(text=msg_text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+            sent_msg = await query.edit_message_text(text=msg_text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+            # Public button, no ownership required but we track it if needed
+            # self.button_ownership[(chat_id, sent_msg.message_id)] = user_id 
             return
         
         # Check button ownership
@@ -4944,7 +4952,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     challenge['p_rolls'] = []
                     # Re-show roll button
                     kb = [[InlineKeyboardButton("✅ Roll again", callback_data=f"v2_send_emoji_{cid}")]]
-                    await context.bot.send_message(chat_id=chat_id, text=f"<b>{p1_name}</b>, your turn! {emoji}", reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+                    sent_msg = await context.bot.send_message(chat_id=chat_id, text=f"<b>{p1_name}</b>, your turn! {emoji}", reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+                    self.button_ownership[(chat_id, sent_msg.message_id)] = user_id
                     self.db.update_pending_pvp(self.pending_pvp)
                     return
                 
@@ -4969,7 +4978,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                         )
                         kb = [[InlineKeyboardButton("🔄 Play Again", callback_data=f"v2_bot_{challenge['game']}_{w:.2f}_{challenge['rolls']}_{challenge['mode']}_{target_pts}"),
                                InlineKeyboardButton("🔄 Double", callback_data=f"v2_bot_{challenge['game']}_{w*2:.2f}_{challenge['rolls']}_{challenge['mode']}_{target_pts}")]]
-                        await context.bot.send_message(chat_id=chat_id, text=win_text, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+                        sent_msg = await context.bot.send_message(chat_id=chat_id, text=win_text, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+                        self.button_ownership[(chat_id, sent_msg.message_id)] = user_id
                     else:
                         self.db.update_house_balance(w)
                         u = self.db.get_user(user_id)
@@ -4983,7 +4993,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                         )
                         kb = [[InlineKeyboardButton("🔄 Play Again", callback_data=f"v2_bot_{challenge['game']}_{w:.2f}_{challenge['rolls']}_{challenge['mode']}_{target_pts}"),
                                InlineKeyboardButton("🔄 Double", callback_data=f"v2_bot_{challenge['game']}_{w*2:.2f}_{challenge['rolls']}_{challenge['mode']}_{target_pts}")]]
-                        await context.bot.send_message(chat_id=chat_id, text=loss_text, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+                        sent_msg = await context.bot.send_message(chat_id=chat_id, text=loss_text, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+                        self.button_ownership[(chat_id, sent_msg.message_id)] = user_id
                     
                     del self.pending_pvp[cid]
                 else:
@@ -5003,7 +5014,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                         [InlineKeyboardButton("✅ Send emoji", callback_data=f"v2_send_emoji_{cid}")],
                         [InlineKeyboardButton(f"💰 Cashout ${cashout_val:.2f} ({cashout_multiplier}x)", callback_data=f"v2_cashout_{cid}")]
                     ]
-                    await context.bot.send_message(chat_id=chat_id, text=text, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+                    sent_msg = await context.bot.send_message(chat_id=chat_id, text=text, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+                    self.button_ownership[(chat_id, sent_msg.message_id)] = user_id
                 
                 self.db.update_pending_pvp(self.pending_pvp)
                 return
@@ -5319,7 +5331,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                         [InlineKeyboardButton("Normal", callback_data=f"setup_mode_normal_{game}_{wager:.2f}"),
                          InlineKeyboardButton("Crazy", callback_data=f"setup_mode_crazy_{game}_{wager:.2f}")]
                     ]
-                    await query.edit_message_text(f"**{game.capitalize()}**\nWager: ${wager:.2f}\n\nChoose Game Mode:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+                    sent_msg = await query.edit_message_text(f"**{game.capitalize()}**\nWager: ${wager:.2f}\n\nChoose Game Mode:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+                    self.button_ownership[(chat_id, sent_msg.message_id)] = user_id
 
             # Generic setup handlers
             elif data.startswith("setup_mode_normal_"):
@@ -5330,7 +5343,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                         [InlineKeyboardButton("1", callback_data=f"setup_pts_{game}_{wager:.2f}_normal_1")],
                         [InlineKeyboardButton("2", callback_data=f"setup_pts_{game}_{wager:.2f}_normal_2")]
                     ]
-                    await query.edit_message_text(f"**{game.capitalize()}**\nWager: ${wager:.2f}\nMode: Normal\n\nHow many rolls per round?", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+                    sent_msg = await query.edit_message_text(f"**{game.capitalize()}**\nWager: ${wager:.2f}\nMode: Normal\n\nHow many rolls per round?", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+                    self.button_ownership[(chat_id, sent_msg.message_id)] = user_id
 
             elif data.startswith("setup_mode_crazy_"):
                 parts = data.split('_')
@@ -5340,7 +5354,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                         [InlineKeyboardButton("1", callback_data=f"setup_pts_{game}_{wager:.2f}_crazy_1")],
                         [InlineKeyboardButton("2", callback_data=f"setup_pts_{game}_{wager:.2f}_crazy_2")]
                     ]
-                    await query.edit_message_text(f"**{game.capitalize()}**\nWager: ${wager:.2f}\nMode: Crazy\n\nHow many rolls per round?", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+                    sent_msg = await query.edit_message_text(f"**{game.capitalize()}**\nWager: ${wager:.2f}\nMode: Crazy\n\nHow many rolls per round?", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+                    self.button_ownership[(chat_id, sent_msg.message_id)] = user_id
 
             elif data.startswith("setup_rolls_"):
                 parts = data.split('_')
@@ -5350,7 +5365,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                         [InlineKeyboardButton("1", callback_data=f"setup_pts_{game}_{wager:.2f}_{mode}_1")],
                         [InlineKeyboardButton("2", callback_data=f"setup_pts_{game}_{wager:.2f}_{mode}_2")]
                     ]
-                    await query.edit_message_text(f"**{game.capitalize()}**\nWager: ${wager:.2f}\nMode: {mode}\n\nHow many rolls per round?", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+                    sent_msg = await query.edit_message_text(f"**{game.capitalize()}**\nWager: ${wager:.2f}\nMode: {mode}\n\nHow many rolls per round?", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+                    self.button_ownership[(chat_id, sent_msg.message_id)] = user_id
 
             elif data.startswith("setup_pts_"):
                 parts = data.split('_')
@@ -5361,7 +5377,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                         [InlineKeyboardButton("2", callback_data=f"setup_opp_{game}_{wager:.2f}_{mode}_{rolls}_2")],
                         [InlineKeyboardButton("3", callback_data=f"setup_opp_{game}_{wager:.2f}_{mode}_{rolls}_3")]
                     ]
-                    await query.edit_message_text(f"**{game.capitalize()}**\nWager: ${wager:.2f}\nMode: {mode}\nRolls: {rolls}\n\nChoose Target Score:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+                    sent_msg = await query.edit_message_text(f"**{game.capitalize()}**\nWager: ${wager:.2f}\nMode: {mode}\nRolls: {rolls}\n\nChoose Target Score:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+                    self.button_ownership[(chat_id, sent_msg.message_id)] = user_id
 
             elif data.startswith("setup_opp_"):
                 parts = data.split('_')
@@ -5371,7 +5388,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                         [InlineKeyboardButton("🤖 Play vs Bot", callback_data=f"v2_bot_{game}_{wager:.2f}_{rolls}_{mode}_{pts}")],
                         [InlineKeyboardButton("👥 Create PvP", callback_data=f"v2_pvp_{game}_{wager:.2f}_{rolls}_{mode}_{pts}")]
                     ]
-                    await query.edit_message_text(f"**{game.capitalize()}** Ready!\n\nWager: ${wager:.2f}\nMode: {mode}\nRolls: {rolls}\nTarget: {pts}\n\nChoose Opponent:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+                    sent_msg = await query.edit_message_text(f"**{game.capitalize()}** Ready!\n\nWager: ${wager:.2f}\nMode: {mode}\nRolls: {rolls}\nTarget: {pts}\n\nChoose Opponent:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+                    self.button_ownership[(chat_id, sent_msg.message_id)] = user_id
 
             if data.startswith("v2_bot_") or data.startswith("dice_bot_") or data.startswith("basketball_bot_") or data.startswith("soccer_bot_") or data.startswith("darts_bot_") or data.startswith("bowling_bot_"):
                 parts = data.split('_')
@@ -5503,7 +5521,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     [InlineKeyboardButton("Odd (2x)", callback_data=f"roulette_{wager:.2f}_odd"),
                      InlineKeyboardButton("Even (2x)", callback_data=f"roulette_{wager:.2f}_even")]
                 ]
-                await query.edit_message_text(f"🎡 **Roulette**\nWager: ${wager:.2f}\n\nChoose your bet:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+                sent_msg = await query.edit_message_text(f"🎡 **Roulette**\nWager: ${wager:.2f}\n\nChoose your bet:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+                self.button_ownership[(chat_id, sent_msg.message_id)] = user_id
 
             # Game Callbacks (Darts PvP)
             elif data.startswith("darts_player_open_"):
