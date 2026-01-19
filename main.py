@@ -4838,8 +4838,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         public_buttons = ["v2_accept_", "lb_page_", "match_page_", "transactions_history", "deposit_mock", "withdraw_mock"]
         is_public = any(data.startswith(prefix) for prefix in public_buttons)
         
-        Ownership: ensure ALL interactive buttons (Blackjack, Roulette, Games, Menus) are registered in `self.button_ownership`.
-        This prevents users from interacting with someone else's game.
+        # Ownership: ensure ALL interactive buttons (Blackjack, Roulette, Games, Menus) are registered in `self.button_ownership`.
+        # This prevents users from interacting with someone else's game.
         
         # 1. Register ownership for all sent messages with InlineKeyboardMarkup
         # 2. Check ownership in button_callback for all non-public buttons
