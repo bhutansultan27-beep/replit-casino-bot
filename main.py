@@ -1615,6 +1615,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         text = (
             f"{current_emoji} <b>{game_mode.replace('_', ' ').capitalize()} Prediction</b>\n\n"
             f"Your balance <b>${user_data['balance']:,.2f}</b>\n"
+            f"Bet: <b>${wager:,.2f}</b>\n"
             f"{multiplier_text}\n\n"
             f"Make your prediction:"
         )
