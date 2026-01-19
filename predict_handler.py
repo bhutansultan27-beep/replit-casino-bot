@@ -119,7 +119,12 @@ async def handle_predict(bot_instance, update: Update, context: ContextTypes.DEF
             'timestamp': datetime.now().isoformat()
         })
         
-        keyboard = [[InlineKeyboardButton("Play Again", callback_data=f"setup_mode_predict_{wager:.2f}_{game_mode}")]]
+        keyboard = [
+            [
+                InlineKeyboardButton("🔄 Play Again", callback_data=f"setup_mode_predict_{wager:.2f}_{game_mode}"),
+                InlineKeyboardButton("🔄 Double", callback_data=f"setup_mode_predict_{wager*2:.2f}_{game_mode}")
+            ]
+        ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         await context.bot.send_message(
