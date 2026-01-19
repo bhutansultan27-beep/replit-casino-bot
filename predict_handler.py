@@ -49,6 +49,7 @@ async def handle_predict(bot_instance, update: Update, context: ContextTypes.DEF
             return
         
         user_data = bot_instance.db.get_user(user_id)
+        user_display_name = user_data.get('username', f'User{user_id}')
         if wager > user_data['balance']:
             await query.answer(f"❌ Balance: ${user_data['balance']:,.2f}", show_alert=True)
             return
@@ -83,17 +84,24 @@ async def handle_predict(bot_instance, update: Update, context: ContextTypes.DEF
             else: actual_outcome = "miss"
             is_win = actual_outcome in selections
 
+        user_display = f"<b>{user_display_name}</b>"
         if is_win:
             payout = wager * multiplier
             profit = payout - wager
             user_data['balance'] += payout
             user_data['games_won'] += 1
-            user_display = f"<b>{user_data.get('username', f'User{user_id}')}</b>"
-            result_text = f"🎉 {user_display} won <b>${profit:,.2f}</b>! ({multiplier}x)"
+            
+            result_text = (
+                f"🏆 <b>Game over!</b>\n\n"
+                f"🎉 Congratulations, {user_display}! You won <b>${profit:,.2f}</b>!"
+            )
             bot_instance.db.update_house_balance(-profit)
         else:
             profit = -wager
-            result_text = f"❌ <a href=\"tg://user?id=8575155625\">emojigamblebot</a> won <b>${wager:,.2f}</b>"
+            result_text = (
+                f"💀 <b>Game over!</b>\n\n"
+                f"❌ <a href=\"tg://user?id=8575155625\">emojigamblebot</a> won <b>${wager:,.2f}</b>"
+            )
             bot_instance.db.update_house_balance(wager)
         
         user_data['total_wagered'] += wager
