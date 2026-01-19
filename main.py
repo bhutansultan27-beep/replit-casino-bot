@@ -1277,20 +1277,18 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         
         if update.callback_query:
             sent_msg = await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode="HTML")
-            # Store message ID if this is a bot game so we can track replies
-            if opponent_val == "bot":
-                # Find the challenge and update it
-                for cid, challenge in self.pending_pvp.items():
-                    if cid.startswith("v2_bot_") and challenge.get('player') == update.effective_user.id:
-                         challenge['msg_id'] = sent_msg.message_id
-                         break
         else:
-            sent_msg = await update.message.reply_text(text, reply_markup=reply_markup, parse_mode="HTML")
-            if opponent_val == "bot":
-                for cid, challenge in self.pending_pvp.items():
-                    if cid.startswith("v2_bot_") and challenge.get('player') == update.effective_user.id:
-                         challenge['msg_id'] = sent_msg.message_id
-                         break
+            sent_msg = await update.effective_message.reply_text(text, reply_markup=reply_markup, parse_mode="HTML", reply_to_message_id=update.effective_message.message_id)
+        
+        self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
+        
+        # Store message ID if this is a bot game so we can track replies
+        if opponent_val == "bot":
+            # Find the challenge and update it
+            for cid, challenge in self.pending_pvp.items():
+                if cid.startswith("v2_bot_") and challenge.get('player') == update.effective_user.id:
+                    challenge['msg_id'] = sent_msg.message_id
+                    break
         
         self.db.update_pending_pvp(self.pending_pvp)
 
