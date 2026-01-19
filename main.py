@@ -1661,12 +1661,12 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         ])
         
         reply_markup = InlineKeyboardMarkup(keyboard)
-        if hasattr(update, 'callback_query') and update.callback_query:
+        if update.callback_query:
             sent_msg = await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode="HTML")
+            self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
         else:
-            sent_msg = await update.message.reply_text(text, reply_markup=reply_markup, parse_mode="HTML")
-        
-        self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
+            sent_msg = await update.effective_message.reply_text(text, reply_markup=reply_markup, parse_mode="HTML", reply_to_message_id=update.effective_message.message_id)
+            self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
     
     async def darts_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play darts game setup"""
