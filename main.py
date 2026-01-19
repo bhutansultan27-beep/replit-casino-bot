@@ -5104,6 +5104,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                         
                         # Remove buttons instead of deleting message
                         try:
+                            # Update message to "Game started..." but keep details if possible
+                            # For now, just removing reply markup as requested for speed
                             await query.edit_message_reply_markup(reply_markup=None)
                         except Exception as e:
                             logger.error(f"Error removing setup buttons: {e}")
