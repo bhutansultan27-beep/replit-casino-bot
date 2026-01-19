@@ -959,12 +959,13 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 parse_mode="Markdown"
             )
         else:
-            await self.send_with_buttons(
-                update.effective_chat.id,
+            sent_msg = await update.effective_message.reply_text(
                 f"💰 **Bet: ${amount:.2f}**\nSelect a game to play:",
-                reply_markup,
-                user_id
+                reply_markup=reply_markup,
+                parse_mode="Markdown",
+                reply_to_message_id=update.effective_message.message_id
             )
+            self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
 
     def _get_next_game_mode(self, current: str) -> str:
         modes = ["dice", "basketball", "soccer", "darts", "bowling", "coinflip"]
@@ -1425,7 +1426,8 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         if update.callback_query:
-            await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode="HTML")
+            sent_msg = await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode="HTML")
+            self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
         else:
             # Always reply to the command message
             sent_msg = await update.message.reply_text(
@@ -1800,12 +1802,13 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
                 parse_mode="Markdown"
             )
         else:
-            await self.send_with_buttons(
-                update.effective_chat.id,
+            sent_msg = await update.effective_message.reply_text(
                 f"💰 **Bet: ${amount:.2f}**\nSelect a game to play:",
-                reply_markup,
-                user_id
+                reply_markup=reply_markup,
+                parse_mode="Markdown",
+                reply_to_message_id=update.effective_message.message_id
             )
+            self.button_ownership[(sent_msg.chat_id, sent_msg.message_id)] = user_id
 
     async def dice_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Play dice game setup"""
@@ -4845,8 +4848,13 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
         # 2. Check ownership in button_callback for all non-public buttons
         
         ownership_key = (chat_id, message_id)
+        
+        # DEBUG LOGGING (optional, but good for tracking)
+        # logger.debug(f"Button Callback: user={user_id}, msg={message_id}, chat={chat_id}, data={data}, owner={self.button_ownership.get(ownership_key)}")
+
         if not is_public and ownership_key in self.button_ownership:
-            if self.button_ownership[ownership_key] != user_id:
+            owner_id = self.button_ownership[ownership_key]
+            if owner_id != user_id:
                 await query.answer("❌ This button is not for you!", show_alert=True)
                 return
         
