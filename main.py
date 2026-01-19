@@ -5121,9 +5121,9 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                             # Update message to include "Send your emoji" and the button
                             emoji = self.emoji_map.get(g_mode, "🎲")
                             # Use bold tags for user name as before, but ensure formatting is preserved
-                            # Adding invisible characters to maintain message width/size
+                            # Adding multiple lines of invisible characters to force message width
                             invisible_padding = "󠁔󠁨󠁩󠁳󠀠󠁴󠁥󠁸󠁴󠀠󠁳󠁨󠁡󠁬󠁬󠀠󠁢󠁥󠁣󠁯󠁭󠁥󠀠󠁩󠁮󠁶󠁩󠁳󠁩󠁢󠁬󠁥󠀡󠁔󠁨󠁩󠁳󠀠󠁴󠁥󠁸󠁴󠀠󠁳󠁨󠁡󠁬󠁬󠀠󠁢󠁥󠁣󠁯󠁭󠁥󠀠󠁩󠁮󠁶󠁩󠁳󠁩󠁢󠁬󠁥󠀡󠁔󠁨󠁩󠁳󠀠󠁴󠁥󠁸󠁴󠀠󠁳󠁨󠁡󠁬󠁬󠀠󠁢󠁥󠁣󠁯󠁭󠁥󠀠󠁩󠁮󠁶󠁩󠁳󠁩󠁢󠁬󠁥󠀡󠁔󠁨󠁩󠁳󠀠󠁴󠁥󠁸󠁴󠀠󠁳󠁨󠁡󠁬󠁬󠀠󠁢󠁥󠁣󠁯󠁭󠁥󠀠󠁩󠁮󠁶󠁩󠁳󠁩󠁢󠁬󠁥󠀡"
-                            new_text = query.message.text_html + f"\n\n<b>{query.from_user.first_name}</b>, your turn! {emoji}{invisible_padding}"
+                            new_text = query.message.text_html + f"\n\n<b>{query.from_user.first_name}</b>, your turn! {emoji}\n{invisible_padding}\n{invisible_padding}"
                             kb = [[
                                 InlineKeyboardButton("❌ Cancel", callback_data="setup_cancel"),
                                 InlineKeyboardButton("✅ Send emoji", callback_data=f"v2_send_emoji_bot_{g_mode}_{wager:.2f}_{rolls}_{mode}_{pts}")
@@ -5154,7 +5154,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                         try:
                             emoji = self.emoji_map.get(g_mode, "🎲")
                             invisible_padding = "󠁔󠁨󠁩󠁳󠀠󠁴󠁥󠁸󠁴󠀠󠁳󠁨󠁡󠁬󠁬󠀠󠁢󠁥󠁣󠁯󠁭󠁥󠀠󠁩󠁮󠁶󠁩󠁳󠁩󠁢󠁬󠁥󠀡󠁔󠁨󠁩󠁳󠀠󠁴󠁥󠁸󠁴󠀠󠁳󠁨󠁡󠁬󠁬󠀠󠁢󠁥󠁣󠁯󠁭󠁥󠀠󠁩󠁮󠁶󠁩󠁳󠁩󠁢󠁬󠁥󠀡󠁔󠁨󠁩󠁳󠀠󠁴󠁥󠁸󠁴󠀠󠁳󠁨󠁡󠁬󠁬󠀠󠁢󠁥󠁣󠁯󠁭󠁥󠀠󠁩󠁮󠁶󠁩󠁳󠁩󠁢󠁬󠁥󠀡󠁔󠁨󠁩󠁳󠀠󠁴󠁥󠁸󠁴󠀠󠁳󠁨󠁡󠁬󠁬󠀠󠁢󠁥󠁣󠁯󠁭󠁥󠀠󠁩󠁮󠁶󠁩󠁳󠁩󠁢󠁬󠁥󠀡"
-                            new_text = query.message.text_html + f"\n\n<b>{query.from_user.first_name}</b>, your turn! {emoji}{invisible_padding}"
+                            new_text = query.message.text_html + f"\n\n<b>{query.from_user.first_name}</b>, your turn! {emoji}\n{invisible_padding}\n{invisible_padding}"
                             kb = [[
                                 InlineKeyboardButton("❌ Cancel", callback_data="setup_cancel"),
                                 InlineKeyboardButton("✅ Send emoji", callback_data=f"v2_send_emoji_bot_{g_mode}_{wager:.2f}_{rolls}_{mode}_{pts}")
