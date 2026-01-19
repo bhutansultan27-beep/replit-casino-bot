@@ -1112,8 +1112,12 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         prev_mode = modes[(current_idx - 1) % len(modes)]
 
         if step == "mode":
+            title_text = f"{current_emoji} <b>{game_mode.replace('_', ' ').capitalize()}</b>"
+            if game_mode == "dice":
+                title_text = f"🎲 <b>Dice <a href='https://t.me/emojigamblegroup'>emojigamblegroup</a></b>"
+            
             text = (
-                f"{current_emoji} <b>{game_mode.replace('_', ' ').capitalize()}</b>\n\n"
+                f"{title_text}\n\n"
                 f"Your balance <b>${user_data['balance']:,.2f}</b>\n"
                 f"Multiplier: <b>{multiplier:.2f}x</b>\n\n"
                 f"Choose your game mode:"
@@ -5120,10 +5124,13 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                         try:
                             # Update message to include "Send your emoji" and the button
                             emoji = self.emoji_map.get(g_mode, "🎲")
-                            # Use bold tags for user name as before, but ensure formatting is preserved
-                            # Adding invisible characters to maintain message width/size
                             invisible_padding = "󠁔󠁨󠁩󠁳󠀠󠁴󠁥󠁸󠁴󠀠󠁳󠁨󠁡󠁬󠁬󠀠󠁢󠁥󠁣󠁯󠁭󠁥󠀠󠁩󠁮󠁶󠁩󠁳󠁩󠁢󠁬󠁥󠀡󠁔󠁨󠁩󠁳󠀠󠁴󠁥󠁸󠁴󠀠󠁳󠁨󠁡󠁬󠁬󠀠󠁢󠁥󠁣󠁯󠁭󠁥󠀠󠁩󠁮󠁶󠁩󠁳󠁩󠁢󠁬󠁥󠀡󠁔󠁨󠁩󠁳󠀠󠁴󠁥󠁸󠁴󠀠󠁳󠁨󠁡󠁬󠁬󠀠󠁢󠁥󠁣󠁯󠁭󠁥󠀠󠁩󠁮󠁶󠁩󠁳󠁩󠁢󠁬󠁥󠀡󠁔󠁨󠁩󠁳󠀠󠁴󠁥󠁸󠁴󠀠󠁳󠁨󠁡󠁬󠁬󠀠󠁢󠁥󠁣󠁯󠁭󠁥󠀠󠁩󠁮󠁶󠁩󠁳󠁩󠁢󠁬󠁥󠀡"
-                            new_text = query.message.text_html + f"\n\n<b>{query.from_user.first_name}</b>, your turn! {emoji}{invisible_padding}"
+                            
+                            # Keep the original title with the link if it was Dice
+                            original_text = query.message.text_html
+                            # Append "your turn" and buttons
+                            new_text = original_text + f"\n\n<b>{query.from_user.first_name}</b>, your turn! {emoji}{invisible_padding}"
+                            
                             kb = [[
                                 InlineKeyboardButton("❌ Cancel", callback_data="setup_cancel"),
                                 InlineKeyboardButton("✅ Send emoji", callback_data=f"v2_send_emoji_bot_{g_mode}_{wager:.2f}_{rolls}_{mode}_{pts}")
@@ -5154,7 +5161,10 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                         try:
                             emoji = self.emoji_map.get(g_mode, "🎲")
                             invisible_padding = "󠁔󠁨󠁩󠁳󠀠󠁴󠁥󠁸󠁴󠀠󠁳󠁨󠁡󠁬󠁬󠀠󠁢󠁥󠁣󠁯󠁭󠁥󠀠󠁩󠁮󠁶󠁩󠁳󠁩󠁢󠁬󠁥󠀡󠁔󠁨󠁩󠁳󠀠󠁴󠁥󠁸󠁴󠀠󠁳󠁨󠁡󠁬󠁬󠀠󠁢󠁥󠁣󠁯󠁭󠁥󠀠󠁩󠁮󠁶󠁩󠁳󠁩󠁢󠁬󠁥󠀡󠁔󠁨󠁩󠁳󠀠󠁴󠁥󠁸󠁴󠀠󠁳󠁨󠁡󠁬󠁬󠀠󠁢󠁥󠁣󠁯󠁭󠁥󠀠󠁩󠁮󠁶󠁩󠁳󠁩󠁢󠁬󠁥󠀡󠁔󠁨󠁩󠁳󠀠󠁴󠁥󠁸󠁴󠀠󠁳󠁨󠁡󠁬󠁬󠀠󠁢󠁥󠁣󠁯󠁭󠁥󠀠󠁩󠁮󠁶󠁩󠁳󠁩󠁢󠁬󠁥󠀡"
-                            new_text = query.message.text_html + f"\n\n<b>{query.from_user.first_name}</b>, your turn! {emoji}{invisible_padding}"
+                            
+                            original_text = query.message.text_html
+                            new_text = original_text + f"\n\n<b>{query.from_user.first_name}</b>, your turn! {emoji}{invisible_padding}"
+                            
                             kb = [[
                                 InlineKeyboardButton("❌ Cancel", callback_data="setup_cancel"),
                                 InlineKeyboardButton("✅ Send emoji", callback_data=f"v2_send_emoji_bot_{g_mode}_{wager:.2f}_{rolls}_{mode}_{pts}")
