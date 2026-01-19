@@ -5120,7 +5120,8 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                         try:
                             # Update message to include "Send your emoji" and the button
                             emoji = self.emoji_map.get(g_mode, "🎲")
-                            new_text = query.message.text + f"\n\n<b>{query.from_user.first_name}</b>, your turn! {emoji}"
+                            # Use bold tags for user name as before, but ensure formatting is preserved
+                            new_text = query.message.text_html + f"\n\n<b>{query.from_user.first_name}</b>, your turn! {emoji}"
                             kb = [[InlineKeyboardButton("✅ Send emoji", callback_data=f"v2_send_emoji_bot_{g_mode}_{wager:.2f}_{rolls}_{mode}_{pts}")]]
                             await query.edit_message_text(text=new_text, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
                         except Exception as e:
@@ -5147,7 +5148,7 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                         # Remove buttons instead of deleting message
                         try:
                             emoji = self.emoji_map.get(g_mode, "🎲")
-                            new_text = query.message.text + f"\n\n<b>{query.from_user.first_name}</b>, your turn! {emoji}"
+                            new_text = query.message.text_html + f"\n\n<b>{query.from_user.first_name}</b>, your turn! {emoji}"
                             kb = [[InlineKeyboardButton("✅ Send emoji", callback_data=f"v2_send_emoji_bot_{g_mode}_{wager:.2f}_{rolls}_{mode}_{pts}")]]
                             await query.edit_message_text(text=new_text, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
                         except Exception as e:
