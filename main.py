@@ -4888,6 +4888,20 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
 
             # Emoji game setup callbacks
             if data.startswith("v2_send_emoji_"):
+                parts = data.split("_")
+                # Format: v2_send_emoji_bot_{g_mode}_{wager}_{rolls}_{mode}_{pts}
+                # OR v2_send_emoji_{cid}
+                if len(parts) > 3 and parts[2] == "bot":
+                    g_mode = parts[3]
+                    wager = float(parts[4])
+                    rolls = int(parts[5])
+                    mode = parts[6]
+                    pts = int(parts[7])
+                    
+                    # Call the bot start function which handles the actual game logic
+                    await self.start_generic_v2_bot(update, context, g_mode, wager, rolls, mode, pts)
+                    return
+
                 cid = data.replace("v2_send_emoji_", "")
                 challenge = self.pending_pvp.get(cid)
                 if not challenge or challenge.get('player') != user_id:
@@ -5104,14 +5118,15 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                         
                         # Remove buttons instead of deleting message
                         try:
-                            # Update message to "Game started..." but keep details if possible
-                            # For now, just removing reply markup as requested for speed
-                            await query.edit_message_reply_markup(reply_markup=None)
+                            # Update message to include "Send your emoji" and the button
+                            emoji = self.emoji_map.get(g_mode, "🎲")
+                            new_text = query.message.text + f"\n\n<b>{query.from_user.first_name}</b>, your turn! {emoji}"
+                            kb = [[InlineKeyboardButton("✅ Send emoji", callback_data=f"v2_send_emoji_bot_{g_mode}_{wager:.2f}_{rolls}_{mode}_{pts}")]]
+                            await query.edit_message_text(text=new_text, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
                         except Exception as e:
-                            logger.error(f"Error removing setup buttons: {e}")
+                            logger.error(f"Error updating setup message: {e}")
 
-                        # Start the game
-                        await self.start_generic_v2_bot(update, context, g_mode, wager, rolls, mode, pts)
+                        # Start the game (Note: the actual game logic will handle the send_emoji callback)
                         return
                 
                 elif next_step == "start_game":
@@ -5131,12 +5146,13 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                         
                         # Remove buttons instead of deleting message
                         try:
-                            await query.edit_message_reply_markup(reply_markup=None)
+                            emoji = self.emoji_map.get(g_mode, "🎲")
+                            new_text = query.message.text + f"\n\n<b>{query.from_user.first_name}</b>, your turn! {emoji}"
+                            kb = [[InlineKeyboardButton("✅ Send emoji", callback_data=f"v2_send_emoji_bot_{g_mode}_{wager:.2f}_{rolls}_{mode}_{pts}")]]
+                            await query.edit_message_text(text=new_text, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
                         except Exception as e:
-                            logger.error(f"Error removing setup buttons: {e}")
+                            logger.error(f"Error updating setup message: {e}")
 
-                        # Start the game
-                        await self.start_generic_v2_bot(update, context, g_mode, wager, rolls, mode, pts)
                         return
                 
                 elif next_step == "mode":
