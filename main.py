@@ -1654,7 +1654,7 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
             [InlineKeyboardButton("⬅️", callback_data=f"setup_mode_predict_{wager:.2f}_{prev_mode}"),
              InlineKeyboardButton(f"Mode: {current_emoji}", callback_data="none"),
              InlineKeyboardButton("➡️", callback_data=f"setup_mode_predict_{wager:.2f}_{next_mode}")],
-            [InlineKeyboardButton("⬅️ Back", callback_data=f"setup_bet_back_{wager:.2f}"),
+            [InlineKeyboardButton("❌ Cancel", callback_data=f"setup_cancel_roll"),
              InlineKeyboardButton("✅ Start", callback_data=f"predict_start_{wager:.2f}_{game_mode}")]
         ])
         
