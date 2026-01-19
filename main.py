@@ -5055,8 +5055,15 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 if len(parts) < 5:
                     await query.answer("❌ Invalid setup data!", show_alert=True)
                     return
-                g_mode = parts[2] # data.split("_") -> ["emoji", "setup", game_mode, wager, step, ...]
-                wager = float(parts[3])
+                
+                # Correction: The game mode is at index 2, wager at 3, step at 4
+                # Callback format: emoji_setup_{game_mode}_{wager}_{step}_{pts}_{rolls}_{mode}
+                g_mode = parts[2]
+                try:
+                    wager = float(parts[3])
+                except ValueError:
+                    await query.answer("❌ Invalid wager!", show_alert=True)
+                    return
                 next_step = parts[4]
                 
                 params = {}
@@ -5078,10 +5085,22 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                     if len(parts) > 8:
                         params["opponent"] = parts[8]
                 elif next_step == "start":
+                    # For emoji_setup_dice_1.00_start_1_1_normal
                     if len(parts) >= 8:
-                        pts = int(parts[5])
-                        rolls = int(parts[6])
-                        mode = parts[7]
+                        try:
+                            pts = int(parts[5])
+                            rolls = int(parts[6])
+                            mode = parts[7]
+                        except (ValueError, IndexError):
+                            # Fallback if indices are shifted
+                            # Let's try to find the numeric parts
+                            num_parts = [p for p in parts if p.isdigit()]
+                            if len(num_parts) >= 2:
+                                pts = int(num_parts[0])
+                                rolls = int(num_parts[1])
+                                mode = parts[-1] if not parts[-1].isdigit() else "normal"
+                            else:
+                                raise ValueError(f"Could not parse game settings from {parts}")
                         
                         # Remove buttons instead of deleting message
                         try:
@@ -5095,9 +5114,18 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                 
                 elif next_step == "start_game":
                     if len(parts) >= 8:
-                        pts = int(parts[5])
-                        rolls = int(parts[6])
-                        mode = parts[7]
+                        try:
+                            pts = int(parts[5])
+                            rolls = int(parts[6])
+                            mode = parts[7]
+                        except (ValueError, IndexError):
+                            num_parts = [p for p in parts if p.isdigit()]
+                            if len(num_parts) >= 2:
+                                pts = int(num_parts[0])
+                                rolls = int(num_parts[1])
+                                mode = parts[-1] if not parts[-1].isdigit() else "normal"
+                            else:
+                                raise ValueError(f"Could not parse game settings from {parts}")
                         
                         # Remove buttons instead of deleting message
                         try:
@@ -5106,7 +5134,6 @@ Referral Earnings: ${target_user.get('referral_earnings', 0):.2f}
                             logger.error(f"Error removing setup buttons: {e}")
 
                         # Start the game
-                        # Ensure user_id is passed correctly to registration
                         await self.start_generic_v2_bot(update, context, g_mode, wager, rolls, mode, pts)
                         return
                 
