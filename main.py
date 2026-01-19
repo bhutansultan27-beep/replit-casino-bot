@@ -1604,7 +1604,10 @@ Unclaimed: ${user_data.get('unclaimed_referral_earnings', 0):.2f}
         selection_text = f"Selected: <b>{', '.join([s.capitalize() for s in selection_list])}</b>" if selections else "Selected: <b>None</b>"
         
         if selections:
-            multiplier = round(6.0 / len(selections), 2)
+            if len(selections) == 3 and game_mode == "dice":
+                multiplier = 1.95
+            else:
+                multiplier = round(6.0 / len(selections), 2)
             multiplier_text = f"Multiplier: <b>{multiplier:.2f}x</b>"
         else:
             multiplier_text = "Multiplier: <b>Choose your prediction</b>"

@@ -53,7 +53,10 @@ async def handle_predict(bot_instance, update: Update, context: ContextTypes.DEF
             await query.answer(f"❌ Balance: ${user_data['balance']:,.2f}", show_alert=True)
             return
         
-        multiplier = round(6.0 / len(selections), 2)
+        if len(selections) == 3 and game_mode == "dice":
+            multiplier = 1.95
+        else:
+            multiplier = round(6.0 / len(selections), 2)
         
         if hasattr(bot_instance, "_predict_selections") and user_id in bot_instance._predict_selections:
             del bot_instance._predict_selections[user_id]
